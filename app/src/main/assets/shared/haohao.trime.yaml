@@ -1,0 +1,168 @@
+# SPDX-FileCopyrightText: 2026 HaoHao IME contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+# 好好输入法的简体优先主题。继承原版 Trime 的颜色和通用候选配置，
+# 仅覆盖面向普通中文用户的键盘布局与基础按键。
+__include: trime:/
+
+config_version: "1.0"
+name: 好好输入法
+author: HaoHao IME contributors
+
+style:
+  horizontal_gap: 4
+  vertical_gap: 6
+  keyboard_padding: 4
+  keyboard_padding_bottom: 4
+  keyboard_padding_land: 24
+  keyboard_padding_land_bottom: 4
+  key_height: 58
+  key_text_size: 24
+  key_long_text_size: 17
+  label_text_size: 20
+  keyboard_height: 270
+  keyboard_height_land: 220
+  round_corner: 10
+  reset_ascii_mode_on_focus_change: false
+
+preset_keys:
+  BackSpace: {label: "⌫", repeatable: true, send: BackSpace}
+  Mode_switch: {toggle: ascii_mode, send: SWITCH_CHARSET, states: [中, En]}
+  HaoHaoNumber: {label: "123", send: Eisu_toggle, select: number}
+  HaoHaoSymbols: {label: 符号, send: Eisu_toggle, select: symbols}
+  HaoHaoLetters: {label: ABC, send: Eisu_toggle, select: .default}
+  HaoHaoSpace: {label: 空格, functional: false, send: space}
+  HaoHaoReturn: {label: 回车, send: Return}
+
+preset_keyboards:
+  qwerty:
+    import_preset: default
+  default:
+    name: 好好 26 键
+    author: HaoHao IME contributors
+    ascii_mode: 0
+    reset_ascii_mode: true
+    lock: true
+    width: 10
+    height: 58
+    keys:
+      - {click: q}
+      - {click: w}
+      - {click: e}
+      - {click: r}
+      - {click: t}
+      - {click: y}
+      - {click: u}
+      - {click: i}
+      - {click: o}
+      - {click: p}
+      - {width: 5}
+      - {click: a}
+      - {click: s}
+      - {click: d}
+      - {click: f}
+      - {click: g}
+      - {click: h}
+      - {click: j}
+      - {click: k}
+      - {click: l}
+      - {width: 5}
+      - {width: 15}
+      - {click: z}
+      - {click: x}
+      - {click: c}
+      - {click: v}
+      - {click: b}
+      - {click: n}
+      - {click: m}
+      - {click: BackSpace, width: 15}
+      - {click: HaoHaoNumber, width: 14}
+      - {click: Mode_switch, width: 16}
+      - {click: ",", label: "，"}
+      - {click: HaoHaoSpace, width: 30}
+      - {click: ".", label: "。"}
+      - {click: HaoHaoReturn, width: 20}
+
+  number:
+    name: 好好数字
+    author: HaoHao IME contributors
+    ascii_mode: 1
+    reset_ascii_mode: false
+    width: 10
+    height: 58
+    keys:
+      - {click: "1"}
+      - {click: "2"}
+      - {click: "3"}
+      - {click: "4"}
+      - {click: "5"}
+      - {click: "6"}
+      - {click: "7"}
+      - {click: "8"}
+      - {click: "9"}
+      - {click: "0"}
+      - {click: "+"}
+      - {click: "-"}
+      - {click: "*"}
+      - {click: "/"}
+      - {click: "="}
+      - {click: "%"}
+      - {click: "￥"}
+      - {click: "$"}
+      - {click: "@"}
+      - {click: "#"}
+      - {click: "("}
+      - {click: ")"}
+      - {click: "["}
+      - {click: "]"}
+      - {click: "{"}
+      - {click: "}"}
+      - {click: ":"}
+      - {click: ";"}
+      - {click: BackSpace, width: 20}
+      - {click: HaoHaoLetters, width: 20}
+      - {click: HaoHaoSymbols, width: 20}
+      - {click: HaoHaoSpace, width: 40}
+      - {click: HaoHaoReturn, width: 20}
+
+  symbols:
+    name: 好好符号
+    author: HaoHao IME contributors
+    ascii_mode: 0
+    reset_ascii_mode: false
+    width: 10
+    height: 58
+    keys:
+      - {click: "，"}
+      - {click: "。"}
+      - {click: "？"}
+      - {click: "！"}
+      - {click: "、"}
+      - {click: "；"}
+      - {click: "："}
+      - {click: "“"}
+      - {click: "”"}
+      - {click: "·"}
+      - {click: "（"}
+      - {click: "）"}
+      - {click: "【"}
+      - {click: "】"}
+      - {click: "《"}
+      - {click: "》"}
+      - {click: "￥"}
+      - {click: "%"}
+      - {click: "……"}
+      - {click: "——"}
+      - {click: "@"}
+      - {click: "#"}
+      - {click: "&"}
+      - {click: "*"}
+      - {click: "+"}
+      - {click: "-"}
+      - {click: "="}
+      - {click: "/"}
+      - {click: BackSpace, width: 20}
+      - {click: HaoHaoLetters, width: 20}
+      - {click: HaoHaoNumber, width: 20}
+      - {click: HaoHaoSpace, width: 40}
+      - {click: HaoHaoReturn, width: 20}

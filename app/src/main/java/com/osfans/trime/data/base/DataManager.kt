@@ -17,6 +17,8 @@ import java.io.File
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
+internal const val DEFAULT_SCHEMA_ID = "luna_pinyin_simp"
+
 object DataManager {
     private const val DEFAULT_CUSTOM_FILE_NAME = "default.custom.yaml"
 
@@ -25,8 +27,7 @@ object DataManager {
     private const val SCHEMA_LIST_CUSTOM_PATCH = """
       patch:
         schema_list:
-          - schema: luna_pinyin
-          - schema: luna_pinyin_simp
+          - schema: $DEFAULT_SCHEMA_ID
     """
 
     private val lock = ReentrantLock()

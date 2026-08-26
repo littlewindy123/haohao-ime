@@ -28,6 +28,10 @@ class CedictDictionaryGeneratorTest :
                 伲 伲 [ni3] /(dialect) I/(dialect) me/
                 艿 艿 [nai3] /used in 茉莉[moli]/
                 鯢 鲵 [ni2] /Cryptobranchus japonicus/
+                中古 中古 [Zhong1 Gu3] /Sino-Cuban/China-Cuba/
+                中古 中古 [zhong1 gu3] /medieval/Middle Ages/
+                比 比 [Bi3] /Belgium/Belgian/
+                比 比 [bi3] /to compare/ratio/
                 壞行
                 重複 重复 [chong2 fu4] /first/
                 重複 重复 [chong2 fu4] /second/
@@ -40,10 +44,12 @@ class CedictDictionaryGeneratorTest :
             first shouldBe second
             sha256(first) shouldBe sha256(second)
             CedictDictionaryGenerator.readForTesting(first).entries.shouldContainExactly(
+                "中古" to "medieval",
                 "中国" to "China",
                 "倪" to "to look askance",
                 "天气" to "weather",
                 "学习" to "study",
+                "比" to "to compare",
                 "电视" to "television",
                 "看" to "to look",
                 "重复" to "first",

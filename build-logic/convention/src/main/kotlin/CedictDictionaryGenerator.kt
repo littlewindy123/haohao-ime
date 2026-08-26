@@ -14,7 +14,7 @@ internal object CedictDictionaryGenerator {
     private const val INDEX_RECORD_SIZE = 16
     private const val MAX_DEFINITION_CODE_POINTS = 18
     private val MAGIC = byteArrayOf('H'.code.toByte(), 'H'.code.toByte(), 'D'.code.toByte(), 'I'.code.toByte(), 'C'.code.toByte(), 'T'.code.toByte(), '1'.code.toByte(), 0)
-    private val ENTRY_PATTERN = Regex("^(\\S+)\\s+(\\S+)\\s+\\[{1,2}[^]]+]{1,2}\\s+/(.*)/$")
+    private val ENTRY_PATTERN = Regex("^(\\S+)\\s+(\\S+)\\s+\\[{1,2}([^]]+)]{1,2}\\s+/(.*)/$")
     private val STRUCTURAL_PREFIXES = listOf(
         "CL:",
         "abbr. for",
@@ -37,8 +37,6 @@ internal object CedictDictionaryGenerator {
         val sourceIndex: Int,
     ) {
         val acronymPenalty = if (ACRONYM.matches(text)) 1 else 0
-        val wordCount = text.split(' ').size
-        val codePointCount = text.codePointCount(0, text.length)
     }
 
     data class GeneratedDictionary(
@@ -59,6 +57,7 @@ internal object CedictDictionaryGenerator {
         output: OutputStream,
     ): GenerationStats {
         val translations = linkedMapOf<String, String>()
+        val translationPriorities = hashMapOf<String, Int>()
         val simplifiedHeadwords = hashSetOf<String>()
         var sourceEntries = 0
         GZIPInputStream(source).bufferedReader(Charsets.UTF_8).useLines { lines ->
@@ -70,7 +69,7 @@ internal object CedictDictionaryGenerator {
                 sourceEntries++
                 simplifiedHeadwords += simplified
                 val translation =
-                    match.groupValues[3]
+                    match.groupValues[4]
                         .split('/')
                         .asSequence()
                         .flatMap { it.split(';').asSequence() }
@@ -79,13 +78,17 @@ internal object CedictDictionaryGenerator {
                         }
                         .minWithOrNull(
                             compareBy<DefinitionChoice>(DefinitionChoice::acronymPenalty)
-                                .thenBy(DefinitionChoice::wordCount)
-                                .thenBy(DefinitionChoice::codePointCount)
                                 .thenBy(DefinitionChoice::sourceIndex),
                         )
                         ?.text
                         ?: return@forEach
-                translations.putIfAbsent(simplified, translation)
+                val reading = match.groupValues[3].trimStart()
+                val priority = if (reading.firstOrNull()?.isUpperCase() == true) 1 else 0
+                val currentPriority = translationPriorities[simplified]
+                if (currentPriority == null || priority < currentPriority) {
+                    translations[simplified] = translation
+                    translationPriorities[simplified] = priority
+                }
             }
         }
 

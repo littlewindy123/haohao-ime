@@ -12,6 +12,8 @@ import com.osfans.trime.R
 import com.osfans.trime.data.prefs.PreferenceDelegateEnum
 import com.osfans.trime.data.prefs.PreferenceDelegateOwner
 
+internal const val DEFAULT_THEME_ID = "haohao.trime"
+
 class ThemePrefs(
     sharedPrefs: SharedPreferences,
 ) : PreferenceDelegateOwner(sharedPrefs, R.string.theme) {
@@ -19,7 +21,7 @@ class ThemePrefs(
         string(
             R.string.selected_theme,
             SELECTED_THEME,
-            "trime",
+            DEFAULT_THEME_ID,
             R.string.selected_theme_summary,
         )
 
