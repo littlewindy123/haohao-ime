@@ -10,6 +10,7 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.text.SpannableStringBuilder
+import android.text.TextUtils
 import androidx.annotation.ColorInt
 import androidx.core.text.buildSpannedString
 import androidx.core.text.inSpans
@@ -48,6 +49,8 @@ class LabeledCandidateItemUi(
             val v = dp(theme.window.itemPadding.vertical)
             val h = dp(theme.window.itemPadding.horizontal)
             setPadding(h, v, h, v)
+            maxLines = 2
+            ellipsize = TextUtils.TruncateAt.END
         }
 
     private inline fun SpannableStringBuilder.inSpanWith(

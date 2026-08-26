@@ -10,6 +10,7 @@ plugins {
     id("com.osfans.trime.data-checksums")
     id("com.osfans.trime.native-cache-hash")
     id("com.osfans.trime.opencc-data")
+    id("com.osfans.trime.cedict-dictionary")
     alias(libs.plugins.aboutlibraries)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.kotlin.parcelize)
@@ -111,6 +112,10 @@ android {
                     "/kotlin-tooling-metadata.json",
                 )
         }
+    }
+
+    androidResources {
+        noCompress += "hhdict"
     }
 }
 

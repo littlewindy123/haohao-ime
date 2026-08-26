@@ -14,6 +14,12 @@ dependencies {
     compileOnly(libs.android.gradlePlugin)
     compileOnly(libs.kotlin.gradlePlugin)
     implementation(libs.kotlinx.serialization.json)
+    testImplementation(libs.kotest.runner.junit5)
+    testImplementation(libs.kotest.assertions.core)
+}
+
+tasks.withType<Test>().configureEach {
+    useJUnitPlatform()
 }
 
 gradlePlugin {
@@ -25,6 +31,10 @@ gradlePlugin {
         register("dataChecksums") {
             id = "com.osfans.trime.data-checksums"
             implementationClass = "DataChecksumsPlugin"
+        }
+        register("cedictDictionary") {
+            id = "com.osfans.trime.cedict-dictionary"
+            implementationClass = "CedictDictionaryPlugin"
         }
         register("nativeAppConvention") {
             id = "com.osfans.trime.native-app-convention"

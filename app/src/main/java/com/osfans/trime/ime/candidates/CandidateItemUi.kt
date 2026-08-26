@@ -8,6 +8,7 @@ package com.osfans.trime.ime.candidates
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Color
+import android.text.TextUtils
 import android.view.View
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.view.isVisible
@@ -16,6 +17,7 @@ import com.osfans.trime.data.theme.ColorManager
 import com.osfans.trime.data.theme.FontManager
 import com.osfans.trime.data.theme.Theme
 import com.osfans.trime.data.theme.model.GeneralStyle
+import com.osfans.trime.ime.candidates.bilingual.CANDIDATE_TRANSLATION_MAX_WIDTH_DP
 import com.osfans.trime.ime.candidates.bilingual.bilingualTranslationLineHeight
 import com.osfans.trime.ime.candidates.bilingual.bilingualTranslationTextSize
 import com.osfans.trime.ime.candidates.bilingual.defaultBilingualCandidatePresenter
@@ -41,6 +43,7 @@ import splitties.views.dsl.constraintlayout.topToBottomOf
 import splitties.views.dsl.core.Ui
 import splitties.views.dsl.core.add
 import splitties.views.dsl.core.lParams
+import splitties.views.dsl.core.textView
 import splitties.views.dsl.core.verticalLayout
 import splitties.views.dsl.core.view
 import splitties.views.dsl.core.wrapContent
@@ -93,13 +96,14 @@ class CandidateItemUi(
         }
 
     private val translation =
-        view(::AutoScaleTextView) {
+        textView {
             id = View.generateViewId()
             this.textSize = translationSize
             typeface = commentFont
             isSingleLine = true
+            ellipsize = TextUtils.TruncateAt.END
+            maxWidth = dp(CANDIDATE_TRANSLATION_MAX_WIDTH_DP)
             gravity = gravityCenter
-            scaleMode = AutoScaleTextView.Mode.Proportional
             horizontalPadding = dp(theme.generalStyle.candidatePadding)
             isVisible = false
         }

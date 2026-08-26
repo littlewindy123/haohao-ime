@@ -11,6 +11,8 @@ import kotlin.math.ceil
 
 private const val TRANSLATION_TEXT_SIZE_RATIO = 0.9f
 private const val TRANSLATION_LINE_HEIGHT_RATIO = 1.2f
+internal const val UNROLLED_CANDIDATE_COLUMNS = 2
+internal const val CANDIDATE_TRANSLATION_MAX_WIDTH_DP = 160
 
 internal fun bilingualTranslationTextSize(
     candidateTextSize: Float,
@@ -38,7 +40,7 @@ internal class BilingualCandidatePresenter(
 }
 
 internal val defaultBilingualCandidatePresenter by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
-    BilingualCandidatePresenter(DemoCandidateTranslationRepository) {
+    BilingualCandidatePresenter(OfflineCandidateTranslationRepository) {
         AppPrefs.defaultInstance().candidates.bilingualTranslation.getValue()
     }
 }
