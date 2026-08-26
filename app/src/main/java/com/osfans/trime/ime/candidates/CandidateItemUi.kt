@@ -204,7 +204,7 @@ class CandidateItemUi(
         val cornerRadius = ctx.dp(theme.generalStyle.candidateCornerRadius)
         val contentColor = if (highlighted) hlBackColor else Color.TRANSPARENT
 
-        content.background = roundedRippleDrawable(hlBackColor, cornerRadius, contentColor)
+        root.background = roundedRippleDrawable(hlBackColor, cornerRadius, contentColor)
         text.text = item.text
         text.setTextColor(tColor)
 
