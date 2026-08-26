@@ -17,6 +17,7 @@ import com.osfans.trime.core.CandidateProto
 import com.osfans.trime.data.theme.ColorManager
 import com.osfans.trime.data.theme.FontManager
 import com.osfans.trime.data.theme.Theme
+import com.osfans.trime.ime.candidates.bilingual.bilingualTranslationTextSize
 import com.osfans.trime.ime.candidates.bilingual.defaultBilingualCandidatePresenter
 import com.osfans.trime.util.sp
 import splitties.dimensions.dp
@@ -30,6 +31,7 @@ class LabeledCandidateItemUi(
     private val labelSize = theme.window.foreground.labelFontSize
     private val textSize = theme.window.foreground.textFontSize
     private val commentSize = theme.window.foreground.commentFontSize
+    private val translationSize = bilingualTranslationTextSize(textSize, commentSize)
     private val labelFont = FontManager.getTypeface("label_font")
     private val textFont = FontManager.getTypeface("candidate_font")
     private val commentFont = FontManager.getTypeface("comment_font")
@@ -74,7 +76,7 @@ class LabeledCandidateItemUi(
                 }
                 presentation.translation?.let { translation ->
                     append("\n")
-                    inSpanWith(commentFg, ctx.sp(commentSize), commentFont) { append(translation) }
+                    inSpanWith(commentFg, ctx.sp(translationSize), commentFont) { append(translation) }
                 }
             }
         val bg =

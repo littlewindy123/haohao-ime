@@ -16,6 +16,8 @@ import com.osfans.trime.data.theme.ColorManager
 import com.osfans.trime.data.theme.FontManager
 import com.osfans.trime.data.theme.Theme
 import com.osfans.trime.data.theme.model.GeneralStyle
+import com.osfans.trime.ime.candidates.bilingual.bilingualTranslationLineHeight
+import com.osfans.trime.ime.candidates.bilingual.bilingualTranslationTextSize
 import com.osfans.trime.ime.candidates.bilingual.defaultBilingualCandidatePresenter
 import com.osfans.trime.ime.core.AutoScaleTextView
 import com.osfans.trime.ime.keyboard.GestureFrame
@@ -52,6 +54,9 @@ class CandidateItemUi(
 
     private val textSize = theme.generalStyle.candidateTextSize
     private val commentSize = theme.generalStyle.commentTextSize
+    private val translationSize = bilingualTranslationTextSize(textSize, commentSize)
+    private val translationLineHeight =
+        bilingualTranslationLineHeight(translationSize, theme.generalStyle.commentHeight)
 
     private val textFont = FontManager.getTypeface("candidate_font")
     private val commentFont = FontManager.getTypeface("comment_font")
@@ -90,7 +95,7 @@ class CandidateItemUi(
     private val translation =
         view(::AutoScaleTextView) {
             id = View.generateViewId()
-            this.textSize = commentSize
+            this.textSize = translationSize
             typeface = commentFont
             isSingleLine = true
             gravity = gravityCenter
@@ -170,7 +175,7 @@ class CandidateItemUi(
         )
         add(
             translation,
-            lParams(wrapContent, dp(theme.generalStyle.commentHeight)) {
+            lParams(wrapContent, dp(translationLineHeight)) {
                 gravity = gravityCenter
             },
         )

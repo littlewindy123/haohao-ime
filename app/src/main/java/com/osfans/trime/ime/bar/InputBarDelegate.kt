@@ -33,6 +33,9 @@ import com.osfans.trime.ime.bar.ui.AlwaysUi
 import com.osfans.trime.ime.bar.ui.CandidateUi
 import com.osfans.trime.ime.bar.ui.TabUi
 import com.osfans.trime.ime.broadcast.InputBroadcastReceiver
+import com.osfans.trime.ime.candidates.bilingual.bilingualTranslationLineHeight
+import com.osfans.trime.ime.candidates.bilingual.bilingualTranslationTextSize
+import com.osfans.trime.ime.candidates.bilingual.defaultBilingualCandidatePresenter
 import com.osfans.trime.ime.candidates.compact.CompactCandidateDelegate
 import com.osfans.trime.ime.candidates.unrolled.window.FlexboxUnrolledCandidateWindow
 import com.osfans.trime.ime.core.TrimeInputMethodService
@@ -70,6 +73,12 @@ class InputBarDelegate : InputBroadcastReceiver {
     private val rime: RimeSession by di.instance()
 
     val themedHeight = theme.generalStyle.run { candidateViewHeight + commentHeight }
+
+    private val bilingualThemedHeight =
+        theme.generalStyle.run {
+            val translationTextSize = bilingualTranslationTextSize(candidateTextSize, commentTextSize)
+            candidateViewHeight + bilingualTranslationLineHeight(translationTextSize, commentHeight)
+        }
 
     private val prefs = AppPrefs.defaultInstance()
 
@@ -223,6 +232,18 @@ class InputBarDelegate : InputBroadcastReceiver {
             QuickBarStateMachine.TransitionEvent.CandidatesUpdated,
             QuickBarStateMachine.BooleanKey.CandidateEmpty to data.candidates.isEmpty(),
         )
+        val containsTranslation =
+            data.candidates.any { candidate ->
+                defaultBilingualCandidatePresenter.present(candidate).translation != null
+            }
+        val targetHeight = if (containsTranslation) bilingualThemedHeight else themedHeight
+        view.layoutParams?.let { params ->
+            val targetHeightPx = context.dp(targetHeight)
+            if (params.height != targetHeightPx) {
+                params.height = targetHeightPx
+                view.layoutParams = params
+            }
+        }
     }
 
     private fun switchUiByState(state: QuickBarStateMachine.State) {
