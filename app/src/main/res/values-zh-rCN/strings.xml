@@ -162,6 +162,8 @@
     <string name="synchronization">同步</string>
     <string name="periodic_background_sync_interval">后台同步时间间隔（以分钟为单位）</string>
     <string name="candidates_window">候选窗口</string>
+    <string name="bilingual_candidate_translation">显示英文翻译</string>
+    <string name="bilingual_candidate_translation_summary">在已收录的中文候选词下方显示英文翻译</string>
     <string name="show_candidates_window">显示候选词窗口</string>
     <string name="general">常规</string>
     <string name="composing_text">编辑中文本</string>
