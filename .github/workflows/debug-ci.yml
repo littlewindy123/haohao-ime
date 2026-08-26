@@ -1,0 +1,92 @@
+# SPDX-FileCopyrightText: 2015 - 2024 Rime community
+# SPDX-FileCopyrightText: 2026 HaoHao IME contributors
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+name: Debug CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: debug-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CI_NAME: HaoHao IME Debug CI
+  BUILD_ABI: arm64-v8a,x86_64
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Fetch source code
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: gradle
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Install Android toolchain
+        run: |
+          sdkmanager --install \
+            "platform-tools" \
+            "platforms;android-36" \
+            "build-tools;36.0.0" \
+            "ndk;28.0.13004108" \
+            "cmake;3.31.6"
+
+      - name: Calculate JNI cache hash
+        id: cache-hash
+        run: ./gradlew :app:calculateNativeCacheHash --no-daemon
+
+      - name: Restore JNI cache
+        id: jni-cache
+        uses: actions/cache@v5
+        with:
+          path: app/prebuilt
+          key: ubuntu-trime-jni-debug-arm64-x86_64-${{ steps.cache-hash.outputs.native-cache-hash }}
+
+      - name: Check code style
+        run: make style-lint
+
+      - name: Build Debug APKs
+        run: make debug
+
+      - name: Save JNI cache
+        if: ${{ !steps.jni-cache.outputs.cache-hit }}
+        run: cp -R app/build/intermediates/merged_native_libs/debug/mergeDebugNativeLibs/out/lib app/prebuilt
+
+      - name: Upload ARM64 Debug APK
+        uses: actions/upload-artifact@v6
+        with:
+          name: haohao-ime-arm64-v8a-debug
+          path: app/build/outputs/apk/debug/*arm64-v8a-*.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload x86_64 Debug APK
+        uses: actions/upload-artifact@v6
+        with:
+          name: haohao-ime-x86_64-debug
+          path: app/build/outputs/apk/debug/*x86_64-*.apk
+          if-no-files-found: error
+          retention-days: 14
