@@ -16,6 +16,7 @@ import com.osfans.trime.data.theme.ColorManager
 import com.osfans.trime.data.theme.FontManager
 import com.osfans.trime.data.theme.Theme
 import com.osfans.trime.data.theme.model.GeneralStyle
+import com.osfans.trime.ime.candidates.bilingual.defaultBilingualCandidatePresenter
 import com.osfans.trime.ime.core.AutoScaleTextView
 import com.osfans.trime.ime.keyboard.GestureFrame
 import com.osfans.trime.util.roundedRippleDrawable
@@ -38,6 +39,7 @@ import splitties.views.dsl.constraintlayout.topToBottomOf
 import splitties.views.dsl.core.Ui
 import splitties.views.dsl.core.add
 import splitties.views.dsl.core.lParams
+import splitties.views.dsl.core.verticalLayout
 import splitties.views.dsl.core.view
 import splitties.views.dsl.core.wrapContent
 import splitties.views.gravityCenter
@@ -83,6 +85,18 @@ class CandidateItemUi(
             isSingleLine = true
             gravity = gravityCenter
             scaleMode = AutoScaleTextView.Mode.Proportional
+        }
+
+    private val translation =
+        view(::AutoScaleTextView) {
+            id = View.generateViewId()
+            this.textSize = commentSize
+            typeface = commentFont
+            isSingleLine = true
+            gravity = gravityCenter
+            scaleMode = AutoScaleTextView.Mode.Proportional
+            horizontalPadding = dp(theme.generalStyle.candidatePadding)
+            isVisible = false
         }
 
     private val content = constraintLayout {
@@ -146,13 +160,29 @@ class CandidateItemUi(
         }
     }
 
+    private val stackedContent = verticalLayout {
+        gravity = gravityCenter
+        add(
+            content,
+            lParams(wrapContent, dp(theme.generalStyle.candidateViewHeight)) {
+                gravity = gravityCenter
+            },
+        )
+        add(
+            translation,
+            lParams(wrapContent, dp(theme.generalStyle.commentHeight)) {
+                gravity = gravityCenter
+            },
+        )
+    }
+
     override val root = view(::GestureFrame) {
         /**
          * candidate long press feedback is handled by `showCandidateActionMenu`
          */
         add(
-            content,
-            lParams(wrapContent, dp(theme.generalStyle.candidateViewHeight)) {
+            stackedContent,
+            lParams(wrapContent, wrapContent) {
                 gravity = gravityCenter
             },
         )
@@ -163,6 +193,7 @@ class CandidateItemUi(
         item: CandidateProto,
         highlighted: Boolean,
     ) {
+        val presentation = defaultBilingualCandidatePresenter.present(item)
         val tColor = if (highlighted) hlTextColor else textColor
         val cColor = if (highlighted) hlCommentColor else commentColor
         val cornerRadius = ctx.dp(theme.generalStyle.candidateCornerRadius)
@@ -176,5 +207,10 @@ class CandidateItemUi(
         comment.text = commentText
         comment.setTextColor(cColor)
         comment.isVisible = commentText.isNotEmpty()
+
+        val translationText = presentation.translation
+        translation.text = translationText.orEmpty()
+        translation.setTextColor(cColor)
+        translation.isVisible = !translationText.isNullOrEmpty()
     }
 }

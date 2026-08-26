@@ -163,6 +163,8 @@
     <string name="synchronization">Synchronization</string>
     <string name="periodic_background_sync_interval">Interval of background syncing (in minutes)</string>
     <string name="candidates_window">Candidates Window</string>
+    <string name="bilingual_candidate_translation">Show English translations</string>
+    <string name="bilingual_candidate_translation_summary">Display an English translation below supported Chinese candidates</string>
     <string name="show_candidates_window">Show candidates window</string>
     <string name="general">General</string>
     <string name="composing_text">Composing text</string>
