@@ -9,7 +9,7 @@ import com.osfans.trime.core.CandidateProto
 import com.osfans.trime.data.prefs.AppPrefs
 import kotlin.math.ceil
 
-private const val TRANSLATION_TEXT_SIZE_RATIO = 0.75f
+private const val TRANSLATION_TEXT_SIZE_RATIO = 0.9f
 private const val TRANSLATION_LINE_HEIGHT_RATIO = 1.2f
 
 internal fun bilingualTranslationTextSize(

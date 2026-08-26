@@ -93,10 +93,10 @@ class BilingualCandidatePresenterTest :
             repository.lookup("你好") shouldBe null
         }
 
-        "translation typography is readable while remaining secondary" {
+        "translation typography stays just below candidate size" {
             val textSize = bilingualTranslationTextSize(candidateTextSize = 22f, commentTextSize = 10f)
 
-            textSize shouldBe 16.5f
-            bilingualTranslationLineHeight(textSize, configuredHeight = 12) shouldBe 20
+            textSize shouldBe 19.8f
+            bilingualTranslationLineHeight(textSize, configuredHeight = 12) shouldBe 24
         }
     })
