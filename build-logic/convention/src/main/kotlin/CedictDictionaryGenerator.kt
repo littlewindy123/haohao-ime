@@ -12,10 +12,34 @@ import java.util.zip.GZIPInputStream
 internal object CedictDictionaryGenerator {
     private const val FORMAT_VERSION = 1
     private const val INDEX_RECORD_SIZE = 16
+    private const val MAX_DEFINITION_CODE_POINTS = 18
     private val MAGIC = byteArrayOf('H'.code.toByte(), 'H'.code.toByte(), 'D'.code.toByte(), 'I'.code.toByte(), 'C'.code.toByte(), 'T'.code.toByte(), '1'.code.toByte(), 0)
     private val ENTRY_PATTERN = Regex("^(\\S+)\\s+(\\S+)\\s+\\[{1,2}[^]]+]{1,2}\\s+/(.*)/$")
-    private val STRUCTURAL_PREFIXES = listOf("CL:", "variant of", "old variant of", "see ", "abbr. for")
+    private val STRUCTURAL_PREFIXES = listOf(
+        "CL:",
+        "abbr. for",
+        "classifier for",
+        "old variant of",
+        "see ",
+        "surname ",
+        "used in ",
+        "variant of",
+    )
+    private val REJECTED_USAGE_MARKERS = listOf("dialect", "archaic", "obsolete", "literary")
     private val LATIN_LETTER = Regex("[A-Za-z]")
+    private val PARENTHETICAL = Regex("\\s*\\([^)]*\\)\\s*")
+    private val BRACKETED_METADATA = Regex("\\s*\\[[^]]*]\\s*")
+    private val WHITESPACE = Regex("\\s+")
+    private val ACRONYM = Regex("^[A-Z][A-Z0-9.-]*$")
+
+    private data class DefinitionChoice(
+        val text: String,
+        val sourceIndex: Int,
+    ) {
+        val acronymPenalty = if (ACRONYM.matches(text)) 1 else 0
+        val wordCount = text.split(' ').size
+        val codePointCount = text.codePointCount(0, text.length)
+    }
 
     data class GeneratedDictionary(
         val release: String,
@@ -50,8 +74,16 @@ internal object CedictDictionaryGenerator {
                         .split('/')
                         .asSequence()
                         .flatMap { it.split(';').asSequence() }
-                        .map(String::trim)
-                        .firstOrNull(::isEligibleDefinition)
+                        .mapIndexedNotNull { index, definition ->
+                            normalizeDefinition(definition)?.let { DefinitionChoice(it, index) }
+                        }
+                        .minWithOrNull(
+                            compareBy<DefinitionChoice>(DefinitionChoice::acronymPenalty)
+                                .thenBy(DefinitionChoice::wordCount)
+                                .thenBy(DefinitionChoice::codePointCount)
+                                .thenBy(DefinitionChoice::sourceIndex),
+                        )
+                        ?.text
                         ?: return@forEach
                 translations.putIfAbsent(simplified, translation)
             }
@@ -102,10 +134,21 @@ internal object CedictDictionaryGenerator {
         return GeneratedDictionary(release, entries)
     }
 
-    private fun isEligibleDefinition(definition: String): Boolean {
-        if (definition.isEmpty() || !LATIN_LETTER.containsMatchIn(definition)) return false
-        if (definition.codePointCount(0, definition.length) > 24) return false
-        return STRUCTURAL_PREFIXES.none { definition.startsWith(it, ignoreCase = true) }
+    private fun normalizeDefinition(rawDefinition: String): String? {
+        val definition = rawDefinition.trim()
+        if (definition.isEmpty()) return null
+        if (STRUCTURAL_PREFIXES.any { definition.startsWith(it, ignoreCase = true) }) return null
+        if (REJECTED_USAGE_MARKERS.any { definition.contains(it, ignoreCase = true) }) return null
+
+        val normalized = definition
+            .replace(PARENTHETICAL, " ")
+            .replace(BRACKETED_METADATA, " ")
+            .replace(WHITESPACE, " ")
+            .trim(' ', ',', ';', ':', '-', '\u2013', '\u2014')
+        if (normalized.isEmpty() || !LATIN_LETTER.containsMatchIn(normalized)) return null
+        if (normalized.any { it == '(' || it == ')' || it == '[' || it == ']' }) return null
+        if (normalized.codePointCount(0, normalized.length) > MAX_DEFINITION_CODE_POINTS) return null
+        return normalized
     }
 
     private fun writeDictionary(

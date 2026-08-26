@@ -53,4 +53,9 @@ class BilingualCandidatePresenterTest :
             textSize shouldBe 19.8f
             bilingualTranslationLineHeight(textSize, configuredHeight = 12) shouldBe 24
         }
+
+        "candidate layout keeps two readable columns and caps long translations" {
+            UNROLLED_CANDIDATE_COLUMNS shouldBe 2
+            CANDIDATE_TRANSLATION_MAX_WIDTH_DP shouldBe 160
+        }
     })

@@ -7,18 +7,15 @@ package com.osfans.trime.ime.candidates.unrolled.window
 
 import android.view.Gravity
 import android.view.ViewGroup
+import androidx.recyclerview.widget.GridLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import androidx.transition.Slide
 import androidx.transition.Transition
-import com.google.android.flexbox.AlignItems
-import com.google.android.flexbox.FlexboxLayoutManager
-import com.google.android.flexbox.JustifyContent
 import com.osfans.trime.ime.candidates.CandidateViewHolder
+import com.osfans.trime.ime.candidates.bilingual.UNROLLED_CANDIDATE_COLUMNS
 import com.osfans.trime.ime.candidates.unrolled.PagingCandidateViewAdapter
 import com.osfans.trime.ime.candidates.unrolled.UnrolledCandidateLayout
-import com.osfans.trime.ime.candidates.unrolled.decoration.FlexboxHorizontalDecoration
 import com.osfans.trime.ime.window.BoardWindow
-import splitties.dimensions.dp
-import splitties.views.dsl.core.wrapContent
 
 class FlexboxUnrolledCandidateWindow : BaseUnrolledCandidateWindow() {
     override fun exitAnimation(nextWindow: BoardWindow): Transition = Slide().apply {
@@ -31,14 +28,11 @@ class FlexboxUnrolledCandidateWindow : BaseUnrolledCandidateWindow() {
                 parent: ViewGroup,
                 viewType: Int,
             ): CandidateViewHolder = super.onCreateViewHolder(parent, viewType).apply {
-                itemView.apply {
-                    minimumWidth = dp(40)
-                    val itemHeight = dp(theme.generalStyle.run { candidateViewHeight + commentHeight })
-                    layoutParams =
-                        FlexboxLayoutManager
-                            .LayoutParams(wrapContent, itemHeight)
-                            .apply { flexGrow = 1f }
-                }
+                itemView.layoutParams =
+                    RecyclerView.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                    )
             }
 
             override fun onBindViewHolder(
@@ -51,18 +45,12 @@ class FlexboxUnrolledCandidateWindow : BaseUnrolledCandidateWindow() {
         }
     }
 
-    override val layoutManager by lazy {
-        FlexboxLayoutManager(context).apply {
-            justifyContent = JustifyContent.SPACE_AROUND
-            alignItems = AlignItems.FLEX_START
-        }
-    }
+    override val layoutManager by lazy { GridLayoutManager(context, UNROLLED_CANDIDATE_COLUMNS) }
 
     override fun onCreateCandidateLayout(): UnrolledCandidateLayout = UnrolledCandidateLayout(context, theme).apply {
         recyclerView.apply {
             adapter = this@FlexboxUnrolledCandidateWindow.adapter
             layoutManager = this@FlexboxUnrolledCandidateWindow.layoutManager
-            addItemDecoration(FlexboxHorizontalDecoration(separatorDrawable))
         }
     }
 }
