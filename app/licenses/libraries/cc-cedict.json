@@ -1,0 +1,11 @@
+{
+    "uniqueId": "cc-cedict/cc-cedict",
+    "artifactVersion": "2026-08-24 05:05:01 UTC",
+    "description": "Community-maintained Chinese-English dictionary data used for offline candidate translations.",
+    "name": "CC-CEDICT",
+    "website": "https://www.mdbg.net/chinese/dictionary?page=cc-cedict",
+    "tag": "dictionary",
+    "licenses": [
+        "CC-BY-SA-4.0"
+    ]
+}

@@ -38,7 +38,7 @@ internal class BilingualCandidatePresenter(
 }
 
 internal val defaultBilingualCandidatePresenter by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
-    BilingualCandidatePresenter(DemoCandidateTranslationRepository) {
+    BilingualCandidatePresenter(OfflineCandidateTranslationRepository) {
         AppPrefs.defaultInstance().candidates.bilingualTranslation.getValue()
     }
 }
