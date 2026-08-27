@@ -9,6 +9,7 @@ import android.view.View
 import androidx.lifecycle.lifecycleScope
 import com.osfans.trime.core.SchemaItem
 import com.osfans.trime.daemon.launchOnReady
+import com.osfans.trime.data.base.managedSchemaDisplayName
 import com.osfans.trime.ui.common.OnItemChangedListener
 import com.osfans.trime.ui.main.settings.ProgressFragment
 import com.osfans.trime.util.NaiveDustman
@@ -36,7 +37,12 @@ class SchemaListFragment :
     private val dustman = NaiveDustman<SchemaItem>()
 
     override suspend fun initialize(): View {
-        val available = rime.runOnReady { availableSchemata().toSet() }
+        val available =
+            rime.runOnReady {
+                availableSchemata()
+                    .map { it.copy(name = managedSchemaDisplayName(it.id, it.name)) }
+                    .toSet()
+            }
         val enabled = rime.runOnReady { enabledSchemata().map { it.id } }
         val entries = available.filter { enabled.contains(it.id) }
         ui =

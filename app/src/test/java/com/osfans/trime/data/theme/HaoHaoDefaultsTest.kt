@@ -6,7 +6,10 @@
 package com.osfans.trime.data.theme
 
 import com.osfans.trime.data.base.DEFAULT_SCHEMA_ID
+import com.osfans.trime.data.base.LEGACY_SIMPLIFIED_SCHEMA_CUSTOM_PATCH
 import com.osfans.trime.data.base.SIMPLIFIED_SCHEMA_CUSTOM_PATCH
+import com.osfans.trime.data.base.managedSchemaDisplayName
+import com.osfans.trime.data.base.upgradeSimplifiedSchemaCustomPatch
 import com.osfans.trime.data.theme.model.KeyActionToken
 import com.osfans.trime.data.theme.model.TextKeyboard
 import com.osfans.trime.ime.keyboard.KeyBehavior
@@ -56,6 +59,7 @@ class HaoHaoDefaultsTest :
         "fresh installs default to HaoHao theme and simplified Luna Pinyin" {
             DEFAULT_THEME_ID shouldBe "haohao.trime"
             DEFAULT_SCHEMA_ID shouldBe "luna_pinyin_simp"
+            SIMPLIFIED_SCHEMA_CUSTOM_PATCH.contains("schema/name: 好好拼音") shouldBe true
             SIMPLIFIED_SCHEMA_CUSTOM_PATCH.contains("- charset_filter") shouldBe true
             SIMPLIFIED_SCHEMA_CUSTOM_PATCH.contains("translator/enable_charset_filter: true") shouldBe true
             config["__include"]?.string shouldBe "trime:/"
@@ -88,7 +92,10 @@ class HaoHaoDefaultsTest :
             presetKeys["Shift_L"]?.mapping?.get("label")?.string shouldBe "⇧"
             presetKeys["Shift_L"]?.mapping?.get("send")?.string shouldBe "Shift_L"
             presetKeys["HaoHaoReturn"]?.mapping?.get("label")?.string shouldBe "↵"
-            presetKeys["HaoHaoSpace"]?.mapping?.get("label")?.string shouldBe ""
+            val spaceLabel = presetKeys["HaoHaoSpace"]?.mapping?.get("label")?.string
+            spaceLabel shouldBe " "
+            spaceLabel?.isNotEmpty() shouldBe true
+            spaceLabel?.isBlank() shouldBe true
             listOf(
                 "BackSpace",
                 "Shift_L",
@@ -124,6 +131,19 @@ class HaoHaoDefaultsTest :
             keyboard("qwerty").importPreset shouldBe "default"
         }
 
+        "managed simplified schema patch upgrades without overwriting user data" {
+            val expected = SIMPLIFIED_SCHEMA_CUSTOM_PATCH.trimIndent()
+
+            upgradeSimplifiedSchemaCustomPatch(LEGACY_SIMPLIFIED_SCHEMA_CUSTOM_PATCH.trimIndent()) shouldBe expected
+            upgradeSimplifiedSchemaCustomPatch("${LEGACY_SIMPLIFIED_SCHEMA_CUSTOM_PATCH.trimIndent()}\n# user change") shouldBe null
+            upgradeSimplifiedSchemaCustomPatch(expected) shouldBe null
+        }
+
+        "managed simplified schema name only changes the branded default schema" {
+            managedSchemaDisplayName("luna_pinyin_simp", "朙月拼音·简化字") shouldBe "好好拼音"
+            managedSchemaDisplayName("other_schema", "Other") shouldBe "Other"
+        }
+
         "number and common-symbol pages always provide a path back to letters" {
             val number = keyboard("number")
             val symbols = keyboard("symbols")
@@ -132,8 +152,10 @@ class HaoHaoDefaultsTest :
             rowWidths(symbols) shouldContainExactly listOf(100f, 100f, 100f, 100f)
             clickTokens(number).contains("HaoHaoLetters") shouldBe true
             clickTokens(number).contains("HaoHaoSymbols") shouldBe true
+            clickTokens(number).contains("HaoHaoSpace") shouldBe true
             clickTokens(number).contains(".") shouldBe true
             clickTokens(symbols).contains("HaoHaoLetters") shouldBe true
+            clickTokens(symbols).contains("HaoHaoSpace") shouldBe true
             clickTokens(symbols).contains("HaoHaoNumber") shouldBe true
             clickTokens(symbols).contains("；") shouldBe true
         }
