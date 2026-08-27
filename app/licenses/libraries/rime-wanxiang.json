@@ -1,0 +1,11 @@
+{
+    "uniqueId": "amzxyz/rime-wanxiang",
+    "artifactVersion": "v17.7.1",
+    "description": "Modern Simplified Chinese core dictionary data used by HaoHao Pinyin.",
+    "name": "Rime Wanxiang Core Dictionary",
+    "website": "https://github.com/amzxyz/rime-wanxiang",
+    "tag": "dictionary",
+    "licenses": [
+        "CC-BY-4.0"
+    ]
+}

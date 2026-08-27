@@ -25,16 +25,27 @@ internal const val LEGACY_SIMPLIFIED_SCHEMA_CUSTOM_PATCH = """
     engine/filters/+:
       - charset_filter
 """
-internal const val SIMPLIFIED_SCHEMA_CUSTOM_PATCH = """
+internal const val BRANDED_SIMPLIFIED_SCHEMA_CUSTOM_PATCH = """
   patch:
     schema/name: 好好拼音
     translator/enable_charset_filter: true
     engine/filters/+:
       - charset_filter
 """
+internal const val SIMPLIFIED_SCHEMA_CUSTOM_PATCH = """
+  patch:
+    schema/name: 好好拼音
+    translator/dictionary: haohao_pinyin
+    translator/user_dict: luna_pinyin
+    translator/enable_charset_filter: true
+    engine/filters/+:
+      - charset_filter
+"""
 
 internal fun upgradeSimplifiedSchemaCustomPatch(existing: String): String? = SIMPLIFIED_SCHEMA_CUSTOM_PATCH.trimIndent().takeIf {
-    existing.trim().replace("\r\n", "\n") == LEGACY_SIMPLIFIED_SCHEMA_CUSTOM_PATCH.trimIndent().trim()
+    val normalized = existing.trim().replace("\r\n", "\n")
+    normalized == LEGACY_SIMPLIFIED_SCHEMA_CUSTOM_PATCH.trimIndent().trim() ||
+        normalized == BRANDED_SIMPLIFIED_SCHEMA_CUSTOM_PATCH.trimIndent().trim()
 }
 
 internal fun managedSchemaDisplayName(

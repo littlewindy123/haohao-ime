@@ -5,6 +5,7 @@
 
 package com.osfans.trime.data.theme
 
+import com.osfans.trime.data.base.BRANDED_SIMPLIFIED_SCHEMA_CUSTOM_PATCH
 import com.osfans.trime.data.base.DEFAULT_SCHEMA_ID
 import com.osfans.trime.data.base.LEGACY_SIMPLIFIED_SCHEMA_CUSTOM_PATCH
 import com.osfans.trime.data.base.SIMPLIFIED_SCHEMA_CUSTOM_PATCH
@@ -23,6 +24,7 @@ import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
 import java.io.File
+import java.util.Properties
 
 class HaoHaoDefaultsTest :
     StringSpec({
@@ -35,6 +37,10 @@ class HaoHaoDefaultsTest :
         val presetKeys = requireNotNull(config["preset_keys"]?.mapping)
         val style = requireNotNull(config["style"]?.mapping)
         val colorSchemes = requireNotNull(config["preset_color_schemes"]?.mapping)
+        val wanxiangMetadata =
+            Properties().apply {
+                File("dictionary/wanxiang/source.properties").inputStream().use(::load)
+            }
 
         fun keyboard(id: String): TextKeyboard = TextKeyboard.decode(requireNotNull(keyboards[id]?.mapping))
 
@@ -60,11 +66,28 @@ class HaoHaoDefaultsTest :
             DEFAULT_THEME_ID shouldBe "haohao.trime"
             DEFAULT_SCHEMA_ID shouldBe "luna_pinyin_simp"
             SIMPLIFIED_SCHEMA_CUSTOM_PATCH.contains("schema/name: 好好拼音") shouldBe true
+            SIMPLIFIED_SCHEMA_CUSTOM_PATCH.contains("translator/dictionary: haohao_pinyin") shouldBe true
+            SIMPLIFIED_SCHEMA_CUSTOM_PATCH.contains("translator/user_dict: luna_pinyin") shouldBe true
             SIMPLIFIED_SCHEMA_CUSTOM_PATCH.contains("- charset_filter") shouldBe true
             SIMPLIFIED_SCHEMA_CUSTOM_PATCH.contains("translator/enable_charset_filter: true") shouldBe true
             config["__include"]?.string shouldBe "trime:/"
             config["name"]?.string shouldBe "好好输入法"
             DEFAULT_FOLLOW_SYSTEM_DAY_NIGHT shouldBe true
+        }
+
+        "HaoHao Pinyin combines pinned Wanxiang data with hotword and translation overrides" {
+            val composite = File("src/main/assets/shared/haohao_pinyin.dict.yaml").readText()
+            val hotwords = File("src/main/assets/shared/haohao_hotwords.dict.yaml").readText()
+            val translations = File("dictionary/cc-cedict/common_overrides_zh_en.tsv").readText()
+
+            (composite.indexOf("  - haohao_hotwords") < composite.indexOf("  - haohao_wanxiang_core")) shouldBe true
+            (composite.indexOf("  - haohao_wanxiang_core") < composite.indexOf("  - luna_pinyin")) shouldBe true
+            hotwords.contains("塔斯汀\tta si ting\t1000000") shouldBe true
+            translations.contains("塔斯汀\tTastien") shouldBe true
+            wanxiangMetadata.getProperty("release") shouldBe "v17.7.1"
+            wanxiangMetadata.getProperty("entryCount") shouldBe "1418352"
+            wanxiangMetadata.getProperty("sha256") shouldBe
+                "ca3e83cd3ff1b6896a055c26cd24dc98b79f2c1fe56acd983eb7479a319b4240"
         }
 
         "Pixel theme defines stable geometry and light-dark palettes" {
@@ -135,6 +158,7 @@ class HaoHaoDefaultsTest :
             val expected = SIMPLIFIED_SCHEMA_CUSTOM_PATCH.trimIndent()
 
             upgradeSimplifiedSchemaCustomPatch(LEGACY_SIMPLIFIED_SCHEMA_CUSTOM_PATCH.trimIndent()) shouldBe expected
+            upgradeSimplifiedSchemaCustomPatch(BRANDED_SIMPLIFIED_SCHEMA_CUSTOM_PATCH.trimIndent()) shouldBe expected
             upgradeSimplifiedSchemaCustomPatch("${LEGACY_SIMPLIFIED_SCHEMA_CUSTOM_PATCH.trimIndent()}\n# user change") shouldBe null
             upgradeSimplifiedSchemaCustomPatch(expected) shouldBe null
         }

@@ -25,16 +25,24 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 - [x] 原版 Trime 可在 Windows 隔离工具链中编译
 - [x] Android API 36、x86_64 模拟器安装和启动正常
-- [x] “朙月拼音·简化字”可输入“你好”“中国”
+- [x] “好好拼音”可输入“你好”“中国”
 - [x] 原版中文输入、Rime 部署和中英文切换通过回归测试
 - [x] 建立公开 Fork、中文项目说明和轻量 Debug CI
 - [x] 使用完整离线 CC-CEDICT 与常用词覆盖表提供双语候选
+- [x] 接入万象 `v17.7.1` 的 141.8 万条现代简体基础词库
 - [x] 支持固定英文行、防抖显示、候选数量设置和可选美式 IPA
-- [x] 新安装默认启用“朙月拼音·简化字”和“好好 26 键”主题
+- [x] 新安装默认启用“好好拼音”和“好好 26 键”主题
 - [ ] 继续处理多义词、短语语境和翻译质量问题
 - [ ] 真机兼容性与触屏体验验证
 
 详细阶段安排见 [ROADMAP.md](ROADMAP.md)。
+
+### 现代简体词库
+
+- “好好拼音”保留 `luna_pinyin_simp` 方案 ID、原有用户词典和学习数据，在其上组合好好热词、万象现代词库与原版 Luna 词典。
+- 现代词库固定使用万象拼音 `v17.7.1` 的完整 `jichu.dict.yaml`，共生成 `1,418,352` 条带权词条；来源、哈希、许可与唯一已知排除项记录在 `app/dictionary/wanxiang/`。
+- 构建时离线校验固定 gzip，确定性移除拼音声调并生成 Rime 资产；构建过程不联网，也不会把生成文件写回源码目录。
+- APK 首次部署大型词库会明显慢于后续启动。词库升级随新版 APK 发布，不增加网络权限、后台下载或热词上报。
 
 ### 离线双语候选
 
@@ -98,6 +106,15 @@ Windows：
 .\gradlew.bat :app:assembleDebug --no-daemon
 ```
 
+如果仓库路径包含中文，AGP/CMake 可能在 `android_gradle_build.json` 报 `Invalid escape sequence`。可把仓库临时映射到一个空闲的纯 ASCII 盘符后构建，完成后删除映射；文件仍保存在原目录，不会复制源码或修改全局环境：
+
+```powershell
+subst H: "D:\好好输入法"
+H:
+.\gradlew.bat :app:assembleDebug --no-daemon
+subst H: /d
+```
+
 Linux 或 macOS：
 
 ```sh
@@ -126,4 +143,4 @@ git merge --ff-only upstream/develop
 
 好好输入法基于 [Trime](https://github.com/osfans/trime) 和 [Rime](https://rime.im) 开发。原项目的作者、贡献者、历史说明和第三方依赖信息请参阅 [Trime 简体中文说明](README_sc.md) 与上游仓库。
 
-本项目延续 GNU General Public License v3.0 or later，完整条款见 [LICENSE](LICENSE)。代码中的原始版权和 SPDX 声明均予以保留。随 APK 分发的 CC-CEDICT 数据遵循 CC BY-SA 4.0，并在应用“开源软件许可”和数据来源文档中署名。
+本项目延续 GNU General Public License v3.0 or later，完整条款见 [LICENSE](LICENSE)。代码中的原始版权和 SPDX 声明均予以保留。随 APK 分发的 CC-CEDICT 数据遵循 CC BY-SA 4.0；万象拼音现代词库遵循 CC BY 4.0。两者均在应用“开源软件许可”和各自数据来源文档中署名。

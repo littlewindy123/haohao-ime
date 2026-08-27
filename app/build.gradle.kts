@@ -11,6 +11,7 @@ plugins {
     id("com.osfans.trime.native-cache-hash")
     id("com.osfans.trime.opencc-data")
     id("com.osfans.trime.cedict-dictionary")
+    id("com.osfans.trime.wanxiang-dictionary")
     alias(libs.plugins.aboutlibraries)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.kotlin.parcelize)
