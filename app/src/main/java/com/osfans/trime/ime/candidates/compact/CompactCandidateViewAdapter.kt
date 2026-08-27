@@ -13,18 +13,17 @@ import com.google.android.flexbox.FlexboxLayoutManager
 import com.osfans.trime.data.theme.Theme
 import com.osfans.trime.ime.candidates.CandidateItemUi
 import com.osfans.trime.ime.candidates.CandidateViewHolder
-import com.osfans.trime.ime.candidates.unrolled.UnrolledCandidateItem
 import splitties.views.dsl.core.matchParent
 import splitties.views.dsl.core.wrapContent
 
-open class CompactCandidateViewAdapter(
+internal class CompactCandidateViewAdapter(
     val theme: Theme,
-) : BaseQuickAdapter<UnrolledCandidateItem, CandidateViewHolder>() {
+) : BaseQuickAdapter<CompactCandidateCell, CandidateViewHolder>() {
     init {
         setHasStableIds(true)
     }
 
-    override fun getItemId(position: Int): Long = items.getOrNull(position).hashCode().toLong()
+    override fun getItemId(position: Int): Long = items.getOrNull(position)?.item.hashCode().toLong()
 
     var total: Int = -1
         private set
@@ -32,15 +31,8 @@ open class CompactCandidateViewAdapter(
     var highlightedIdx: Int = -1
         private set
 
-    var cellBasis: Float = 1f
-        private set
-
-    fun updateCellBasis(value: Float) {
-        cellBasis = value
-    }
-
     fun updateCandidates(
-        data: List<UnrolledCandidateItem>,
+        data: List<CompactCandidateCell>,
         total: Int,
         highlightedIndex: Int,
     ) {
@@ -64,18 +56,19 @@ open class CompactCandidateViewAdapter(
     override fun onBindViewHolder(
         holder: CandidateViewHolder,
         position: Int,
-        item: UnrolledCandidateItem?,
+        item: CompactCandidateCell?,
     ) {
         item ?: return
-        val candidate = item.candidate
-        val globalIndex = item.globalIndex
+        val candidate = item.item.candidate
+        val globalIndex = item.item.globalIndex
         val isHighlighted = globalIndex == highlightedIdx
         holder.ui.update(candidate, isHighlighted)
         holder.text = candidate.text
         holder.comment = candidate.comment
         holder.idx = globalIndex
         holder.ui.root.updateLayoutParams<FlexboxLayoutManager.LayoutParams> {
-            flexBasisPercent = this@CompactCandidateViewAdapter.cellBasis
+            width = item.width
+            flexBasisPercent = FlexboxLayoutManager.LayoutParams.FLEX_BASIS_PERCENT_DEFAULT
             flexGrow = 0f
             flexShrink = 0f
         }

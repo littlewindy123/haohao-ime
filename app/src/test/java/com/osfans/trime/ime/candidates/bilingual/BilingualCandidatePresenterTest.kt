@@ -5,9 +5,22 @@
 package com.osfans.trime.ime.candidates.bilingual
 
 import com.osfans.trime.core.CandidateProto
-import com.osfans.trime.ime.candidates.compact.compactCandidateCellBasis
+import com.osfans.trime.ime.candidates.compact.COMPACT_CANDIDATE_HORIZONTAL_PADDING_DP
+import com.osfans.trime.ime.candidates.compact.COMPACT_CANDIDATE_LANDSCAPE_DEFAULT
+import com.osfans.trime.ime.candidates.compact.COMPACT_CANDIDATE_LANDSCAPE_MAX
+import com.osfans.trime.ime.candidates.compact.COMPACT_CANDIDATE_LANDSCAPE_MIN
+import com.osfans.trime.ime.candidates.compact.COMPACT_CANDIDATE_MAX_WIDTH_DP
+import com.osfans.trime.ime.candidates.compact.COMPACT_CANDIDATE_MIN_WIDTH_DP
+import com.osfans.trime.ime.candidates.compact.COMPACT_CANDIDATE_PORTRAIT_DEFAULT
+import com.osfans.trime.ime.candidates.compact.COMPACT_CANDIDATE_PORTRAIT_MAX
+import com.osfans.trime.ime.candidates.compact.COMPACT_CANDIDATE_PORTRAIT_MIN
+import com.osfans.trime.ime.candidates.compact.CompactCandidateWidthBounds
+import com.osfans.trime.ime.candidates.compact.CompactTranslationWidthLimits
+import com.osfans.trime.ime.candidates.compact.compactCandidateCellWidth
+import com.osfans.trime.ime.candidates.compact.fitCompactCandidateRow
 import com.osfans.trime.ime.candidates.compact.resolveCompactCandidateCount
 import com.osfans.trime.ime.candidates.compact.toCompactCandidateItems
+import com.osfans.trime.ime.candidates.unrolled.UnrolledCandidateItem
 import com.osfans.trime.ime.candidates.unrolled.toDisplayableUnrolledCandidates
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
@@ -116,20 +129,183 @@ class BilingualCandidatePresenterTest :
             visible.map { it.globalIndex } shouldBe listOf(12, 14)
         }
 
-        "compact candidate limits keep portrait and landscape compatibility ranges" {
-            resolveCompactCandidateCount(false, portraitValue = 6, landscapeValue = 8) shouldBe 6
-            resolveCompactCandidateCount(true, portraitValue = 6, landscapeValue = 8) shouldBe 8
+        "compact candidate targets use honest portrait and landscape ranges" {
+            COMPACT_CANDIDATE_PORTRAIT_MIN shouldBe 3
+            COMPACT_CANDIDATE_PORTRAIT_MAX shouldBe 5
+            COMPACT_CANDIDATE_PORTRAIT_DEFAULT shouldBe 4
+            COMPACT_CANDIDATE_LANDSCAPE_MIN shouldBe 5
+            COMPACT_CANDIDATE_LANDSCAPE_MAX shouldBe 8
+            COMPACT_CANDIDATE_LANDSCAPE_DEFAULT shouldBe 6
+
+            resolveCompactCandidateCount(false, portraitValue = 4, landscapeValue = 6) shouldBe 4
+            resolveCompactCandidateCount(true, portraitValue = 4, landscapeValue = 6) shouldBe 6
             resolveCompactCandidateCount(false, portraitValue = 1, landscapeValue = 8) shouldBe 3
-            resolveCompactCandidateCount(false, portraitValue = 10, landscapeValue = 8) shouldBe 8
-            resolveCompactCandidateCount(true, portraitValue = 6, landscapeValue = 2) shouldBe 4
-            resolveCompactCandidateCount(true, portraitValue = 6, landscapeValue = 20) shouldBe 12
+            resolveCompactCandidateCount(false, portraitValue = 8, landscapeValue = 8) shouldBe 5
+            resolveCompactCandidateCount(true, portraitValue = 4, landscapeValue = 4) shouldBe 5
+            resolveCompactCandidateCount(true, portraitValue = 4, landscapeValue = 12) shouldBe 8
         }
 
-        "compact bilingual candidates use equal fixed-width cells" {
-            compactCandidateCellBasis(3) shouldBe (1f / 3)
-            compactCandidateCellBasis(5) shouldBe (1f / 5)
-            compactCandidateCellBasis(6) shouldBe (1f / 6)
-            compactCandidateCellBasis(8) shouldBe (1f / 8)
+        "compact candidates prioritize complete phrases for explicit pinyin syllables" {
+            val candidates = arrayOf(
+                CandidateProto(text = "你好", comment = "", label = ""),
+                CandidateProto(text = "妳好", comment = "", label = ""),
+                CandidateProto(text = "你", comment = "", label = ""),
+                CandidateProto(text = "拟", comment = "", label = ""),
+                CandidateProto(text = "逆号", comment = "", label = ""),
+                CandidateProto(text = "拟好", comment = "", label = ""),
+                CandidateProto(text = "你号", comment = "", label = ""),
+            )
+
+            val visible = candidates.toCompactCandidateItems(maxCount = 6, preedit = "ni hao\u2038")
+
+            visible.map { it.candidate.text } shouldBe listOf("你好", "妳好", "逆号", "拟好", "你号", "你")
+            visible.map { it.globalIndex } shouldBe listOf(0, 1, 4, 5, 6, 2)
+        }
+
+        "compact phrase priority supports apostrophes and keeps fallback order" {
+            val candidates = arrayOf(
+                CandidateProto(text = "先", comment = "", label = ""),
+                CandidateProto(text = "西安", comment = "", label = ""),
+                CandidateProto(text = "现", comment = "", label = ""),
+            )
+
+            candidates.toCompactCandidateItems(maxCount = 3, preedit = "xi'an")
+                .map { it.candidate.text } shouldBe listOf("西安", "先", "现")
+        }
+
+        "compact candidates prioritize fang zi phrases before single characters" {
+            val candidates = arrayOf(
+                CandidateProto(text = "房子", comment = "", label = ""),
+                CandidateProto(text = "方", comment = "", label = ""),
+                CandidateProto(text = "坊子", comment = "", label = ""),
+                CandidateProto(text = "房", comment = "", label = ""),
+            )
+
+            candidates.toCompactCandidateItems(maxCount = 4, preedit = "fang zi")
+                .map { it.candidate.text } shouldBe listOf("房子", "坊子", "方", "房")
+        }
+
+        "compact candidates keep Rime order for one syllable or uncertain input" {
+            val candidates = arrayOf(
+                CandidateProto(text = "是", comment = "", label = ""),
+                CandidateProto(text = "时", comment = "", label = ""),
+                CandidateProto(text = "世界", comment = "", label = ""),
+            )
+
+            candidates.toCompactCandidateItems(maxCount = 3, preedit = "shi")
+                .map { it.candidate.text } shouldBe listOf("是", "时", "世界")
+            candidates.toCompactCandidateItems(maxCount = 3, preedit = "ni-hao")
+                .map { it.candidate.text } shouldBe listOf("是", "时", "世界")
+        }
+
+        "compact candidate width is driven by the primary row and clamped" {
+            COMPACT_CANDIDATE_MIN_WIDTH_DP shouldBe 48
+            COMPACT_CANDIDATE_MAX_WIDTH_DP shouldBe 112
+            COMPACT_CANDIDATE_HORIZONTAL_PADDING_DP shouldBe 10
+
+            compactCandidateCellWidth(10, minWidth = 48, horizontalPadding = 10, maxWidth = 112) shouldBe 48
+            compactCandidateCellWidth(44, minWidth = 48, horizontalPadding = 10, maxWidth = 112) shouldBe 64
+            compactCandidateCellWidth(200, minWidth = 48, horizontalPadding = 10, maxWidth = 112) shouldBe 112
+        }
+
+        "compact translation reservation does not change the content width boundaries" {
+            compactCandidateCellWidth(
+                contentWidth = 10,
+                minWidth = 48,
+                horizontalPadding = 10,
+                maxWidth = 112,
+                reservedWidth = 88,
+            ) shouldBe 88
+            compactCandidateCellWidth(
+                contentWidth = 100,
+                minWidth = 48,
+                horizontalPadding = 10,
+                maxWidth = 112,
+                reservedWidth = 88,
+            ) shouldBe 112
+        }
+
+        "compact candidate row drops only trailing items whose Chinese minimum cannot fit" {
+            val candidates = arrayOf(
+                CandidateProto(text = "你好", comment = "", label = ""),
+                CandidateProto(text = "妳好", comment = "", label = ""),
+                CandidateProto(text = "逆号", comment = "", label = ""),
+                CandidateProto(text = "拟好", comment = "", label = ""),
+            ).toCompactCandidateItems(maxCount = 4, preedit = "ni hao")
+
+            fitCompactCandidateRow(candidates, targetCount = 4, availableWidth = 190) {
+                CompactCandidateWidthBounds(minimum = 64, preferred = 64)
+            }
+                .map { it.item.candidate.text } shouldBe listOf("你好", "妳好")
+            fitCompactCandidateRow(candidates, targetCount = 3, availableWidth = 300) {
+                CompactCandidateWidthBounds(minimum = 64, preferred = 64)
+            }
+                .map { it.item.candidate.text } shouldBe listOf("你好", "妳好", "逆号")
+        }
+
+        "compact translation width grows automatically when the target count gets smaller" {
+            val candidates = arrayOf(
+                CandidateProto(text = "你好", comment = "", label = ""),
+                CandidateProto(text = "妳好", comment = "", label = ""),
+                CandidateProto(text = "逆号", comment = "", label = ""),
+                CandidateProto(text = "拟好", comment = "", label = ""),
+                CandidateProto(text = "你号", comment = "", label = ""),
+            ).toCompactCandidateItems(maxCount = 5, preedit = "ni hao")
+            val translationLimits = CompactTranslationWidthLimits(
+                primaryMinimum = 80,
+                primaryMaximum = 100,
+                secondaryMaximum = 80,
+            )
+            val widthOf: (UnrolledCandidateItem) -> CompactCandidateWidthBounds = {
+                CompactCandidateWidthBounds(minimum = 48, preferred = 48)
+            }
+
+            val three = fitCompactCandidateRow(candidates, 3, 320, translationLimits, widthOf)
+            val four = fitCompactCandidateRow(candidates, 4, 320, translationLimits, widthOf)
+            val five = fitCompactCandidateRow(candidates, 5, 320, translationLimits, widthOf)
+
+            three.size shouldBe 3
+            four.size shouldBe 4
+            five.size shouldBe 5
+            three.first().width shouldBe 100
+            four.first().width shouldBe 80
+            five.first().width shouldBe 80
+            three[1].width shouldBe 80
+            (four[1].width > five[1].width) shouldBe true
+            (three.sumOf { it.width } / three.size > four.sumOf { it.width } / four.size) shouldBe true
+            (four.sumOf { it.width } / four.size > five.sumOf { it.width } / five.size) shouldBe true
+        }
+
+        "compact translation pending ready and missing states share preallocated widths" {
+            val candidates = arrayOf(
+                CandidateProto(text = "鸡", comment = "", label = ""),
+                CandidateProto(text = "牛", comment = "", label = ""),
+                CandidateProto(text = "扣", comment = "", label = ""),
+                CandidateProto(text = "纽", comment = "", label = ""),
+            ).toCompactCandidateItems(maxCount = 4)
+            val limits = CompactTranslationWidthLimits(80, 100, 80)
+            val bounds: (UnrolledCandidateItem) -> CompactCandidateWidthBounds = {
+                CompactCandidateWidthBounds(48, 52)
+            }
+
+            val pending = fitCompactCandidateRow(candidates, 4, 320, limits, bounds)
+            val ready = fitCompactCandidateRow(candidates, 4, 320, limits, bounds)
+            val missing = fitCompactCandidateRow(candidates, 4, 320, limits, bounds)
+
+            pending.map { it.width } shouldBe ready.map { it.width }
+            ready.map { it.width } shouldBe missing.map { it.width }
+        }
+
+        "compact monolingual layout does not reserve translation width" {
+            val candidates = arrayOf(
+                CandidateProto(text = "你好", comment = "", label = ""),
+                CandidateProto(text = "妳好", comment = "", label = ""),
+                CandidateProto(text = "逆号", comment = "", label = ""),
+            ).toCompactCandidateItems(maxCount = 3)
+
+            fitCompactCandidateRow(candidates, targetCount = 3, availableWidth = 320) {
+                CompactCandidateWidthBounds(minimum = 48, preferred = 64)
+            }.map { it.width } shouldBe listOf(64, 64, 64)
         }
 
         "compact candidates skip invisible rare characters and preserve global indexes" {
@@ -141,10 +317,9 @@ class BilingualCandidatePresenterTest :
                 CandidateProto(text = "王业", comment = "", label = ""),
             )
 
-            val visible = candidates.toCompactCandidateItems(maxCount = 3)
+            val visible = candidates.toCompactCandidateItems(maxCount = 3, preedit = "wang ye")
 
             visible.map { it.candidate.text } shouldBe listOf("网页", "王爷", "王业")
             visible.map { it.globalIndex } shouldBe listOf(0, 2, 3)
-            compactCandidateCellBasis(visible.size) shouldBe (1f / 3)
         }
     })

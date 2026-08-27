@@ -14,7 +14,14 @@ import com.osfans.trime.ime.candidates.bilingual.BILINGUAL_TRANSLATION_DELAY_DEF
 import com.osfans.trime.ime.candidates.bilingual.BILINGUAL_TRANSLATION_DELAY_MAX_MS
 import com.osfans.trime.ime.candidates.bilingual.BILINGUAL_TRANSLATION_DELAY_MIN_MS
 import com.osfans.trime.ime.candidates.bilingual.BILINGUAL_TRANSLATION_DELAY_STEP_MS
+import com.osfans.trime.ime.candidates.compact.COMPACT_CANDIDATE_LANDSCAPE_DEFAULT
+import com.osfans.trime.ime.candidates.compact.COMPACT_CANDIDATE_LANDSCAPE_MAX
+import com.osfans.trime.ime.candidates.compact.COMPACT_CANDIDATE_LANDSCAPE_MIN
+import com.osfans.trime.ime.candidates.compact.COMPACT_CANDIDATE_PORTRAIT_DEFAULT
+import com.osfans.trime.ime.candidates.compact.COMPACT_CANDIDATE_PORTRAIT_MAX
+import com.osfans.trime.ime.candidates.compact.COMPACT_CANDIDATE_PORTRAIT_MIN
 import com.osfans.trime.ime.candidates.compact.CompactCandidateMode
+import com.osfans.trime.ime.candidates.compact.resolveCompactCandidateCount
 import com.osfans.trime.ime.candidates.popup.PopupCandidatesLayout
 import com.osfans.trime.ime.candidates.popup.PopupCandidatesMode
 import com.osfans.trime.ime.composition.PopupPosition
@@ -444,20 +451,41 @@ class AppPrefs(
         val compactCandidateCount = int(
             R.string.max_span_count,
             COMPACT_CANDIDATE_COUNT,
-            6,
-            3,
-            8,
+            COMPACT_CANDIDATE_PORTRAIT_DEFAULT,
+            COMPACT_CANDIDATE_PORTRAIT_MIN,
+            COMPACT_CANDIDATE_PORTRAIT_MAX,
         )
         val compactCandidateCountLandscape = int(
             R.string.max_span_count_landscape,
             COMPACT_CANDIDATE_COUNT_LANDSCAPE,
-            8,
-            4,
-            12,
+            COMPACT_CANDIDATE_LANDSCAPE_DEFAULT,
+            COMPACT_CANDIDATE_LANDSCAPE_MIN,
+            COMPACT_CANDIDATE_LANDSCAPE_MAX,
         )
         val mode = enum(R.string.show_candidates_window, MODE, PopupCandidatesMode.DISABLED)
         val layout = enum(R.string.candidates_layout, LAYOUT, PopupCandidatesLayout.AUTOMATIC)
         val position = enum(R.string.candidates_window_position, POSITION, PopupPosition.BOTTOM_LEFT)
+
+        init {
+            if (sharedPreferences.contains(COMPACT_CANDIDATE_COUNT)) {
+                val storedValue = compactCandidateCount.getValue()
+                val normalizedValue = resolveCompactCandidateCount(
+                    isLandscape = false,
+                    portraitValue = storedValue,
+                    landscapeValue = compactCandidateCountLandscape.getValue(),
+                )
+                if (storedValue != normalizedValue) compactCandidateCount.setValue(normalizedValue)
+            }
+            if (sharedPreferences.contains(COMPACT_CANDIDATE_COUNT_LANDSCAPE)) {
+                val storedValue = compactCandidateCountLandscape.getValue()
+                val normalizedValue = resolveCompactCandidateCount(
+                    isLandscape = true,
+                    portraitValue = compactCandidateCount.getValue(),
+                    landscapeValue = storedValue,
+                )
+                if (storedValue != normalizedValue) compactCandidateCountLandscape.setValue(normalizedValue)
+            }
+        }
     }
 
     /**
