@@ -9,6 +9,7 @@ import android.content.Context
 import androidx.lifecycle.LifecycleCoroutineScope
 import com.osfans.trime.R
 import com.osfans.trime.core.RimeApi
+import com.osfans.trime.data.base.managedSchemaDisplayName
 import kotlinx.coroutines.launch
 import splitties.systemservices.inputMethodManager
 
@@ -20,7 +21,7 @@ object EnabledSchemaPickerDialog {
         extensions: (AlertDialog.Builder.() -> AlertDialog.Builder)? = null,
     ): AlertDialog {
         val selecteds = rime.selectedSchemata()
-        val selectedNames = selecteds.map { it.name }
+        val selectedNames = selecteds.map { managedSchemaDisplayName(it.id, it.name) }
         val selectedIds = selecteds.map { it.id }
         val selectedSchemaId = rime.selectedSchemaId()
         val selectedIndex = selecteds.indexOfFirst { it.id == selectedSchemaId }

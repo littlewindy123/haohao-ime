@@ -21,6 +21,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - [x] 建立公开 GitHub Fork 和独立 `main` 分支
 - [x] 建立中文优先的项目说明与上游归属说明
 - [x] 建立 ARM64、x86_64 轻量 Debug CI
+- [x] 统一“好好输入法 / HaoHao IME”名称、标语与应用图标
 - [ ] 整理贡献规范、Issue 模板和开发文档
 
 ## 阶段 2：中文用户体验

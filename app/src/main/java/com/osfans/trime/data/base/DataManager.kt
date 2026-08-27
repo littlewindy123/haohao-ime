@@ -18,12 +18,29 @@ import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
 internal const val DEFAULT_SCHEMA_ID = "luna_pinyin_simp"
-internal const val SIMPLIFIED_SCHEMA_CUSTOM_PATCH = """
+internal const val SIMPLIFIED_SCHEMA_DISPLAY_NAME = "好好拼音"
+internal const val LEGACY_SIMPLIFIED_SCHEMA_CUSTOM_PATCH = """
   patch:
     translator/enable_charset_filter: true
     engine/filters/+:
       - charset_filter
 """
+internal const val SIMPLIFIED_SCHEMA_CUSTOM_PATCH = """
+  patch:
+    schema/name: 好好拼音
+    translator/enable_charset_filter: true
+    engine/filters/+:
+      - charset_filter
+"""
+
+internal fun upgradeSimplifiedSchemaCustomPatch(existing: String): String? = SIMPLIFIED_SCHEMA_CUSTOM_PATCH.trimIndent().takeIf {
+    existing.trim().replace("\r\n", "\n") == LEGACY_SIMPLIFIED_SCHEMA_CUSTOM_PATCH.trimIndent().trim()
+}
+
+internal fun managedSchemaDisplayName(
+    schemaId: String,
+    currentName: String,
+): String = if (schemaId == DEFAULT_SCHEMA_ID) SIMPLIFIED_SCHEMA_DISPLAY_NAME else currentName
 
 object DataManager {
     private const val DEFAULT_CUSTOM_FILE_NAME = "default.custom.yaml"
@@ -118,11 +135,13 @@ object DataManager {
             SIMPLIFIED_SCHEMA_CUSTOM_FILE_NAME to SIMPLIFIED_SCHEMA_CUSTOM_PATCH,
         ).forEach { (fileName, patch) ->
             val custom = userDataDir.resolve(fileName)
-            if (!custom.exists()) {
-                if (custom.createNewFile()) {
-                    custom.writeText(patch.trimIndent())
-                }
+            val content = when {
+                !custom.exists() -> patch.trimIndent()
+                fileName == SIMPLIFIED_SCHEMA_CUSTOM_FILE_NAME ->
+                    upgradeSimplifiedSchemaCustomPatch(custom.readText())
+                else -> null
             }
+            content?.let(custom::writeText)
         }
 
         Timber.d("Synced!")
