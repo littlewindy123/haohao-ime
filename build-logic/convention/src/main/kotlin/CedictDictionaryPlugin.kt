@@ -26,6 +26,8 @@ class CedictDictionaryPlugin : Plugin<Project> {
                 sourceFile.set(target.layout.projectDirectory.file("dictionary/cc-cedict/cedict_1_0_ts_utf-8_mdbg.txt.gz"))
                 metadataFile.set(target.layout.projectDirectory.file("dictionary/cc-cedict/source.properties"))
                 overridesFile.set(target.layout.projectDirectory.file("dictionary/cc-cedict/common_overrides_zh_en.tsv"))
+                pronunciationsFile.set(target.layout.projectDirectory.file("dictionary/ipa-dict/en_US.txt.gz"))
+                pronunciationsMetadataFile.set(target.layout.projectDirectory.file("dictionary/ipa-dict/source.properties"))
                 outputDirectory.set(target.layout.buildDirectory.dir("generated/assets/cedict"))
             }
 
@@ -58,6 +60,14 @@ abstract class GenerateCedictDictionaryTask : DefaultTask() {
     @get:PathSensitive(PathSensitivity.NONE)
     abstract val overridesFile: RegularFileProperty
 
+    @get:InputFile
+    @get:PathSensitive(PathSensitivity.NONE)
+    abstract val pronunciationsFile: RegularFileProperty
+
+    @get:InputFile
+    @get:PathSensitive(PathSensitivity.NONE)
+    abstract val pronunciationsMetadataFile: RegularFileProperty
+
     @get:OutputDirectory
     abstract val outputDirectory: DirectoryProperty
 
@@ -71,6 +81,16 @@ abstract class GenerateCedictDictionaryTask : DefaultTask() {
             "CC-CEDICT source checksum mismatch: expected $expectedHash, got $actualHash"
         }
 
+        val pronunciationMetadata = Properties().apply {
+            pronunciationsMetadataFile.get().asFile.inputStream().use(::load)
+        }
+        val pronunciationSource = pronunciationsFile.get().asFile
+        val expectedPronunciationHash = pronunciationMetadata.required("compressedSha256")
+        val actualPronunciationHash = pronunciationSource.inputStream().use(::sha256)
+        check(actualPronunciationHash == expectedPronunciationHash) {
+            "IPA source checksum mismatch: expected $expectedPronunciationHash, got $actualPronunciationHash"
+        }
+
         val release = metadata.required("release")
         val expectedEntries = metadata.required("entryCount").toInt()
         val outputDir = outputDirectory.get().asFile.apply { mkdirs() }
@@ -78,8 +98,16 @@ abstract class GenerateCedictDictionaryTask : DefaultTask() {
         val stats =
             source.inputStream().use { compressed ->
                 overridesFile.get().asFile.reader(Charsets.UTF_8).use { overrides ->
-                    outputFile.outputStream().buffered().use { output ->
-                        CedictDictionaryGenerator.generate(compressed, overrides, release, output)
+                    pronunciationSource.inputStream().use { pronunciations ->
+                        outputFile.outputStream().buffered().use { output ->
+                            CedictDictionaryGenerator.generate(
+                                compressed,
+                                overrides,
+                                pronunciations,
+                                release,
+                                output,
+                            )
+                        }
                     }
                 }
             }
@@ -90,10 +118,10 @@ abstract class GenerateCedictDictionaryTask : DefaultTask() {
             "CC-CEDICT source has too few unique simplified headwords: ${stats.uniqueSimplifiedHeadwords}"
         }
         check(outputFile.length() <= MAXIMUM_ASSET_BYTES) {
-            "Generated dictionary exceeds 10 MiB: ${outputFile.length()} bytes"
+            "Generated dictionary exceeds 8 MiB: ${outputFile.length()} bytes"
         }
         logger.lifecycle(
-            "Generated ${stats.generatedTranslations} bilingual entries from " +
+            "Generated ${stats.generatedTranslations} bilingual entries with optional en-US IPA from " +
                 "${stats.uniqueSimplifiedHeadwords} unique CC-CEDICT $release headwords (${outputFile.length()} bytes)",
         )
     }
@@ -115,6 +143,6 @@ abstract class GenerateCedictDictionaryTask : DefaultTask() {
     companion object {
         const val OUTPUT_FILE_NAME = "bilingual_zh_en.hhdict"
         const val MINIMUM_UNIQUE_HEADWORDS = 100_000
-        const val MAXIMUM_ASSET_BYTES = 10L * 1024 * 1024
+        const val MAXIMUM_ASSET_BYTES = 8L * 1024 * 1024
     }
 }

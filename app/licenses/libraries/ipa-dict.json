@@ -1,0 +1,11 @@
+{
+    "uniqueId": "open-dict-data/ipa-dict",
+    "artifactVersion": "43c3570eb3553bdd19fccd2bd0091534889af023",
+    "description": "American English IPA data used for optional offline candidate pronunciations.",
+    "name": "ipa-dict en_US",
+    "website": "https://github.com/open-dict-data/ipa-dict",
+    "tag": "dictionary",
+    "licenses": [
+        "MIT"
+    ]
+}

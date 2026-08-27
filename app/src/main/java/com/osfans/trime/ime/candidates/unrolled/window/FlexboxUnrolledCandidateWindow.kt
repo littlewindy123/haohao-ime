@@ -13,11 +13,13 @@ import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.transition.Slide
 import androidx.transition.Transition
+import com.osfans.trime.data.prefs.AppPrefs
 import com.osfans.trime.data.theme.ColorManager
 import com.osfans.trime.data.theme.KeyActionManager
 import com.osfans.trime.ime.candidates.CandidateViewHolder
 import com.osfans.trime.ime.candidates.bilingual.UNROLLED_CANDIDATE_COLUMNS
 import com.osfans.trime.ime.candidates.bilingual.UNROLLED_CANDIDATE_MIN_HEIGHT_DP
+import com.osfans.trime.ime.candidates.bilingual.UNROLLED_CANDIDATE_PHONETIC_HEIGHT_DP
 import com.osfans.trime.ime.candidates.unrolled.PagingCandidateViewAdapter
 import com.osfans.trime.ime.candidates.unrolled.UnrolledCandidateLayout
 import com.osfans.trime.ime.keyboard.CommonKeyboardActionListener
@@ -44,7 +46,7 @@ class FlexboxUnrolledCandidateWindow : BaseUnrolledCandidateWindow() {
                 itemView.layoutParams =
                     RecyclerView.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
-                        context.dp(UNROLLED_CANDIDATE_MIN_HEIGHT_DP),
+                        context.dp(currentCandidateHeightDp()),
                     )
             }
 
@@ -53,12 +55,21 @@ class FlexboxUnrolledCandidateWindow : BaseUnrolledCandidateWindow() {
                 position: Int,
             ) {
                 super.onBindViewHolder(holder, position)
+                holder.itemView.layoutParams.height = context.dp(currentCandidateHeightDp())
                 bindCandidateUiViewHolder(holder)
             }
         }
     }
 
     override val layoutManager by lazy { GridLayoutManager(context, UNROLLED_CANDIDATE_COLUMNS) }
+
+    private fun currentCandidateHeightDp(): Int = AppPrefs.defaultInstance().candidates.run {
+        if (bilingualTranslation.getValue() && bilingualPhonetic.getValue()) {
+            UNROLLED_CANDIDATE_PHONETIC_HEIGHT_DP
+        } else {
+            UNROLLED_CANDIDATE_MIN_HEIGHT_DP
+        }
+    }
 
     override fun onCreateCandidateLayout(): UnrolledCandidateLayout = UnrolledCandidateLayout(
         context = context,

@@ -33,9 +33,10 @@ import com.osfans.trime.ime.bar.ui.AlwaysUi
 import com.osfans.trime.ime.bar.ui.CandidateUi
 import com.osfans.trime.ime.bar.ui.TabUi
 import com.osfans.trime.ime.broadcast.InputBroadcastReceiver
+import com.osfans.trime.ime.candidates.bilingual.bilingualPhoneticLineHeight
+import com.osfans.trime.ime.candidates.bilingual.bilingualPhoneticTextSize
 import com.osfans.trime.ime.candidates.bilingual.bilingualTranslationLineHeight
 import com.osfans.trime.ime.candidates.bilingual.bilingualTranslationTextSize
-import com.osfans.trime.ime.candidates.bilingual.defaultBilingualCandidatePresenter
 import com.osfans.trime.ime.candidates.compact.CompactCandidateDelegate
 import com.osfans.trime.ime.candidates.unrolled.window.FlexboxUnrolledCandidateWindow
 import com.osfans.trime.ime.core.TrimeInputMethodService
@@ -78,6 +79,13 @@ class InputBarDelegate : InputBroadcastReceiver {
         theme.generalStyle.run {
             val translationTextSize = bilingualTranslationTextSize(candidateTextSize, commentTextSize)
             candidateViewHeight + bilingualTranslationLineHeight(translationTextSize, commentHeight)
+        }
+
+    private val bilingualPhoneticThemedHeight =
+        theme.generalStyle.run {
+            bilingualThemedHeight + bilingualPhoneticLineHeight(
+                bilingualPhoneticTextSize(candidateTextSize),
+            )
         }
 
     private val prefs = AppPrefs.defaultInstance()
@@ -239,11 +247,16 @@ class InputBarDelegate : InputBroadcastReceiver {
             QuickBarStateMachine.TransitionEvent.CandidatesUpdated,
             QuickBarStateMachine.BooleanKey.CandidateEmpty to data.candidates.isEmpty(),
         )
-        val containsTranslation =
-            data.candidates.any { candidate ->
-                defaultBilingualCandidatePresenter.present(candidate).translation != null
-            }
-        val targetHeight = if (containsTranslation) bilingualThemedHeight else themedHeight
+        val hasCandidates = data.candidates.isNotEmpty()
+        val reserveTranslationLine =
+            hasCandidates && prefs.candidates.bilingualTranslation.getValue()
+        val reservePhoneticLine =
+            reserveTranslationLine && prefs.candidates.bilingualPhonetic.getValue()
+        val targetHeight = when {
+            reservePhoneticLine -> bilingualPhoneticThemedHeight
+            reserveTranslationLine -> bilingualThemedHeight
+            else -> themedHeight
+        }
         view.layoutParams?.let { params ->
             val targetHeightPx = context.dp(targetHeight)
             if (params.height != targetHeightPx) {

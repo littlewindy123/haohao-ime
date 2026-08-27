@@ -6,12 +6,16 @@
 package com.osfans.trime.ime.dependency
 
 import android.content.Context
+import androidx.lifecycle.lifecycleScope
 import com.osfans.trime.daemon.RimeSession
 import com.osfans.trime.data.theme.Theme
 import com.osfans.trime.ime.bar.InputBarDelegate
 import com.osfans.trime.ime.broadcast.EnterKeyDisplayDelegate
 import com.osfans.trime.ime.broadcast.InputBroadcastReceiver
 import com.osfans.trime.ime.broadcast.InputBroadcaster
+import com.osfans.trime.ime.candidates.bilingual.CandidateTranslationDelayScheduler
+import com.osfans.trime.ime.candidates.bilingual.CandidateTranslationDelayTask
+import com.osfans.trime.ime.candidates.bilingual.CandidateTranslationRevealController
 import com.osfans.trime.ime.candidates.compact.CompactCandidateDelegate
 import com.osfans.trime.ime.composition.PreeditDelegate
 import com.osfans.trime.ime.core.InputView
@@ -21,6 +25,8 @@ import com.osfans.trime.ime.keyboard.KeyboardWindow
 import com.osfans.trime.ime.popup.PopupDelegate
 import com.osfans.trime.ime.symbol.LiquidWindow
 import com.osfans.trime.ime.window.BoardWindowManager
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import org.kodein.di.DI
 import org.kodein.di.allInstances
 import org.kodein.di.bindSingleton
@@ -47,6 +53,18 @@ class InputDependencyManager(
         bindSingleton { BoardWindowManager() }
         bindSingleton { InputBarDelegate() }
         bindSingleton { CompactCandidateDelegate() }
+        bindSingleton {
+            CandidateTranslationRevealController(
+                scheduler =
+                CandidateTranslationDelayScheduler { delayMillis, block ->
+                    val job = service.lifecycleScope.launch {
+                        delay(delayMillis)
+                        block()
+                    }
+                    CandidateTranslationDelayTask { job.cancel() }
+                },
+            )
+        }
         bindSingleton { KeyboardWindow() }
         bindSingleton { LiquidWindow() }
     }
@@ -56,13 +74,17 @@ class InputDependencyManager(
     }
 
     private val broadcaster: InputBroadcaster by di.instance()
+    private val translationRevealController: CandidateTranslationRevealController by di.instance()
 
     fun start() {
+        translationRevealController.start()
+        broadcaster.addReceiver(translationRevealController)
         val receivers: List<InputBroadcastReceiver> by di.allInstances()
         receivers.forEach { broadcaster.addReceiver(it) }
     }
 
     fun stop() {
+        translationRevealController.stop()
         broadcaster.clear()
     }
 

@@ -25,6 +25,12 @@
     <string name="normal_mode_color_summary">Select desired color</string>
     <string name="reset">Reset</string>
     <string name="reset_hint">Overwrite the same files in shared directory with default built-in assets</string>
+    <string name="keyboard_feedback_preset">Key press feedback</string>
+    <string name="keyboard_feedback_silent">Silent</string>
+    <string name="keyboard_feedback_soft_sound">Soft sound</string>
+    <string name="keyboard_feedback_soft_haptic">Soft haptic</string>
+    <string name="keyboard_feedback_sound_haptic">Sound and haptic</string>
+    <string name="keyboard_feedback_custom">Custom</string>
     <string name="sound_on_keypress">Sound on key press</string>
     <string name="sound_volume">Sound volume on key press</string>
     <string name="vibrate_on_key_press">Vibrate on key press</string>
@@ -166,6 +172,9 @@
     <string name="candidates_window">Candidates Window</string>
     <string name="bilingual_candidate_translation">Show English translations</string>
     <string name="bilingual_candidate_translation_summary">Display an English translation below supported Chinese candidates</string>
+    <string name="bilingual_candidate_translation_delay">English translation delay</string>
+    <string name="bilingual_candidate_phonetic">Show American English IPA</string>
+    <string name="bilingual_candidate_phonetic_summary">Display an optional pronunciation line below English translations</string>
     <string name="show_candidates_window">Show candidates window</string>
     <string name="general">General</string>
     <string name="composing_text">Composing text</string>
@@ -205,8 +214,8 @@
     <string name="horizontal_candidate_never_fill">Never fill width</string>
     <string name="horizontal_candidate_auto_fill">Fill width on demand</string>
     <string name="horizontal_candidate_always_fill">Always fill width</string>
-    <string name="max_span_count">Maximum candidates per row</string>
-    <string name="max_span_count_landscape">Maximum candidates per row (landscape)</string>
+    <string name="max_span_count">Maximum compact candidates (portrait)</string>
+    <string name="max_span_count_landscape">Maximum compact candidates (landscape)</string>
     <string name="user_dictionary">User dictionary</string>
     <string name="import_">Import</string>
     <string name="import_error">Import error</string>

@@ -129,9 +129,9 @@ class UnrolledCandidateLayout(
         this.contentDescription = contentDescription
         background =
             roundedRippleDrawable(
-                ColorManager.getColor("hilited_key_back_color"),
+                ColorManager.getColor("hilited_off_key_back_color"),
                 dp(theme.generalStyle.roundCorner),
-                ColorManager.getColor("key_back_color"),
+                ColorManager.getColor("off_key_back_color"),
             )
         addView(
             TextView(context).apply {
@@ -139,7 +139,7 @@ class UnrolledCandidateLayout(
                 this.textSize = textSize
                 gravity = Gravity.CENTER
                 includeFontPadding = false
-                setTextColor(ColorManager.getColor("key_text_color"))
+                setTextColor(ColorManager.getColor("off_key_text_color"))
                 isClickable = false
                 isFocusable = false
             },

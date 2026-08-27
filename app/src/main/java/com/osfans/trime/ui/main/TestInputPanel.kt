@@ -133,7 +133,7 @@ constructor(
             R.string.number,
             R.string.type_number,
             R.drawable.ic_baseline_numbers_24,
-            InputType.TYPE_CLASS_NUMBER,
+            InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL,
         ),
         InputTypeOption(
             R.string.password,

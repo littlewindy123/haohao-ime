@@ -5,34 +5,151 @@
 # 仅覆盖面向普通中文用户的键盘布局与基础按键。
 __include: trime:/
 
-config_version: "1.0"
+config_version: "2.0"
 name: 好好输入法
 author: HaoHao IME contributors
 
 style:
-  horizontal_gap: 4
+  candidate_padding: 4
+  candidate_spacing: 2
+  candidate_border: 0
+  candidate_border_round: 0
+  candidate_view_height: 30
+  candidate_corner_radius: 8
+  horizontal_gap: 5
   vertical_gap: 6
-  keyboard_padding: 4
-  keyboard_padding_bottom: 4
+  keyboard_padding: 6
+  keyboard_padding_bottom: 6
   keyboard_padding_land: 24
-  keyboard_padding_land_bottom: 4
-  key_height: 58
-  key_text_size: 24
-  key_long_text_size: 17
-  label_text_size: 20
-  keyboard_height: 270
+  keyboard_padding_land_bottom: 6
+  key_height: 56
+  key_text_size: 23
+  key_long_text_size: 16
+  key_press_offset_y: 1
+  label_text_size: 18
+  keyboard_height: 264
   keyboard_height_land: 220
-  round_corner: 10
+  preview_height: 54
+  preview_offset: -10
+  preview_text_size: 36
+  round_corner: 8
   reset_ascii_mode_on_focus_change: false
 
+preedit:
+  horizontal_padding: 10
+  top_end_radius: 8
+  foreground:
+    font_size: 15
+
+window:
+  insets:
+    vertical: 6
+    horizontal: 6
+  item_padding:
+    vertical: 2
+    horizontal: 6
+  corner_radius: 12
+  border: 1
+  shadow: 4
+
 preset_keys:
-  BackSpace: {label: "⌫", repeatable: true, send: BackSpace}
-  Mode_switch: {toggle: ascii_mode, send: SWITCH_CHARSET, states: [中, En]}
-  HaoHaoNumber: {label: "123", send: Eisu_toggle, select: number}
-  HaoHaoSymbols: {label: 符号, send: Eisu_toggle, select: symbols}
-  HaoHaoLetters: {label: ABC, send: Eisu_toggle, select: .default}
-  HaoHaoSpace: {label: 空格, functional: false, send: space}
-  HaoHaoReturn: {label: 回车, send: Return}
+  BackSpace: {label: "⌫", preview: "", repeatable: true, functional: true, send: BackSpace}
+  Shift_L: {label: "⇧", preview: "", functional: true, send: Shift_L, shift_lock: ascii_long}
+  Mode_switch: {toggle: ascii_mode, preview: "", functional: true, send: SWITCH_CHARSET, states: [中, En]}
+  HaoHaoNumber: {label: "123", preview: "", functional: true, send: Eisu_toggle, select: number}
+  HaoHaoSymbols: {label: 符号, preview: "", functional: true, send: Eisu_toggle, select: symbols}
+  HaoHaoLetters: {label: ABC, preview: "", functional: true, send: Eisu_toggle, select: .default}
+  HaoHaoSpace: {label: "", preview: "", functional: false, send: space}
+  HaoHaoReturn: {label: "↵", preview: "", functional: true, send: Return}
+
+preset_color_schemes:
+  default:
+    name: 好好浅色
+    author: HaoHao IME contributors
+    dark_scheme: haohao_dark
+    back_color: 0xf7f8fa
+    root_background: 0xf2f3f5
+    keyboard_back_color: 0xf2f3f5
+    candidate_background: 0xf7f8fa
+    candidate_border_color: 0xd8dce2
+    candidate_separator_color: 0xd8dce2
+    border_color: 0xd8dce2
+    candidate_text_color: 0x202124
+    comment_text_color: 0x737a84
+    label_color: 0x737a84
+    text_color: 0x3f6fe5
+    text_back_color: 0xf7f8fa
+    key_back_color: 0xffffff
+    key_border_color: 0xffffff
+    key_text_color: 0x202124
+    key_symbol_color: 0x737a84
+    off_key_back_color: 0xe2e5ea
+    off_key_text_color: 0x343a40
+    off_key_symbol_color: 0x5f6670
+    on_key_back_color: 0x4f7df3
+    on_key_text_color: 0xffffff
+    on_key_symbol_color: 0xffffff
+    hilited_key_back_color: 0xdce7ff
+    hilited_key_text_color: 0x202124
+    hilited_key_symbol_color: 0x3f6fe5
+    hilited_off_key_back_color: 0xcbd7ee
+    hilited_off_key_text_color: 0x202124
+    hilited_off_key_symbol_color: 0x3f6fe5
+    hilited_on_key_back_color: 0x3f6fe5
+    hilited_on_key_text_color: 0xffffff
+    hilited_on_key_symbol_color: 0xffffff
+    hilited_candidate_back_color: 0xdce7ff
+    hilited_candidate_text_color: 0x202124
+    hilited_comment_text_color: 0x3f6fe5
+    hilited_back_color: 0xdce7ff
+    hilited_text_color: 0x3f6fe5
+    preview_back_color: 0x202124
+    preview_text_color: 0xffffff
+    shadow_color: 0x000000
+
+  haohao_dark:
+    name: 好好深色
+    author: HaoHao IME contributors
+    light_scheme: default
+    back_color: 0x26282d
+    root_background: 0x1f2125
+    keyboard_back_color: 0x1f2125
+    candidate_background: 0x26282d
+    candidate_border_color: 0x3a3e46
+    candidate_separator_color: 0x3a3e46
+    border_color: 0x3a3e46
+    candidate_text_color: 0xf2f4f7
+    comment_text_color: 0xaab0bb
+    label_color: 0xaab0bb
+    text_color: 0x9ab7ff
+    text_back_color: 0x26282d
+    key_back_color: 0x2b2e34
+    key_border_color: 0x2b2e34
+    key_text_color: 0xf2f4f7
+    key_symbol_color: 0xaab0bb
+    off_key_back_color: 0x363a43
+    off_key_text_color: 0xf2f4f7
+    off_key_symbol_color: 0xb8bec8
+    on_key_back_color: 0x7ea2ff
+    on_key_text_color: 0x1f2125
+    on_key_symbol_color: 0x1f2125
+    hilited_key_back_color: 0x46567c
+    hilited_key_text_color: 0xffffff
+    hilited_key_symbol_color: 0xd6e0ff
+    hilited_off_key_back_color: 0x4b5260
+    hilited_off_key_text_color: 0xffffff
+    hilited_off_key_symbol_color: 0xd6e0ff
+    hilited_on_key_back_color: 0x9ab7ff
+    hilited_on_key_text_color: 0x1f2125
+    hilited_on_key_symbol_color: 0x1f2125
+    hilited_candidate_back_color: 0x3b496a
+    hilited_candidate_text_color: 0xffffff
+    hilited_comment_text_color: 0x9ab7ff
+    hilited_back_color: 0x3b496a
+    hilited_text_color: 0x9ab7ff
+    preview_back_color: 0xf2f4f7
+    preview_text_color: 0x1f2125
+    shadow_color: 0x000000
 
 preset_keyboards:
   qwerty:
@@ -44,7 +161,7 @@ preset_keyboards:
     reset_ascii_mode: true
     lock: true
     width: 10
-    height: 58
+    height: 56
     keys:
       - {click: q}
       - {click: w}
@@ -67,7 +184,7 @@ preset_keyboards:
       - {click: k}
       - {click: l}
       - {width: 5}
-      - {width: 15}
+      - {click: Shift_L, width: 15}
       - {click: z}
       - {click: x}
       - {click: c}
@@ -89,7 +206,7 @@ preset_keyboards:
     ascii_mode: 1
     reset_ascii_mode: false
     width: 10
-    height: 58
+    height: 56
     keys:
       - {click: "1"}
       - {click: "2"}
@@ -118,7 +235,7 @@ preset_keyboards:
       - {click: "{"}
       - {click: "}"}
       - {click: ":"}
-      - {click: ";"}
+      - {click: "."}
       - {click: BackSpace, width: 20}
       - {click: HaoHaoLetters, width: 20}
       - {click: HaoHaoSymbols, width: 20}
@@ -131,7 +248,7 @@ preset_keyboards:
     ascii_mode: 0
     reset_ascii_mode: false
     width: 10
-    height: 58
+    height: 56
     keys:
       - {click: "，"}
       - {click: "。"}

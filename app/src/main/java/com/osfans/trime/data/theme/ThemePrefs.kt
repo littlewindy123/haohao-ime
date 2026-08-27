@@ -13,6 +13,7 @@ import com.osfans.trime.data.prefs.PreferenceDelegateEnum
 import com.osfans.trime.data.prefs.PreferenceDelegateOwner
 
 internal const val DEFAULT_THEME_ID = "haohao.trime"
+internal const val DEFAULT_FOLLOW_SYSTEM_DAY_NIGHT = true
 
 class ThemePrefs(
     sharedPrefs: SharedPreferences,
@@ -63,7 +64,7 @@ class ThemePrefs(
         switch(
             R.string.follow_system_day_night_color,
             FOLLOW_SYSTEM_DAY_NIGHT,
-            false,
+            DEFAULT_FOLLOW_SYSTEM_DAY_NIGHT,
         )
 
     companion object {

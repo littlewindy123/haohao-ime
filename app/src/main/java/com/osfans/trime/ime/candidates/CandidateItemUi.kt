@@ -12,6 +12,7 @@ import android.text.TextUtils
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import androidx.annotation.Keep
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.view.isVisible
 import com.osfans.trime.core.CandidateProto
@@ -20,13 +21,20 @@ import com.osfans.trime.data.theme.FontManager
 import com.osfans.trime.data.theme.Theme
 import com.osfans.trime.data.theme.model.GeneralStyle
 import com.osfans.trime.ime.candidates.bilingual.CANDIDATE_TRANSLATION_MAX_WIDTH_DP
+import com.osfans.trime.ime.candidates.bilingual.CandidateTranslationRevealController
+import com.osfans.trime.ime.candidates.bilingual.CandidateTranslationRevealListener
 import com.osfans.trime.ime.candidates.bilingual.UNROLLED_CANDIDATE_MIN_HEIGHT_DP
+import com.osfans.trime.ime.candidates.bilingual.UNROLLED_CANDIDATE_PHONETIC_HEIGHT_DP
+import com.osfans.trime.ime.candidates.bilingual.bilingualPhoneticLineHeight
+import com.osfans.trime.ime.candidates.bilingual.bilingualPhoneticTextSize
 import com.osfans.trime.ime.candidates.bilingual.bilingualTranslationLineHeight
 import com.osfans.trime.ime.candidates.bilingual.bilingualTranslationTextSize
 import com.osfans.trime.ime.candidates.bilingual.defaultBilingualCandidatePresenter
 import com.osfans.trime.ime.core.AutoScaleTextView
+import com.osfans.trime.ime.dependency.InputDependencyManager
 import com.osfans.trime.ime.keyboard.GestureFrame
 import com.osfans.trime.util.roundedRippleDrawable
+import org.kodein.di.instance
 import splitties.dimensions.dp
 import splitties.views.dsl.constraintlayout.baselineToBaselineOf
 import splitties.views.dsl.constraintlayout.bottomOfParent
@@ -65,14 +73,15 @@ class CandidateItemUi(
 
     private val isExpanded = layoutMode == LayoutMode.EXPANDED
     private val itemGravity = Gravity.CENTER
-    private val itemWidth =
-        if (isExpanded) ViewGroup.LayoutParams.MATCH_PARENT else ViewGroup.LayoutParams.WRAP_CONTENT
+    private val itemWidth = ViewGroup.LayoutParams.MATCH_PARENT
 
     private val textSize = theme.generalStyle.candidateTextSize
     private val commentSize = theme.generalStyle.commentTextSize
     private val translationSize = bilingualTranslationTextSize(textSize, commentSize)
     private val translationLineHeight =
         bilingualTranslationLineHeight(translationSize, theme.generalStyle.commentHeight)
+    private val phoneticSize = bilingualPhoneticTextSize(textSize)
+    private val phoneticLineHeight = bilingualPhoneticLineHeight(phoneticSize)
 
     private val textFont = FontManager.getTypeface("candidate_font")
     private val commentFont = FontManager.getTypeface("comment_font")
@@ -87,6 +96,27 @@ class CandidateItemUi(
     private val commentPosition = theme.generalStyle.commentPosition
     private val commentVerticalBias = theme.generalStyle.commentVerticalBias
     private val candidateTextVerticalBias = theme.generalStyle.candidateTextVerticalBias
+
+    private val di = InputDependencyManager.getInstance().di
+    private val revealController: CandidateTranslationRevealController by di.instance()
+    private var boundItem: CandidateProto? = null
+    private var boundHighlighted = false
+
+    @Keep
+    private val revealListener = CandidateTranslationRevealListener {
+        boundItem?.let { item -> update(item, boundHighlighted) }
+    }
+
+    private val attachStateListener =
+        object : View.OnAttachStateChangeListener {
+            override fun onViewAttachedToWindow(view: View) {
+                revealController.addListener(revealListener)
+            }
+
+            override fun onViewDetachedFromWindow(view: View) {
+                revealController.removeListener(revealListener)
+            }
+        }
 
     private val text =
         view(::AutoScaleTextView) {
@@ -112,6 +142,19 @@ class CandidateItemUi(
         textView {
             id = View.generateViewId()
             this.textSize = translationSize
+            typeface = commentFont
+            isSingleLine = true
+            ellipsize = TextUtils.TruncateAt.END
+            if (!isExpanded) maxWidth = dp(CANDIDATE_TRANSLATION_MAX_WIDTH_DP)
+            gravity = itemGravity
+            horizontalPadding = dp(theme.generalStyle.candidatePadding)
+            isVisible = false
+        }
+
+    private val phonetic =
+        textView {
+            id = View.generateViewId()
+            this.textSize = phoneticSize
             typeface = commentFont
             isSingleLine = true
             ellipsize = TextUtils.TruncateAt.END
@@ -197,10 +240,17 @@ class CandidateItemUi(
                 gravity = itemGravity
             },
         )
+        add(
+            phonetic,
+            lParams(itemWidth, dp(phoneticLineHeight)) {
+                gravity = itemGravity
+            },
+        )
     }
 
     override val root = view(::GestureFrame) {
         if (isExpanded) minimumHeight = dp(UNROLLED_CANDIDATE_MIN_HEIGHT_DP)
+        addOnAttachStateChangeListener(attachStateListener)
         /**
          * candidate long press feedback is handled by `showCandidateActionMenu`
          */
@@ -217,6 +267,8 @@ class CandidateItemUi(
         item: CandidateProto,
         highlighted: Boolean,
     ) {
+        boundItem = item
+        boundHighlighted = highlighted
         val presentation = defaultBilingualCandidatePresenter.present(item)
         val tColor = if (highlighted) hlTextColor else textColor
         val cColor = if (highlighted) hlCommentColor else commentColor
@@ -235,6 +287,30 @@ class CandidateItemUi(
         val translationText = presentation.translation
         translation.text = translationText.orEmpty()
         translation.setTextColor(cColor)
-        translation.isVisible = !translationText.isNullOrEmpty()
+        translation.visibility =
+            when {
+                !translationText.isNullOrEmpty() -> View.VISIBLE
+                presentation.reserveTranslationLine -> View.INVISIBLE
+                else -> View.GONE
+            }
+
+        val phoneticText = presentation.phonetic
+        phonetic.text = phoneticText.orEmpty()
+        phonetic.setTextColor(cColor)
+        phonetic.visibility =
+            when {
+                !phoneticText.isNullOrEmpty() -> View.VISIBLE
+                presentation.reservePhoneticLine -> View.INVISIBLE
+                else -> View.GONE
+            }
+        if (isExpanded) {
+            root.minimumHeight = ctx.dp(
+                if (presentation.reservePhoneticLine) {
+                    UNROLLED_CANDIDATE_PHONETIC_HEIGHT_DP
+                } else {
+                    UNROLLED_CANDIDATE_MIN_HEIGHT_DP
+                },
+            )
+        }
     }
 }

@@ -25,6 +25,12 @@
     <string name="normal_mode_color_summary">選取想要的配色</string>
     <string name="reset">回廠</string>
     <string name="reset_hint">使用預設的內建設置覆蓋共享資料夾下相同檔案</string>
+    <string name="keyboard_feedback_preset">敲擊回饋</string>
+    <string name="keyboard_feedback_silent">靜音</string>
+    <string name="keyboard_feedback_soft_sound">輕聲音</string>
+    <string name="keyboard_feedback_soft_haptic">輕觸感</string>
+    <string name="keyboard_feedback_sound_haptic">聲音和觸感</string>
+    <string name="keyboard_feedback_custom">自訂</string>
     <string name="sound_on_keypress">按鍵聲音</string>
     <string name="sound_volume">按鍵音量</string>
     <string name="vibrate_on_key_press">按鍵時振動</string>
@@ -202,8 +208,8 @@
     <string name="horizontal_candidate_never_fill">從不填充寬度</string>
     <string name="horizontal_candidate_auto_fill">按需填充寬度</string>
     <string name="horizontal_candidate_always_fill">總是填充寬度</string>
-    <string name="max_span_count">每行最大候選詞數</string>
-    <string name="max_span_count_landscape">每行最大候選詞數(橫屏)</string>
+    <string name="max_span_count">豎屏緊湊欄最多候選數</string>
+    <string name="max_span_count_landscape">橫屏緊湊欄最多候選數</string>
     <string name="user_dictionary">使用者詞典</string>
     <string name="exported_n_entries">已匯出 %1$d 個詞條</string>
     <string name="backed_up_x_to_sync_dir">已備份 %1$s 到同步目錄</string>

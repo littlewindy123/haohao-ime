@@ -38,22 +38,36 @@ class CedictDictionaryGeneratorTest :
                 """.trimIndent()
             val overrides = "# common candidates\n中国\tChina\n学习\tstudy\n"
 
-            val first = generate(source, overrides)
-            val second = generate(source, overrides)
+            val pronunciations = listOf(
+                "china\t/\u02c8t\u0283a\u026an\u0259/",
+                "study\t/\u02c8st\u028cdi/",
+                "weather\t/\u02c8w\u025b\u00f0\u0259\u0279/",
+                "television\t/\u02c8t\u025bl\u0259\u02ccv\u026a\u0292\u0259n/",
+                "medieval\t/\u02ccmidi\u02c8iv\u0259l/",
+                "to\t/tu/",
+                "look\t/l\u028ak/",
+                "askance\t/\u0259\u02c8sk\u00e6ns/",
+                "compare\t/k\u0259m\u02c8p\u025b\u0279/",
+                "niobium\t/na\u026a\u02c8o\u028abi\u0259m/",
+                "first\t/\u02c8f\u025d\u02d0st/",
+            ).joinToString("\n")
+
+            val first = generate(source, overrides, pronunciations)
+            val second = generate(source, overrides, pronunciations)
 
             first shouldBe second
             sha256(first) shouldBe sha256(second)
             CedictDictionaryGenerator.readForTesting(first).entries.shouldContainExactly(
-                "中古" to "medieval",
-                "中国" to "China",
-                "倪" to "to look askance",
-                "天气" to "weather",
-                "学习" to "study",
-                "比" to "to compare",
-                "电视" to "television",
-                "看" to "to look",
-                "重复" to "first",
-                "铌" to "niobium",
+                CedictDictionaryGenerator.GeneratedEntry("中古", "medieval", "/\u02ccmidi\u02c8iv\u0259l/"),
+                CedictDictionaryGenerator.GeneratedEntry("中国", "China", "/\u02c8t\u0283a\u026an\u0259/"),
+                CedictDictionaryGenerator.GeneratedEntry("倪", "to look askance", "/tu l\u028ak \u0259\u02c8sk\u00e6ns/"),
+                CedictDictionaryGenerator.GeneratedEntry("天气", "weather", "/\u02c8w\u025b\u00f0\u0259\u0279/"),
+                CedictDictionaryGenerator.GeneratedEntry("学习", "study", "/\u02c8st\u028cdi/"),
+                CedictDictionaryGenerator.GeneratedEntry("比", "to compare", "/tu k\u0259m\u02c8p\u025b\u0279/"),
+                CedictDictionaryGenerator.GeneratedEntry("电视", "television", "/\u02c8t\u025bl\u0259\u02ccv\u026a\u0292\u0259n/"),
+                CedictDictionaryGenerator.GeneratedEntry("看", "to look", "/tu l\u028ak/"),
+                CedictDictionaryGenerator.GeneratedEntry("重复", "first", "/\u02c8f\u025d\u02d0st/"),
+                CedictDictionaryGenerator.GeneratedEntry("铌", "niobium", "/na\u026a\u02c8o\u028abi\u0259m/"),
             )
         }
 
@@ -64,10 +78,14 @@ class CedictDictionaryGeneratorTest :
                 長詞 长词 [chang2 ci2] /this definition is definitely much too long/
                 """.trimIndent()
 
-            val dictionary = CedictDictionaryGenerator.readForTesting(generate(source, ""))
+            val dictionary = CedictDictionaryGenerator.readForTesting(
+                generate(source, "", "computer\t/k\u0259m\u02c8pjut\u0259\u0279/"),
+            )
 
             dictionary.release shouldBe "2026-08-24"
-            dictionary.entries.shouldContainExactly("电脑" to "computer")
+            dictionary.entries.shouldContainExactly(
+                CedictDictionaryGenerator.GeneratedEntry("电脑", "computer", "/k\u0259m\u02c8pjut\u0259\u0279/"),
+            )
         }
 
         "generated translations never expose metadata brackets" {
@@ -77,31 +95,66 @@ class CedictDictionaryGeneratorTest :
                 條目 条目 [tiao2 mu4] /entry [in a dictionary]/
                 """.trimIndent()
 
-            val dictionary = CedictDictionaryGenerator.readForTesting(generate(source, ""))
+            val dictionary = CedictDictionaryGenerator.readForTesting(
+                generate(source, "", "entry\t/\u02c8\u025bntri/\nplain\t/ple\u026an/\nword\t/w\u025d\u02d0d/"),
+            )
 
             dictionary.entries.shouldContainExactly(
-                "条目" to "entry",
-                "词" to "plain word",
+                CedictDictionaryGenerator.GeneratedEntry("条目", "entry", "/\u02c8\u025bntri/"),
+                CedictDictionaryGenerator.GeneratedEntry("词", "plain word", "/ple\u026an w\u025d\u02d0d/"),
             )
-            dictionary.entries.forEach { (_, translation) ->
+            dictionary.entries.forEach { (_, translation, _) ->
                 translation.contains('(') shouldBe false
                 translation.contains(')') shouldBe false
                 translation.contains('[') shouldBe false
                 translation.contains(']') shouldBe false
             }
         }
+
+        "IPA selection is deterministic and never emits partial pronunciations" {
+            val source =
+                """
+                問候 问候 [wen4 hou4] /hello/
+                輸入法 输入法 [shu1 ru4 fa3] /input method/
+                複合 复合 [fu4 he2] /well-known word/
+                缺失 缺失 [que1 shi1] /known missing/
+                """.trimIndent().replace("\\t", "\t")
+            val pronunciations = listOf(
+                "hello\t/h\u0259\u02c8\u026bo\u028a/, /h\u025b\u02c8\u026bo\u028a/",
+                "input\t/\u02c8\u026an\u02ccp\u028at/",
+                "method\t/\u02c8m\u025b\u03b8\u0259d/",
+                "well\t/w\u025bl/",
+                "known\t/no\u028an/",
+                "word\t/w\u025d\u02d0d/",
+            ).joinToString("\n")
+
+            CedictDictionaryGenerator.readForTesting(
+                generate(source, "", pronunciations),
+            ).entries.shouldContainExactly(
+                CedictDictionaryGenerator.GeneratedEntry("复合", "well-known word", "/w\u025bl no\u028an w\u025d\u02d0d/"),
+                CedictDictionaryGenerator.GeneratedEntry("缺失", "known missing", null),
+                CedictDictionaryGenerator.GeneratedEntry("输入法", "input method", "/\u02c8\u026an\u02ccp\u028at \u02c8m\u025b\u03b8\u0259d/"),
+                CedictDictionaryGenerator.GeneratedEntry("问候", "hello", "/h\u0259\u02c8\u026bo\u028a/"),
+            )
+        }
     }) {
     companion object {
         private fun generate(
             source: String,
             overrides: String,
+            pronunciations: String = "",
         ): ByteArray {
             val compressed = ByteArrayOutputStream()
             GZIPOutputStream(compressed).bufferedWriter(Charsets.UTF_8).use { it.write(source) }
+            val compressedPronunciations = ByteArrayOutputStream()
+            GZIPOutputStream(compressedPronunciations).bufferedWriter(Charsets.UTF_8).use {
+                it.write(pronunciations)
+            }
             val output = ByteArrayOutputStream()
             CedictDictionaryGenerator.generate(
                 source = ByteArrayInputStream(compressed.toByteArray()),
                 overrides = overrides.reader(),
+                pronunciations = ByteArrayInputStream(compressedPronunciations.toByteArray()),
                 release = "2026-08-24",
                 output = output,
             )
