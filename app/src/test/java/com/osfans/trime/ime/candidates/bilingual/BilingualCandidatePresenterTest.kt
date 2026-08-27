@@ -5,6 +5,7 @@
 package com.osfans.trime.ime.candidates.bilingual
 
 import com.osfans.trime.core.CandidateProto
+import com.osfans.trime.ime.candidates.unrolled.toDisplayableUnrolledCandidates
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
 
@@ -54,8 +55,27 @@ class BilingualCandidatePresenterTest :
             bilingualTranslationLineHeight(textSize, configuredHeight = 12) shouldBe 24
         }
 
-        "candidate layout keeps two readable columns and caps long translations" {
-            UNROLLED_CANDIDATE_COLUMNS shouldBe 2
+        "expanded candidate layout uses a dense three-column grid" {
+            UNROLLED_CANDIDATE_COLUMNS shouldBe 3
+            UNROLLED_CANDIDATE_MIN_HEIGHT_DP shouldBe 72
+            UNROLLED_CANDIDATE_ACTION_RAIL_WIDTH_DP shouldBe 60
+            UNROLLED_CANDIDATE_ACTION_HEIGHT_DP shouldBe 64
+            UNROLLED_CANDIDATE_ACTION_GAP_DP shouldBe 6
+            UNROLLED_CANDIDATE_START_INDEX shouldBe 0
             CANDIDATE_TRANSLATION_MAX_WIDTH_DP shouldBe 160
+        }
+
+        "expanded candidate filtering preserves original Rime indexes" {
+            val rareExtensionCharacter = String(Character.toChars(0x2B500))
+            val candidates = arrayOf(
+                CandidateProto(text = "炼", comment = "", label = ""),
+                CandidateProto(text = rareExtensionCharacter, comment = "", label = ""),
+                CandidateProto(text = "恋", comment = "", label = ""),
+            )
+
+            val visible = candidates.toDisplayableUnrolledCandidates(startIndex = 12)
+
+            visible.map { it.candidate.text } shouldBe listOf("炼", "恋")
+            visible.map { it.globalIndex } shouldBe listOf(12, 14)
         }
     })

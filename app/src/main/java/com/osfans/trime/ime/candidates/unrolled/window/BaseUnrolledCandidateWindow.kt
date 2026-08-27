@@ -5,8 +5,6 @@
 
 package com.osfans.trime.ime.candidates.unrolled.window
 
-import android.graphics.drawable.ShapeDrawable
-import android.graphics.drawable.shapes.RectShape
 import android.view.View
 import androidx.lifecycle.LifecycleCoroutineScope
 import androidx.lifecycle.findViewTreeLifecycleOwner
@@ -14,14 +12,15 @@ import androidx.lifecycle.lifecycleScope
 import androidx.paging.Pager
 import androidx.paging.PagingConfig
 import androidx.recyclerview.widget.RecyclerView
+import com.osfans.trime.core.Candidates
 import com.osfans.trime.daemon.RimeSession
 import com.osfans.trime.daemon.launchOnReady
-import com.osfans.trime.data.theme.ColorManager
 import com.osfans.trime.data.theme.Theme
 import com.osfans.trime.ime.bar.InputBarDelegate
 import com.osfans.trime.ime.bar.UnrollButtonStateMachine
 import com.osfans.trime.ime.broadcast.InputBroadcastReceiver
 import com.osfans.trime.ime.candidates.CandidateViewHolder
+import com.osfans.trime.ime.candidates.bilingual.UNROLLED_CANDIDATE_START_INDEX
 import com.osfans.trime.ime.candidates.compact.CompactCandidateDelegate
 import com.osfans.trime.ime.candidates.unrolled.CandidatesPagingSource
 import com.osfans.trime.ime.candidates.unrolled.PagingCandidateViewAdapter
@@ -35,8 +34,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import org.kodein.di.instance
-import splitties.dimensions.dp
-import kotlin.math.max
 
 abstract class BaseUnrolledCandidateWindow :
     BoardWindow.NoBarBoardWindow(),
@@ -51,16 +48,8 @@ abstract class BaseUnrolledCandidateWindow :
 
     private lateinit var lifecycleCoroutineScope: LifecycleCoroutineScope
     private lateinit var candidateLayout: UnrolledCandidateLayout
-
-    protected val separatorDrawable by lazy {
-        ShapeDrawable(RectShape()).apply {
-            val spacing = theme.generalStyle.candidateSpacing
-            val intrinsicSize = max(spacing, context.dp(spacing)).toInt()
-            intrinsicWidth = intrinsicSize
-            intrinsicHeight = intrinsicSize
-            paint.color = ColorManager.getColor("candidate_separator_color")
-        }
-    }
+    private var totalCandidates = 0
+    private var hasCandidates = false
 
     abstract fun onCreateCandidateLayout(): UnrolledCandidateLayout
 
@@ -78,8 +67,6 @@ abstract class BaseUnrolledCandidateWindow :
     abstract val adapter: PagingCandidateViewAdapter
     abstract val layoutManager: RecyclerView.LayoutManager
 
-    private var offsetJob: Job? = null
-
     private val candidatesPager by lazy {
         Pager(
             config = PagingConfig(
@@ -89,7 +76,7 @@ abstract class BaseUnrolledCandidateWindow :
             pagingSourceFactory = {
                 CandidatesPagingSource(
                     rime,
-                    total = compactCandidate.adapter.total,
+                    total = totalCandidates,
                     offset = adapter.offset,
                 )
             },
@@ -100,27 +87,34 @@ abstract class BaseUnrolledCandidateWindow :
 
     override fun onAttached() {
         lifecycleCoroutineScope = candidateLayout.findViewTreeLifecycleOwner()!!.lifecycleScope
+        bar.setUnrolledCandidatesVisible(true)
         bar.unrollButtonStateMachine.push(UnrollButtonStateMachine.TransitionEvent.UnrolledCandidatesAttached)
-        offsetJob =
-            lifecycleCoroutineScope.launch {
-                compactCandidate.unrolledCandidateOffset.collect {
-                    if (it <= 0) {
-                        windowManager.attachWindow(KeyboardWindow)
-                    } else {
-                        candidateLayout.resetPosition()
-                        adapter.refreshWith(
-                            offset = it,
-                            highlightedIndex = compactCandidate.adapter.highlightedIdx,
-                        )
-                    }
-                }
-            }
+        totalCandidates = compactCandidate.adapter.total
+        hasCandidates = totalCandidates != 0
+        adapter.refreshWith(
+            offset = UNROLLED_CANDIDATE_START_INDEX,
+            highlightedIndex = compactCandidate.adapter.highlightedIdx,
+        )
         candidatesSubmitJob =
             lifecycleCoroutineScope.launch {
                 candidatesPager.flow.collectLatest {
                     adapter.submitData(it)
                 }
             }
+    }
+
+    override fun onCandidateListUpdate(data: Candidates.Bulk) {
+        totalCandidates = data.total
+        hasCandidates = data.candidates.isNotEmpty()
+        if (!hasCandidates) {
+            windowManager.attachWindow(KeyboardWindow)
+            return
+        }
+        candidateLayout.resetPosition()
+        adapter.refreshWith(
+            offset = UNROLLED_CANDIDATE_START_INDEX,
+            highlightedIndex = data.highlighted,
+        )
     }
 
     fun bindCandidateUiViewHolder(holder: CandidateViewHolder) {
@@ -136,12 +130,12 @@ abstract class BaseUnrolledCandidateWindow :
     }
 
     override fun onDetached() {
+        bar.setUnrolledCandidatesVisible(false)
         bar.unrollButtonStateMachine.push(
             UnrollButtonStateMachine.TransitionEvent.UnrolledCandidatesDetached,
             UnrollButtonStateMachine.BooleanKey.UnrolledCandidatesEmpty to
-                (compactCandidate.adapter.total == adapter.offset),
+                !hasCandidates,
         )
-        offsetJob?.cancel()
         candidatesSubmitJob?.cancel()
     }
 }

@@ -123,6 +123,7 @@
     <string name="loading">Loading</string>
     <string name="success">success</string>
     <string name="failure">failure</string>
+    <string name="unrolled_candidate_return">Back</string>
     <string name="delete">Delete</string>
     <string name="edit">Edit</string>
     <string name="collect">Collect</string>

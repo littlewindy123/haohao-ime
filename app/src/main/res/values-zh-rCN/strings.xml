@@ -121,6 +121,7 @@
     <string name="success">成功</string>
     <string name="failure">失败</string>
     <string name="reset_hint">用默认的内置配置覆盖共享目录中的相同文件</string>
+    <string name="unrolled_candidate_return">返回</string>
     <string name="delete">删除</string>
     <string name="edit">编辑</string>
     <string name="collect">收藏</string>

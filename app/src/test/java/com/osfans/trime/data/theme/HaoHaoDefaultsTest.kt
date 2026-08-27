@@ -6,6 +6,7 @@
 package com.osfans.trime.data.theme
 
 import com.osfans.trime.data.base.DEFAULT_SCHEMA_ID
+import com.osfans.trime.data.base.SIMPLIFIED_SCHEMA_CUSTOM_PATCH
 import com.osfans.trime.data.theme.model.KeyActionToken
 import com.osfans.trime.data.theme.model.TextKeyboard
 import com.osfans.trime.ime.keyboard.KeyBehavior
@@ -49,6 +50,8 @@ class HaoHaoDefaultsTest :
         "fresh installs default to HaoHao theme and simplified Luna Pinyin" {
             DEFAULT_THEME_ID shouldBe "haohao.trime"
             DEFAULT_SCHEMA_ID shouldBe "luna_pinyin_simp"
+            SIMPLIFIED_SCHEMA_CUSTOM_PATCH.contains("- charset_filter") shouldBe true
+            SIMPLIFIED_SCHEMA_CUSTOM_PATCH.contains("translator/enable_charset_filter: true") shouldBe true
             config["__include"]?.string shouldBe "trime:/"
             config["name"]?.string shouldBe "好好输入法"
         }

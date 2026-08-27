@@ -89,6 +89,7 @@ class InputBarDelegate : InputBroadcastReceiver {
     private val clipboardSuggestionTimeout by prefs.clipboard.clipboardSuggestionTimeout
 
     private var clipboardTimeoutJob: Job? = null
+    private var unrolledCandidatesVisible = false
 
     private var isClipboardFresh: Boolean = false
     private var isInlineSuggestionPresent: Boolean = false
@@ -227,6 +228,12 @@ class InputBarDelegate : InputBroadcastReceiver {
         candidateUi.unrollButton.visibility = if (enabled) View.VISIBLE else View.INVISIBLE
     }
 
+    internal fun setUnrolledCandidatesVisible(visible: Boolean) {
+        if (unrolledCandidatesVisible == visible) return
+        unrolledCandidatesVisible = visible
+        view.visibility = if (visible || hideQuickBar) View.GONE else View.VISIBLE
+    }
+
     override fun onCandidateListUpdate(data: Candidates.Bulk) {
         barStateMachine.push(
             QuickBarStateMachine.TransitionEvent.CandidatesUpdated,
@@ -261,7 +268,7 @@ class InputBarDelegate : InputBroadcastReceiver {
     val view by lazy {
         ViewAnimator(context).apply {
             visibility =
-                if (hideQuickBar) {
+                if (hideQuickBar || unrolledCandidatesVisible) {
                     View.GONE
                 } else {
                     View.VISIBLE

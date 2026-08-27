@@ -9,7 +9,9 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Color
 import android.text.TextUtils
+import android.view.Gravity
 import android.view.View
+import android.view.ViewGroup
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.view.isVisible
 import com.osfans.trime.core.CandidateProto
@@ -18,6 +20,7 @@ import com.osfans.trime.data.theme.FontManager
 import com.osfans.trime.data.theme.Theme
 import com.osfans.trime.data.theme.model.GeneralStyle
 import com.osfans.trime.ime.candidates.bilingual.CANDIDATE_TRANSLATION_MAX_WIDTH_DP
+import com.osfans.trime.ime.candidates.bilingual.UNROLLED_CANDIDATE_MIN_HEIGHT_DP
 import com.osfans.trime.ime.candidates.bilingual.bilingualTranslationLineHeight
 import com.osfans.trime.ime.candidates.bilingual.bilingualTranslationTextSize
 import com.osfans.trime.ime.candidates.bilingual.defaultBilingualCandidatePresenter
@@ -47,13 +50,23 @@ import splitties.views.dsl.core.textView
 import splitties.views.dsl.core.verticalLayout
 import splitties.views.dsl.core.view
 import splitties.views.dsl.core.wrapContent
-import splitties.views.gravityCenter
 import splitties.views.horizontalPadding
 
 class CandidateItemUi(
     override val ctx: Context,
     private val theme: Theme,
+    private val layoutMode: LayoutMode = LayoutMode.COMPACT,
 ) : Ui {
+
+    enum class LayoutMode {
+        COMPACT,
+        EXPANDED,
+    }
+
+    private val isExpanded = layoutMode == LayoutMode.EXPANDED
+    private val itemGravity = Gravity.CENTER
+    private val itemWidth =
+        if (isExpanded) ViewGroup.LayoutParams.MATCH_PARENT else ViewGroup.LayoutParams.WRAP_CONTENT
 
     private val textSize = theme.generalStyle.candidateTextSize
     private val commentSize = theme.generalStyle.commentTextSize
@@ -81,7 +94,7 @@ class CandidateItemUi(
             this.textSize = this@CandidateItemUi.textSize
             typeface = textFont
             isSingleLine = true
-            gravity = gravityCenter
+            gravity = itemGravity
             scaleMode = AutoScaleTextView.Mode.Proportional
         }
 
@@ -91,7 +104,7 @@ class CandidateItemUi(
             this.textSize = commentSize
             typeface = commentFont
             isSingleLine = true
-            gravity = gravityCenter
+            gravity = itemGravity
             scaleMode = AutoScaleTextView.Mode.Proportional
         }
 
@@ -102,8 +115,8 @@ class CandidateItemUi(
             typeface = commentFont
             isSingleLine = true
             ellipsize = TextUtils.TruncateAt.END
-            maxWidth = dp(CANDIDATE_TRANSLATION_MAX_WIDTH_DP)
-            gravity = gravityCenter
+            if (!isExpanded) maxWidth = dp(CANDIDATE_TRANSLATION_MAX_WIDTH_DP)
+            gravity = itemGravity
             horizontalPadding = dp(theme.generalStyle.candidatePadding)
             isVisible = false
         }
@@ -119,6 +132,7 @@ class CandidateItemUi(
                         startOfParent()
                         endToStartOf(comment)
                         horizontalChainStyle = ConstraintLayout.LayoutParams.CHAIN_PACKED
+                        horizontalBias = 0.5f
                     },
                 )
                 add(
@@ -170,29 +184,30 @@ class CandidateItemUi(
     }
 
     private val stackedContent = verticalLayout {
-        gravity = gravityCenter
+        gravity = itemGravity
         add(
             content,
-            lParams(wrapContent, dp(theme.generalStyle.candidateViewHeight)) {
-                gravity = gravityCenter
+            lParams(itemWidth, dp(theme.generalStyle.candidateViewHeight)) {
+                gravity = itemGravity
             },
         )
         add(
             translation,
-            lParams(wrapContent, dp(translationLineHeight)) {
-                gravity = gravityCenter
+            lParams(itemWidth, dp(translationLineHeight)) {
+                gravity = itemGravity
             },
         )
     }
 
     override val root = view(::GestureFrame) {
+        if (isExpanded) minimumHeight = dp(UNROLLED_CANDIDATE_MIN_HEIGHT_DP)
         /**
          * candidate long press feedback is handled by `showCandidateActionMenu`
          */
         add(
             stackedContent,
-            lParams(wrapContent, wrapContent) {
-                gravity = gravityCenter
+            lParams(itemWidth, wrapContent) {
+                gravity = itemGravity
             },
         )
     }
@@ -205,7 +220,7 @@ class CandidateItemUi(
         val presentation = defaultBilingualCandidatePresenter.present(item)
         val tColor = if (highlighted) hlTextColor else textColor
         val cColor = if (highlighted) hlCommentColor else commentColor
-        val cornerRadius = ctx.dp(theme.generalStyle.candidateCornerRadius)
+        val cornerRadius = if (isExpanded) 0f else ctx.dp(theme.generalStyle.candidateCornerRadius)
         val contentColor = if (highlighted) hlBackColor else Color.TRANSPARENT
 
         root.background = roundedRippleDrawable(hlBackColor, cornerRadius, contentColor)

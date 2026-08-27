@@ -8,25 +8,24 @@ package com.osfans.trime.ime.candidates.unrolled
 import android.view.ViewGroup
 import androidx.paging.PagingDataAdapter
 import androidx.recyclerview.widget.DiffUtil
-import com.osfans.trime.core.CandidateProto
 import com.osfans.trime.data.theme.Theme
 import com.osfans.trime.ime.candidates.CandidateItemUi
 import com.osfans.trime.ime.candidates.CandidateViewHolder
 
 open class PagingCandidateViewAdapter(
     val theme: Theme,
-) : PagingDataAdapter<CandidateProto, CandidateViewHolder>(diffCallback) {
+) : PagingDataAdapter<UnrolledCandidateItem, CandidateViewHolder>(diffCallback) {
     companion object {
         private val diffCallback =
-            object : DiffUtil.ItemCallback<CandidateProto>() {
+            object : DiffUtil.ItemCallback<UnrolledCandidateItem>() {
                 override fun areItemsTheSame(
-                    oldItem: CandidateProto,
-                    newItem: CandidateProto,
-                ): Boolean = oldItem === newItem
+                    oldItem: UnrolledCandidateItem,
+                    newItem: UnrolledCandidateItem,
+                ): Boolean = oldItem.globalIndex == newItem.globalIndex
 
                 override fun areContentsTheSame(
-                    oldItem: CandidateProto,
-                    newItem: CandidateProto,
+                    oldItem: UnrolledCandidateItem,
+                    newItem: UnrolledCandidateItem,
                 ): Boolean = oldItem == newItem
             }
     }
@@ -46,18 +45,21 @@ open class PagingCandidateViewAdapter(
     override fun onCreateViewHolder(
         parent: ViewGroup,
         viewType: Int,
-    ): CandidateViewHolder = CandidateViewHolder(CandidateItemUi(parent.context, theme))
+    ): CandidateViewHolder = CandidateViewHolder(
+        CandidateItemUi(parent.context, theme, CandidateItemUi.LayoutMode.EXPANDED),
+    )
 
     override fun onBindViewHolder(
         holder: CandidateViewHolder,
         position: Int,
     ) {
         val item = getItem(position) ?: return
-        val idx = position + offset
+        val candidate = item.candidate
+        val idx = item.globalIndex
         val highlighted = idx == highlightedIndex
-        holder.ui.update(item, highlighted)
-        holder.text = item.text
-        holder.comment = item.comment
+        holder.ui.update(candidate, highlighted)
+        holder.text = candidate.text
+        holder.comment = candidate.comment
         holder.idx = idx
     }
 }

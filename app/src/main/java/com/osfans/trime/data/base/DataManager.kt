@@ -18,9 +18,16 @@ import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
 internal const val DEFAULT_SCHEMA_ID = "luna_pinyin_simp"
+internal const val SIMPLIFIED_SCHEMA_CUSTOM_PATCH = """
+  patch:
+    translator/enable_charset_filter: true
+    engine/filters/+:
+      - charset_filter
+"""
 
 object DataManager {
     private const val DEFAULT_CUSTOM_FILE_NAME = "default.custom.yaml"
+    private const val SIMPLIFIED_SCHEMA_CUSTOM_FILE_NAME = "luna_pinyin_simp.custom.yaml"
 
     private const val DATA_CHECKSUMS_NAME = "checksums.json"
 
@@ -106,10 +113,15 @@ object DataManager {
 
         ResourceUtils.copyFile(DATA_CHECKSUMS_NAME, dataDir.resolve(DATA_CHECKSUMS_NAME).absolutePath)
 
-        val custom = userDataDir.resolve(DEFAULT_CUSTOM_FILE_NAME)
-        if (!custom.exists()) {
-            if (custom.createNewFile()) {
-                custom.writeText(SCHEMA_LIST_CUSTOM_PATCH.trimIndent())
+        listOf(
+            DEFAULT_CUSTOM_FILE_NAME to SCHEMA_LIST_CUSTOM_PATCH,
+            SIMPLIFIED_SCHEMA_CUSTOM_FILE_NAME to SIMPLIFIED_SCHEMA_CUSTOM_PATCH,
+        ).forEach { (fileName, patch) ->
+            val custom = userDataDir.resolve(fileName)
+            if (!custom.exists()) {
+                if (custom.createNewFile()) {
+                    custom.writeText(patch.trimIndent())
+                }
             }
         }
 

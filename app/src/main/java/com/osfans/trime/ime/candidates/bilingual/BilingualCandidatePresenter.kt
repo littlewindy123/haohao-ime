@@ -11,7 +11,12 @@ import kotlin.math.ceil
 
 private const val TRANSLATION_TEXT_SIZE_RATIO = 0.9f
 private const val TRANSLATION_LINE_HEIGHT_RATIO = 1.2f
-internal const val UNROLLED_CANDIDATE_COLUMNS = 2
+internal const val UNROLLED_CANDIDATE_COLUMNS = 3
+internal const val UNROLLED_CANDIDATE_MIN_HEIGHT_DP = 72
+internal const val UNROLLED_CANDIDATE_ACTION_RAIL_WIDTH_DP = 60
+internal const val UNROLLED_CANDIDATE_ACTION_HEIGHT_DP = 64
+internal const val UNROLLED_CANDIDATE_ACTION_GAP_DP = 6
+internal const val UNROLLED_CANDIDATE_START_INDEX = 0
 internal const val CANDIDATE_TRANSLATION_MAX_WIDTH_DP = 160
 
 internal fun bilingualTranslationTextSize(

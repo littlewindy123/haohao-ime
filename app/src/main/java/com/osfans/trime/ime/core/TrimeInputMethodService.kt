@@ -151,6 +151,9 @@ open class TrimeInputMethodService : LifecycleInputMethodService() {
     private suspend fun updateRimeOption(api: RimeApi) {
         try {
             api.setRuntimeOption("soft_cursor", prefs.keyboard.useSoftCursor.getValue()) // 軟光標
+            // HaoHao targets common Simplified Chinese first. Keep Rime's charset filter enabled
+            // so rare extension ideographs that most Android fonts cannot render do not become candidates.
+            api.setRuntimeOption("extended_charset", false)
         } catch (e: Exception) {
             Timber.e(e)
         }
