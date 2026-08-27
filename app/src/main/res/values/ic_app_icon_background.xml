@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 
 <!--
-SPDX-FileCopyrightText: 2015 - 2024 Rime community
+SPDX-FileCopyrightText: 2026 HaoHao IME contributors
 
 SPDX-License-Identifier: GPL-3.0-or-later
 -->
 
 <resources>
-    <color name="ic_app_icon_background">#FFFFFF</color>
+    <color name="ic_app_icon_background">#6F8FFF</color>
 </resources>
