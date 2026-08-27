@@ -7,14 +7,15 @@ import java.io.OutputStream
 import java.io.Reader
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import java.util.Locale
 import java.util.zip.GZIPInputStream
 
 internal object CedictDictionaryGenerator {
-    private const val FORMAT_VERSION = 1
-    private const val INDEX_RECORD_SIZE = 16
+    private const val FORMAT_VERSION = 2
+    private const val INDEX_RECORD_SIZE = 24
     private const val MAX_DEFINITION_CODE_POINTS = 18
-    private val MAGIC = byteArrayOf('H'.code.toByte(), 'H'.code.toByte(), 'D'.code.toByte(), 'I'.code.toByte(), 'C'.code.toByte(), 'T'.code.toByte(), '1'.code.toByte(), 0)
-    private val ENTRY_PATTERN = Regex("^(\\S+)\\s+(\\S+)\\s+\\[{1,2}[^]]+]{1,2}\\s+/(.*)/$")
+    private val MAGIC = byteArrayOf('H'.code.toByte(), 'H'.code.toByte(), 'D'.code.toByte(), 'I'.code.toByte(), 'C'.code.toByte(), 'T'.code.toByte(), '2'.code.toByte(), 0)
+    private val ENTRY_PATTERN = Regex("^(\\S+)\\s+(\\S+)\\s+\\[{1,2}([^]]+)]{1,2}\\s+/(.*)/$")
     private val STRUCTURAL_PREFIXES = listOf(
         "CL:",
         "abbr. for",
@@ -31,19 +32,30 @@ internal object CedictDictionaryGenerator {
     private val BRACKETED_METADATA = Regex("\\s*\\[[^]]*]\\s*")
     private val WHITESPACE = Regex("\\s+")
     private val ACRONYM = Regex("^[A-Z][A-Z0-9.-]*$")
+    private val ENGLISH_TOKEN = Regex("[a-z]+(?:['-][a-z]+)*")
 
     private data class DefinitionChoice(
         val text: String,
         val sourceIndex: Int,
     ) {
         val acronymPenalty = if (ACRONYM.matches(text)) 1 else 0
-        val wordCount = text.split(' ').size
-        val codePointCount = text.codePointCount(0, text.length)
     }
 
     data class GeneratedDictionary(
         val release: String,
-        val entries: List<Pair<String, String>>,
+        val entries: List<GeneratedEntry>,
+    )
+
+    data class GeneratedEntry(
+        val sourceText: String,
+        val translation: String,
+        val phonetic: String?,
+    )
+
+    private data class BinaryEntry(
+        val key: ByteArray,
+        val translation: ByteArray,
+        val phonetic: ByteArray,
     )
 
     data class GenerationStats(
@@ -55,10 +67,12 @@ internal object CedictDictionaryGenerator {
     fun generate(
         source: InputStream,
         overrides: Reader,
+        pronunciations: InputStream,
         release: String,
         output: OutputStream,
     ): GenerationStats {
         val translations = linkedMapOf<String, String>()
+        val translationPriorities = hashMapOf<String, Int>()
         val simplifiedHeadwords = hashSetOf<String>()
         var sourceEntries = 0
         GZIPInputStream(source).bufferedReader(Charsets.UTF_8).useLines { lines ->
@@ -70,7 +84,7 @@ internal object CedictDictionaryGenerator {
                 sourceEntries++
                 simplifiedHeadwords += simplified
                 val translation =
-                    match.groupValues[3]
+                    match.groupValues[4]
                         .split('/')
                         .asSequence()
                         .flatMap { it.split(';').asSequence() }
@@ -79,13 +93,17 @@ internal object CedictDictionaryGenerator {
                         }
                         .minWithOrNull(
                             compareBy<DefinitionChoice>(DefinitionChoice::acronymPenalty)
-                                .thenBy(DefinitionChoice::wordCount)
-                                .thenBy(DefinitionChoice::codePointCount)
                                 .thenBy(DefinitionChoice::sourceIndex),
                         )
                         ?.text
                         ?: return@forEach
-                translations.putIfAbsent(simplified, translation)
+                val reading = match.groupValues[3].trimStart()
+                val priority = if (reading.firstOrNull()?.isUpperCase() == true) 1 else 0
+                val currentPriority = translationPriorities[simplified]
+                if (currentPriority == null || priority < currentPriority) {
+                    translations[simplified] = translation
+                    translationPriorities[simplified] = priority
+                }
             }
         }
 
@@ -103,10 +121,16 @@ internal object CedictDictionaryGenerator {
             }
         }
 
+        val pronunciationIndex = readPronunciations(pronunciations)
         val entries =
             translations.entries
-                .map { it.key.encodeToByteArray() to it.value.encodeToByteArray() }
-                .sortedWith { left, right -> compareUnsigned(left.first, right.first) }
+                .map { (key, translation) ->
+                    BinaryEntry(
+                        key = key.encodeToByteArray(),
+                        translation = translation.encodeToByteArray(),
+                        phonetic = findPronunciation(translation, pronunciationIndex)?.encodeToByteArray() ?: ByteArray(0),
+                    )
+                }.sortedWith { left, right -> compareUnsigned(left.key, right.key) }
         writeDictionary(entries, release, output)
         return GenerationStats(sourceEntries, simplifiedHeadwords.size, entries.size)
     }
@@ -126,10 +150,17 @@ internal object CedictDictionaryGenerator {
                 val recordOffset = indexOffset + index * INDEX_RECORD_SIZE
                 val keyOffset = buffer.getInt(recordOffset)
                 val keyLength = buffer.getInt(recordOffset + 4)
-                val valueOffset = buffer.getInt(recordOffset + 8)
-                val valueLength = buffer.getInt(recordOffset + 12)
-                readUtf8(buffer, dataOffset + keyOffset, keyLength) to
-                    readUtf8(buffer, dataOffset + valueOffset, valueLength)
+                val translationOffset = buffer.getInt(recordOffset + 8)
+                val translationLength = buffer.getInt(recordOffset + 12)
+                val phoneticOffset = buffer.getInt(recordOffset + 16)
+                val phoneticLength = buffer.getInt(recordOffset + 20)
+                GeneratedEntry(
+                    sourceText = readUtf8(buffer, dataOffset + keyOffset, keyLength),
+                    translation = readUtf8(buffer, dataOffset + translationOffset, translationLength),
+                    phonetic = phoneticLength.takeIf { it > 0 }?.let {
+                        readUtf8(buffer, dataOffset + phoneticOffset, it)
+                    },
+                )
             }
         return GeneratedDictionary(release, entries)
     }
@@ -151,21 +182,65 @@ internal object CedictDictionaryGenerator {
         return normalized
     }
 
+    private fun readPronunciations(source: InputStream): Map<String, String> = buildMap {
+        GZIPInputStream(source).bufferedReader(Charsets.UTF_8).useLines { lines ->
+            lines.forEach { rawLine ->
+                val columns = rawLine.split('\t', limit = 2)
+                if (columns.size != 2) return@forEach
+                val word = columns[0].trim().lowercase(Locale.ROOT)
+                val pronunciation = normalizePronunciation(columns[1].substringBefore(',')) ?: return@forEach
+                if (word.isNotEmpty()) putIfAbsent(word, pronunciation)
+            }
+        }
+    }
+
+    private fun findPronunciation(
+        translation: String,
+        pronunciations: Map<String, String>,
+    ): String? {
+        val normalized = translation.lowercase(Locale.ROOT)
+        pronunciations[normalized]?.let { return it }
+        val tokens = ENGLISH_TOKEN.findAll(normalized).map(MatchResult::value).toList()
+        if (tokens.isEmpty()) return null
+        val parts = ArrayList<String>(tokens.size)
+        tokens.forEach { token ->
+            var pronunciation = pronunciations[token]
+            if (pronunciation == null && '-' in token) {
+                val splitParts = ArrayList<String>()
+                token.split('-').forEach { part ->
+                    val splitPronunciation = pronunciations[part] ?: return null
+                    splitParts += splitPronunciation.removeSurrounding("/")
+                }
+                pronunciation = splitParts.joinToString(prefix = "/", separator = " ", postfix = "/")
+            }
+            pronunciation ?: return null
+            parts += pronunciation.removeSurrounding("/")
+        }
+        return parts.joinToString(prefix = "/", separator = " ", postfix = "/")
+    }
+
+    private fun normalizePronunciation(raw: String): String? {
+        val body = raw.trim().removeSurrounding("/").trim()
+        return body.takeIf(String::isNotEmpty)?.let { "/$it/" }
+    }
+
     private fun writeDictionary(
-        entries: List<Pair<ByteArray, ByteArray>>,
+        entries: List<BinaryEntry>,
         release: String,
         output: OutputStream,
     ) {
         val releaseBytes = release.encodeToByteArray()
         val indexOffset = MAGIC.size + Int.SIZE_BYTES * 5 + releaseBytes.size
         val dataOffset = indexOffset + entries.size * INDEX_RECORD_SIZE
-        val offsets = ArrayList<Int>(entries.size * 2)
+        val offsets = ArrayList<Int>(entries.size * 3)
         var payloadSize = 0
-        entries.forEach { (key, value) ->
+        entries.forEach { (key, translation, phonetic) ->
             offsets += payloadSize
             payloadSize += key.size
             offsets += payloadSize
-            payloadSize += value.size
+            payloadSize += translation.size
+            offsets += payloadSize
+            payloadSize += phonetic.size
         }
 
         output.write(MAGIC)
@@ -175,15 +250,18 @@ internal object CedictDictionaryGenerator {
         output.writeIntLe(indexOffset)
         output.writeIntLe(dataOffset)
         output.write(releaseBytes)
-        entries.forEachIndexed { index, (key, value) ->
-            output.writeIntLe(offsets[index * 2])
+        entries.forEachIndexed { index, (key, translation, phonetic) ->
+            output.writeIntLe(offsets[index * 3])
             output.writeIntLe(key.size)
-            output.writeIntLe(offsets[index * 2 + 1])
-            output.writeIntLe(value.size)
+            output.writeIntLe(offsets[index * 3 + 1])
+            output.writeIntLe(translation.size)
+            output.writeIntLe(offsets[index * 3 + 2])
+            output.writeIntLe(phonetic.size)
         }
-        entries.forEach { (key, value) ->
+        entries.forEach { (key, translation, phonetic) ->
             output.write(key)
-            output.write(value)
+            output.write(translation)
+            output.write(phonetic)
         }
     }
 

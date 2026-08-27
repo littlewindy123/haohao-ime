@@ -10,7 +10,18 @@ import android.content.SharedPreferences
 import androidx.annotation.Keep
 import com.osfans.trime.R
 import com.osfans.trime.data.base.DataManager
+import com.osfans.trime.ime.candidates.bilingual.BILINGUAL_TRANSLATION_DELAY_DEFAULT_MS
+import com.osfans.trime.ime.candidates.bilingual.BILINGUAL_TRANSLATION_DELAY_MAX_MS
+import com.osfans.trime.ime.candidates.bilingual.BILINGUAL_TRANSLATION_DELAY_MIN_MS
+import com.osfans.trime.ime.candidates.bilingual.BILINGUAL_TRANSLATION_DELAY_STEP_MS
+import com.osfans.trime.ime.candidates.compact.COMPACT_CANDIDATE_LANDSCAPE_DEFAULT
+import com.osfans.trime.ime.candidates.compact.COMPACT_CANDIDATE_LANDSCAPE_MAX
+import com.osfans.trime.ime.candidates.compact.COMPACT_CANDIDATE_LANDSCAPE_MIN
+import com.osfans.trime.ime.candidates.compact.COMPACT_CANDIDATE_PORTRAIT_DEFAULT
+import com.osfans.trime.ime.candidates.compact.COMPACT_CANDIDATE_PORTRAIT_MAX
+import com.osfans.trime.ime.candidates.compact.COMPACT_CANDIDATE_PORTRAIT_MIN
 import com.osfans.trime.ime.candidates.compact.CompactCandidateMode
+import com.osfans.trime.ime.candidates.compact.resolveCompactCandidateCount
 import com.osfans.trime.ime.candidates.popup.PopupCandidatesLayout
 import com.osfans.trime.ime.candidates.popup.PopupCandidatesMode
 import com.osfans.trime.ime.composition.PopupPosition
@@ -127,6 +138,8 @@ class AppPrefs(
             const val HIDE_KEY_SYMBOL = "hide_key_symbol"
             const val HIDE_KEY_HINT = "hide_key_hint"
 
+            const val FEEDBACK_PRESET = "keyboard_feedback_preset"
+            const val DEFAULT_SOUND_VOLUME = 10
             const val SOUND_ON_KEYPRESS = "sound_on_keypress"
             const val KEY_SOUND_VOLUME = "sound_volume"
             const val USE_CUSTOM_SOUND_EFFECT = "custom_sound_effect_enabled"
@@ -156,8 +169,6 @@ class AppPrefs(
             const val HOOK_SHIFT_SYMBOL = "hook_shift_symbol"
             const val HOOK_SHIFT_ARROW = "hook_shift_arrow"
 
-            const val MAX_SPAN_COUNT = "max_span_count"
-            const val MAX_SPAN_COUNT_LANDSCAPE = "max_span_count_landscape"
             const val HORIZONTAL_CANDIDATE_MODE = "horizontal_candidate_mode"
         }
 
@@ -166,6 +177,56 @@ class AppPrefs(
             LANDSCAPE(R.string.landscape_only),
             WIDE(R.string.wide_or_landscape),
             ALWAYS(R.string.always),
+        }
+
+        data class FeedbackSettings(
+            val soundEnabled: Boolean,
+            val soundVolume: Int,
+            val customSoundEnabled: Boolean,
+            val vibrationEnabled: Boolean,
+            val vibrateOnRelease: Boolean,
+            val vibrateOnRepeat: Boolean,
+            val vibrationDuration: Int,
+            val vibrationAmplitude: Int,
+        ) {
+            fun normalized(): FeedbackSettings = copy(
+                soundVolume = if (soundEnabled) soundVolume else DEFAULT_SOUND_VOLUME,
+                customSoundEnabled = soundEnabled && customSoundEnabled,
+                vibrateOnRelease = vibrationEnabled && vibrateOnRelease,
+                vibrateOnRepeat = vibrationEnabled && vibrateOnRepeat,
+                vibrationDuration = if (vibrationEnabled) vibrationDuration else 0,
+                vibrationAmplitude = if (vibrationEnabled) vibrationAmplitude else 0,
+            )
+        }
+
+        enum class FeedbackPreset(
+            override val stringRes: Int,
+            val settings: FeedbackSettings?,
+        ) : PreferenceDelegateEnum {
+            SILENT(
+                R.string.keyboard_feedback_silent,
+                FeedbackSettings(false, DEFAULT_SOUND_VOLUME, false, false, false, false, 0, 0),
+            ),
+            SOFT_SOUND(
+                R.string.keyboard_feedback_soft_sound,
+                FeedbackSettings(true, DEFAULT_SOUND_VOLUME, false, false, false, false, 0, 0),
+            ),
+            SOFT_HAPTIC(
+                R.string.keyboard_feedback_soft_haptic,
+                FeedbackSettings(false, DEFAULT_SOUND_VOLUME, false, true, false, false, 0, 0),
+            ),
+            SOUND_HAPTIC(
+                R.string.keyboard_feedback_sound_haptic,
+                FeedbackSettings(true, DEFAULT_SOUND_VOLUME, false, true, false, false, 0, 0),
+            ),
+            CUSTOM(R.string.keyboard_feedback_custom, null),
+            ;
+
+            companion object {
+                fun resolve(settings: FeedbackSettings): FeedbackPreset = entries.firstOrNull {
+                    it.settings == settings.normalized()
+                } ?: CUSTOM
+            }
         }
 
         val landscapeMode = enum(R.string.enable_landscape_mode, LANDSCAPE_MODE, LandscapeMode.NEVER)
@@ -184,11 +245,16 @@ class AppPrefs(
         val hideKeySymbol = switch(R.string.hide_key_symbol, HIDE_KEY_SYMBOL, false)
         val hideKeyHint = switch(R.string.hide_key_hint, HIDE_KEY_HINT, false)
 
-        val soundOnKeyPress = switch(R.string.sound_on_keypress, SOUND_ON_KEYPRESS, false)
+        val feedbackPreset = enum(
+            R.string.keyboard_feedback_preset,
+            FEEDBACK_PRESET,
+            FeedbackPreset.SOFT_SOUND,
+        )
+        val soundOnKeyPress = switch(R.string.sound_on_keypress, SOUND_ON_KEYPRESS, true)
         val soundVolume = int(
             R.string.sound_volume,
             KEY_SOUND_VOLUME,
-            10,
+            DEFAULT_SOUND_VOLUME,
             0,
             100,
             "%",
@@ -240,7 +306,7 @@ class AppPrefs(
 
         val speakOnKeyPress = switch(R.string.speak_on_keypress, SPEAK_ON_KEYPRESS, false)
         val speakOnCommit = switch(R.string.speak_on_commit, SPEAK_ON_COMMIT, false)
-        val popupOnKeyPress = switch(R.string.popup_on_key_press, POPUP_ON_KEY_PRESS, false)
+        val popupOnKeyPress = switch(R.string.popup_on_key_press, POPUP_ON_KEY_PRESS, true)
         val expandKeypressArea = switch(R.string.expand_keypress_area_to_edge, EXPAND_KEYPRESS_AREA, false)
         val swipeTravel = int(
             R.string.key_swipe_travel,
@@ -306,30 +372,6 @@ class AppPrefs(
 
         val horizontalCandidateMode = enum(R.string.horizontal_candidate_style, HORIZONTAL_CANDIDATE_MODE, CompactCandidateMode.NEVER_FILL)
 
-        val maxSpanCount = int(
-            R.string.max_span_count,
-            MAX_SPAN_COUNT,
-            6,
-            1,
-            10,
-            enableUiOn = {
-                shared.getString(HORIZONTAL_CANDIDATE_MODE, null) ==
-                    CompactCandidateMode.AUTO_FILL.name
-            },
-        )
-
-        val maxSpanCountLandscape = int(
-            R.string.max_span_count_landscape,
-            MAX_SPAN_COUNT_LANDSCAPE,
-            8,
-            4,
-            12,
-            enableUiOn = {
-                shared.getString(HORIZONTAL_CANDIDATE_MODE, null) ==
-                    CompactCandidateMode.AUTO_FILL.name
-            },
-        )
-
         val hookCtrlA = switch(R.string.hook_ctrl_a, HOOK_CTRL_A, false)
         val hookCtrlCV = switch(R.string.hook_ctrl_cv, HOOK_CTRL_CV, false)
         val hookCtrlLR = switch(R.string.hook_ctrl_lr, HOOK_CTRL_LR, false)
@@ -338,6 +380,35 @@ class AppPrefs(
         val hookShiftNum = switch(R.string.hook_shift_num, HOOK_SHIFT_NUM, false)
         val hookShiftSymbol = switch(R.string.hook_shift_symbol, HOOK_SHIFT_SYMBOL, false)
         val hookShiftArrow = switch(R.string.hook_shift_arrow, HOOK_SHIFT_ARROW, true)
+
+        init {
+            if (!sharedPreferences.contains(FEEDBACK_PRESET)) {
+                feedbackPreset.setValue(FeedbackPreset.resolve(currentFeedbackSettings()))
+            }
+        }
+
+        fun applyFeedbackPreset(preset: FeedbackPreset) {
+            val settings = preset.settings ?: return
+            soundOnKeyPress.setValue(settings.soundEnabled)
+            soundVolume.setValue(settings.soundVolume)
+            useCustomSoundEffect.setValue(settings.customSoundEnabled)
+            vibrateOnKeyPress.setValue(settings.vibrationEnabled)
+            vibrateOnKeyRelease.setValue(settings.vibrateOnRelease)
+            vibrateOnKeyRepeat.setValue(settings.vibrateOnRepeat)
+            vibrationDuration.setValue(settings.vibrationDuration)
+            vibrationAmplitude.setValue(settings.vibrationAmplitude)
+        }
+
+        private fun currentFeedbackSettings() = FeedbackSettings(
+            soundEnabled = soundOnKeyPress.getValue(),
+            soundVolume = soundVolume.getValue(),
+            customSoundEnabled = useCustomSoundEffect.getValue(),
+            vibrationEnabled = vibrateOnKeyPress.getValue(),
+            vibrateOnRelease = vibrateOnKeyRelease.getValue(),
+            vibrateOnRepeat = vibrateOnKeyRepeat.getValue(),
+            vibrationDuration = vibrationDuration.getValue(),
+            vibrationAmplitude = vibrationAmplitude.getValue(),
+        )
     }
 
     class Candidates(
@@ -348,6 +419,10 @@ class AppPrefs(
             const val LAYOUT = "candidates_layout"
             const val POSITION = "candidates_window_position"
             const val BILINGUAL_TRANSLATION = "bilingual_candidate_translation"
+            const val BILINGUAL_TRANSLATION_DELAY = "bilingual_candidate_translation_delay_ms"
+            const val BILINGUAL_PHONETIC = "bilingual_candidate_phonetic"
+            const val COMPACT_CANDIDATE_COUNT = "max_span_count"
+            const val COMPACT_CANDIDATE_COUNT_LANDSCAPE = "max_span_count_landscape"
         }
 
         val bilingualTranslation = switch(
@@ -356,9 +431,61 @@ class AppPrefs(
             true,
             R.string.bilingual_candidate_translation_summary,
         )
+        val bilingualTranslationDelay = int(
+            R.string.bilingual_candidate_translation_delay,
+            BILINGUAL_TRANSLATION_DELAY,
+            BILINGUAL_TRANSLATION_DELAY_DEFAULT_MS,
+            BILINGUAL_TRANSLATION_DELAY_MIN_MS,
+            BILINGUAL_TRANSLATION_DELAY_MAX_MS,
+            " ms",
+            BILINGUAL_TRANSLATION_DELAY_STEP_MS,
+            enableUiOn = { shared.getBoolean(BILINGUAL_TRANSLATION, true) },
+        )
+        val bilingualPhonetic = switch(
+            R.string.bilingual_candidate_phonetic,
+            BILINGUAL_PHONETIC,
+            false,
+            R.string.bilingual_candidate_phonetic_summary,
+            enableUiOn = { shared.getBoolean(BILINGUAL_TRANSLATION, true) },
+        )
+        val compactCandidateCount = int(
+            R.string.max_span_count,
+            COMPACT_CANDIDATE_COUNT,
+            COMPACT_CANDIDATE_PORTRAIT_DEFAULT,
+            COMPACT_CANDIDATE_PORTRAIT_MIN,
+            COMPACT_CANDIDATE_PORTRAIT_MAX,
+        )
+        val compactCandidateCountLandscape = int(
+            R.string.max_span_count_landscape,
+            COMPACT_CANDIDATE_COUNT_LANDSCAPE,
+            COMPACT_CANDIDATE_LANDSCAPE_DEFAULT,
+            COMPACT_CANDIDATE_LANDSCAPE_MIN,
+            COMPACT_CANDIDATE_LANDSCAPE_MAX,
+        )
         val mode = enum(R.string.show_candidates_window, MODE, PopupCandidatesMode.DISABLED)
         val layout = enum(R.string.candidates_layout, LAYOUT, PopupCandidatesLayout.AUTOMATIC)
         val position = enum(R.string.candidates_window_position, POSITION, PopupPosition.BOTTOM_LEFT)
+
+        init {
+            if (sharedPreferences.contains(COMPACT_CANDIDATE_COUNT)) {
+                val storedValue = compactCandidateCount.getValue()
+                val normalizedValue = resolveCompactCandidateCount(
+                    isLandscape = false,
+                    portraitValue = storedValue,
+                    landscapeValue = compactCandidateCountLandscape.getValue(),
+                )
+                if (storedValue != normalizedValue) compactCandidateCount.setValue(normalizedValue)
+            }
+            if (sharedPreferences.contains(COMPACT_CANDIDATE_COUNT_LANDSCAPE)) {
+                val storedValue = compactCandidateCountLandscape.getValue()
+                val normalizedValue = resolveCompactCandidateCount(
+                    isLandscape = true,
+                    portraitValue = compactCandidateCount.getValue(),
+                    landscapeValue = storedValue,
+                )
+                if (storedValue != normalizedValue) compactCandidateCountLandscape.setValue(normalizedValue)
+            }
+        }
     }
 
     /**

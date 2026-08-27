@@ -33,9 +33,10 @@ import com.osfans.trime.ime.bar.ui.AlwaysUi
 import com.osfans.trime.ime.bar.ui.CandidateUi
 import com.osfans.trime.ime.bar.ui.TabUi
 import com.osfans.trime.ime.broadcast.InputBroadcastReceiver
+import com.osfans.trime.ime.candidates.bilingual.bilingualPhoneticLineHeight
+import com.osfans.trime.ime.candidates.bilingual.bilingualPhoneticTextSize
 import com.osfans.trime.ime.candidates.bilingual.bilingualTranslationLineHeight
 import com.osfans.trime.ime.candidates.bilingual.bilingualTranslationTextSize
-import com.osfans.trime.ime.candidates.bilingual.defaultBilingualCandidatePresenter
 import com.osfans.trime.ime.candidates.compact.CompactCandidateDelegate
 import com.osfans.trime.ime.candidates.unrolled.window.FlexboxUnrolledCandidateWindow
 import com.osfans.trime.ime.core.TrimeInputMethodService
@@ -80,6 +81,13 @@ class InputBarDelegate : InputBroadcastReceiver {
             candidateViewHeight + bilingualTranslationLineHeight(translationTextSize, commentHeight)
         }
 
+    private val bilingualPhoneticThemedHeight =
+        theme.generalStyle.run {
+            bilingualThemedHeight + bilingualPhoneticLineHeight(
+                bilingualPhoneticTextSize(candidateTextSize),
+            )
+        }
+
     private val prefs = AppPrefs.defaultInstance()
 
     private val hideQuickBar by prefs.keyboard.hideInputBar
@@ -89,6 +97,7 @@ class InputBarDelegate : InputBroadcastReceiver {
     private val clipboardSuggestionTimeout by prefs.clipboard.clipboardSuggestionTimeout
 
     private var clipboardTimeoutJob: Job? = null
+    private var unrolledCandidatesVisible = false
 
     private var isClipboardFresh: Boolean = false
     private var isInlineSuggestionPresent: Boolean = false
@@ -227,16 +236,27 @@ class InputBarDelegate : InputBroadcastReceiver {
         candidateUi.unrollButton.visibility = if (enabled) View.VISIBLE else View.INVISIBLE
     }
 
+    internal fun setUnrolledCandidatesVisible(visible: Boolean) {
+        if (unrolledCandidatesVisible == visible) return
+        unrolledCandidatesVisible = visible
+        view.visibility = if (visible || hideQuickBar) View.GONE else View.VISIBLE
+    }
+
     override fun onCandidateListUpdate(data: Candidates.Bulk) {
         barStateMachine.push(
             QuickBarStateMachine.TransitionEvent.CandidatesUpdated,
             QuickBarStateMachine.BooleanKey.CandidateEmpty to data.candidates.isEmpty(),
         )
-        val containsTranslation =
-            data.candidates.any { candidate ->
-                defaultBilingualCandidatePresenter.present(candidate).translation != null
-            }
-        val targetHeight = if (containsTranslation) bilingualThemedHeight else themedHeight
+        val hasCandidates = data.candidates.isNotEmpty()
+        val reserveTranslationLine =
+            hasCandidates && prefs.candidates.bilingualTranslation.getValue()
+        val reservePhoneticLine =
+            reserveTranslationLine && prefs.candidates.bilingualPhonetic.getValue()
+        val targetHeight = when {
+            reservePhoneticLine -> bilingualPhoneticThemedHeight
+            reserveTranslationLine -> bilingualThemedHeight
+            else -> themedHeight
+        }
         view.layoutParams?.let { params ->
             val targetHeightPx = context.dp(targetHeight)
             if (params.height != targetHeightPx) {
@@ -261,7 +281,7 @@ class InputBarDelegate : InputBroadcastReceiver {
     val view by lazy {
         ViewAnimator(context).apply {
             visibility =
-                if (hideQuickBar) {
+                if (hideQuickBar || unrolledCandidatesVisible) {
                     View.GONE
                 } else {
                     View.VISIBLE

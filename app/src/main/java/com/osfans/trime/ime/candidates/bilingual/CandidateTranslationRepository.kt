@@ -12,8 +12,13 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.channels.FileChannel
 
+internal data class CandidateTranslationEntry(
+    val translation: String,
+    val phonetic: String?,
+)
+
 internal fun interface CandidateTranslationRepository {
-    fun lookup(text: String): String?
+    fun lookup(text: String): CandidateTranslationEntry?
 }
 
 internal class BinaryCandidateTranslationRepository private constructor(
@@ -24,7 +29,7 @@ internal class BinaryCandidateTranslationRepository private constructor(
 ) : CandidateTranslationRepository {
     private val buffer = source.asReadOnlyBuffer().order(ByteOrder.LITTLE_ENDIAN)
 
-    override fun lookup(text: String): String? {
+    override fun lookup(text: String): CandidateTranslationEntry? {
         val query = text.encodeToByteArray()
         var low = 0
         var high = entryCount - 1
@@ -34,7 +39,7 @@ internal class BinaryCandidateTranslationRepository private constructor(
             when {
                 comparison < 0 -> low = middle + 1
                 comparison > 0 -> high = middle - 1
-                else -> return readValue(middle)
+                else -> return readEntry(middle)
             }
         }
         return null
@@ -57,23 +62,35 @@ internal class BinaryCandidateTranslationRepository private constructor(
         return keyLength.compareTo(query.size)
     }
 
-    private fun readValue(entryIndex: Int): String {
+    private fun readEntry(entryIndex: Int): CandidateTranslationEntry {
         val recordOffset = indexOffset + entryIndex * INDEX_RECORD_SIZE
-        val valueOffset = buffer.getInt(recordOffset + Int.SIZE_BYTES * 2)
-        val valueLength = buffer.getInt(recordOffset + Int.SIZE_BYTES * 3)
-        val bytes = ByteArray(valueLength)
+        val translationOffset = buffer.getInt(recordOffset + Int.SIZE_BYTES * 2)
+        val translationLength = buffer.getInt(recordOffset + Int.SIZE_BYTES * 3)
+        val phoneticOffset = buffer.getInt(recordOffset + Int.SIZE_BYTES * 4)
+        val phoneticLength = buffer.getInt(recordOffset + Int.SIZE_BYTES * 5)
+        return CandidateTranslationEntry(
+            translation = readUtf8(translationOffset, translationLength),
+            phonetic = phoneticLength.takeIf { it > 0 }?.let { readUtf8(phoneticOffset, it) },
+        )
+    }
+
+    private fun readUtf8(
+        offset: Int,
+        length: Int,
+    ): String {
+        val bytes = ByteArray(length)
         val valueBuffer = buffer.duplicate()
-        valueBuffer.position(dataOffset + valueOffset)
+        valueBuffer.position(dataOffset + offset)
         valueBuffer.get(bytes)
         return bytes.decodeToString()
     }
 
     companion object {
-        private const val FORMAT_VERSION = 1
+        private const val FORMAT_VERSION = 2
         private const val EXPECTED_RELEASE = "2026-08-24"
         private const val FIXED_HEADER_SIZE = 28
-        private const val INDEX_RECORD_SIZE = 16
-        private val MAGIC = byteArrayOf('H'.code.toByte(), 'H'.code.toByte(), 'D'.code.toByte(), 'I'.code.toByte(), 'C'.code.toByte(), 'T'.code.toByte(), '1'.code.toByte(), 0)
+        private const val INDEX_RECORD_SIZE = 24
+        private val MAGIC = byteArrayOf('H'.code.toByte(), 'H'.code.toByte(), 'D'.code.toByte(), 'I'.code.toByte(), 'C'.code.toByte(), 'T'.code.toByte(), '2'.code.toByte(), 0)
 
         fun load(
             onFailure: (Throwable) -> Unit = {},
@@ -119,10 +136,13 @@ internal class BinaryCandidateTranslationRepository private constructor(
                 val recordOffset = indexOffset + index * INDEX_RECORD_SIZE
                 val keyOffset = buffer.getInt(recordOffset)
                 val keyLength = buffer.getInt(recordOffset + Int.SIZE_BYTES)
-                val valueOffset = buffer.getInt(recordOffset + Int.SIZE_BYTES * 2)
-                val valueLength = buffer.getInt(recordOffset + Int.SIZE_BYTES * 3)
+                val translationOffset = buffer.getInt(recordOffset + Int.SIZE_BYTES * 2)
+                val translationLength = buffer.getInt(recordOffset + Int.SIZE_BYTES * 3)
+                val phoneticOffset = buffer.getInt(recordOffset + Int.SIZE_BYTES * 4)
+                val phoneticLength = buffer.getInt(recordOffset + Int.SIZE_BYTES * 5)
                 requireRange(buffer, dataOffset, keyOffset, keyLength)
-                requireRange(buffer, dataOffset, valueOffset, valueLength)
+                requireRange(buffer, dataOffset, translationOffset, translationLength)
+                requireRange(buffer, dataOffset, phoneticOffset, phoneticLength)
                 if (previousRecordOffset >= 0) {
                     require(compareStoredKeys(buffer, previousRecordOffset, recordOffset, dataOffset) < 0) {
                         "Dictionary keys are not strictly sorted"
@@ -187,5 +207,5 @@ internal object OfflineCandidateTranslationRepository : CandidateTranslationRepo
         )
     }
 
-    override fun lookup(text: String): String? = delegate.lookup(text)
+    override fun lookup(text: String): CandidateTranslationEntry? = delegate.lookup(text)
 }

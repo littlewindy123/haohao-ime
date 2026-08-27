@@ -22,6 +22,12 @@
     <string name="selected_theme_summary">选取主题</string>
     <string name="normal_mode_color">配色</string>
     <string name="normal_mode_color_summary">选取配色</string>
+    <string name="keyboard_feedback_preset">敲击反馈</string>
+    <string name="keyboard_feedback_silent">静音</string>
+    <string name="keyboard_feedback_soft_sound">轻声音</string>
+    <string name="keyboard_feedback_soft_haptic">轻触感</string>
+    <string name="keyboard_feedback_sound_haptic">声音和触感</string>
+    <string name="keyboard_feedback_custom">自定义</string>
     <string name="sound_on_keypress">按键声音</string>
     <string name="sound_volume">按键音量</string>
     <string name="vibrate_on_key_press">按键时振动</string>
@@ -121,6 +127,7 @@
     <string name="success">成功</string>
     <string name="failure">失败</string>
     <string name="reset_hint">用默认的内置配置覆盖共享目录中的相同文件</string>
+    <string name="unrolled_candidate_return">返回</string>
     <string name="delete">删除</string>
     <string name="edit">编辑</string>
     <string name="collect">收藏</string>
@@ -164,6 +171,9 @@
     <string name="candidates_window">候选窗口</string>
     <string name="bilingual_candidate_translation">显示英文翻译</string>
     <string name="bilingual_candidate_translation_summary">在已收录的中文候选词下方显示英文翻译</string>
+    <string name="bilingual_candidate_translation_delay">英文翻译显示延迟</string>
+    <string name="bilingual_candidate_phonetic">显示美式英语音标</string>
+    <string name="bilingual_candidate_phonetic_summary">在英文翻译下方显示可选的美式 IPA 音标</string>
     <string name="show_candidates_window">显示候选词窗口</string>
     <string name="general">常规</string>
     <string name="composing_text">编辑中文本</string>
@@ -203,8 +213,8 @@
     <string name="horizontal_candidate_never_fill">从不填充宽度</string>
     <string name="horizontal_candidate_auto_fill">按需填充宽度</string>
     <string name="horizontal_candidate_always_fill">总是填充宽度</string>
-    <string name="max_span_count">每行最大候选词数</string>
-    <string name="max_span_count_landscape">每行最大候选词数(横屏)</string>
+    <string name="max_span_count">竖屏紧凑栏目标候选数</string>
+    <string name="max_span_count_landscape">横屏紧凑栏目标候选数</string>
     <string name="user_dictionary">用户词典</string>
     <string name="exported_n_entries">已导出 %1$d 个词条</string>
     <string name="backed_up_x_to_sync_dir">已备份 %1$s 到同步目录</string>

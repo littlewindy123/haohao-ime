@@ -10,22 +10,20 @@ import android.view.ViewGroup
 import androidx.core.view.updateLayoutParams
 import com.chad.library.adapter4.BaseQuickAdapter
 import com.google.android.flexbox.FlexboxLayoutManager
-import com.osfans.trime.core.CandidateProto
 import com.osfans.trime.data.theme.Theme
 import com.osfans.trime.ime.candidates.CandidateItemUi
 import com.osfans.trime.ime.candidates.CandidateViewHolder
-import splitties.dimensions.dp
 import splitties.views.dsl.core.matchParent
 import splitties.views.dsl.core.wrapContent
 
-open class CompactCandidateViewAdapter(
+internal class CompactCandidateViewAdapter(
     val theme: Theme,
-) : BaseQuickAdapter<CandidateProto, CandidateViewHolder>() {
+) : BaseQuickAdapter<CompactCandidateCell, CandidateViewHolder>() {
     init {
         setHasStableIds(true)
     }
 
-    override fun getItemId(position: Int): Long = items.getOrNull(position).hashCode().toLong()
+    override fun getItemId(position: Int): Long = items.getOrNull(position)?.item.hashCode().toLong()
 
     var total: Int = -1
         private set
@@ -33,23 +31,12 @@ open class CompactCandidateViewAdapter(
     var highlightedIdx: Int = -1
         private set
 
-    var layoutMinWidth: Int = 0
-        private set
-
-    var layoutFlexGrow: Float = 0f
-        private set
-
-    fun updateLayoutParams(minWidth: Int, flexGrow: Float) {
-        layoutMinWidth = minWidth
-        layoutFlexGrow = flexGrow
-    }
-
     fun updateCandidates(
-        data: Array<CandidateProto>,
+        data: List<CompactCandidateCell>,
         total: Int,
         highlightedIndex: Int,
     ) {
-        super.submitList(data.toList(), null)
+        super.submitList(data, null)
         this.total = total
         this.highlightedIdx = highlightedIndex
     }
@@ -61,7 +48,6 @@ open class CompactCandidateViewAdapter(
     ): CandidateViewHolder {
         val ui = CandidateItemUi(context, theme)
         ui.root.apply {
-            minimumWidth = dp(40)
             layoutParams = FlexboxLayoutManager.LayoutParams(wrapContent, matchParent)
         }
         return CandidateViewHolder(ui)
@@ -70,17 +56,21 @@ open class CompactCandidateViewAdapter(
     override fun onBindViewHolder(
         holder: CandidateViewHolder,
         position: Int,
-        item: CandidateProto?,
+        item: CompactCandidateCell?,
     ) {
         item ?: return
-        val isHighlighted = position == highlightedIdx
-        holder.ui.update(item, isHighlighted)
-        holder.text = item.text
-        holder.comment = item.comment
-        holder.idx = position // unused
+        val candidate = item.item.candidate
+        val globalIndex = item.item.globalIndex
+        val isHighlighted = globalIndex == highlightedIdx
+        holder.ui.update(candidate, isHighlighted)
+        holder.text = candidate.text
+        holder.comment = candidate.comment
+        holder.idx = globalIndex
         holder.ui.root.updateLayoutParams<FlexboxLayoutManager.LayoutParams> {
-            minWidth = this@CompactCandidateViewAdapter.layoutMinWidth
-            flexGrow = this@CompactCandidateViewAdapter.layoutFlexGrow
+            width = item.width
+            flexBasisPercent = FlexboxLayoutManager.LayoutParams.FLEX_BASIS_PERCENT_DEFAULT
+            flexGrow = 0f
+            flexShrink = 0f
         }
     }
 }
