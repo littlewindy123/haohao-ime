@@ -27,3 +27,128 @@
 天气	weather
 电脑	computer
 塔斯汀	Tastien
+
+# Curated single-character meanings
+鸡	chicken
+行	okay
+打	hit
+来	come
+去	go
+看	look
+听	listen
+说	speak
+吃	eat
+喝	drink
+买	buy
+卖	sell
+开	open
+关	close
+晚	late
+快	fast
+热	hot
+后	back
+
+# Curated common words
+意思	meaning
+东西	thing
+手机	phone
+文字	text
+翻译	translation
+地方	place
+爸爸	dad
+妈妈	mom
+吃饭	eat
+喝水	drink water
+回家	go home
+上班	go to work
+下班	leave work
+开始	start
+结束	end
+喜欢	like
+知道	know
+觉得	feel
+需要	need
+应该	should
+帮助	help
+谢谢	thanks
+对不起	sorry
+没事	it's okay
+见面	meet
+
+# Curated everyday phrases
+没关系	no problem
+早上好	good morning
+晚上好	good evening
+晚安	good night
+欢迎	welcome
+辛苦了	much appreciated
+请问	excuse me
+稍等	please wait
+等一下	hold on
+不知道	I don't know
+我知道	I know
+我觉得	I think
+我喜欢	I like it
+我需要	I need it
+我可以	I can
+可以吗	may I
+怎么样	how is it
+为什么	why
+什么时候	when
+在哪里	where
+怎么办	what to do
+没办法	no way
+不要紧	it's okay
+小心点	be careful
+慢一点	slow down
+快一点	hurry up
+看一下	take a look
+听一下	have a listen
+说一下	say it
+试一下	give it a try
+很好看	looks great
+太好了	great
+回头见	see you later
+
+# Modern products and technology
+库迪	Cotti
+通义千问	Qwen
+豆包	Doubao
+哔哩哔哩	Bilibili
+拼多多	Pinduoduo
+微信	WeChat
+支付宝	Alipay
+淘宝	Taobao
+京东	JD.com
+抖音	Douyin
+快手	Kuaishou
+美团	Meituan
+高德地图	Amap
+人工智能	AI
+大模型	AI model
+提示词	prompt
+智能体	AI agent
+开源	open source
+应用程序	app
+
+# Ambiguous or noisy headwords
+倪	-
+伲	-
+地	ground
+得	get
+着	-
+要	want
+给	give
+过	pass
+就	then
+即可	that will do
+我去	damn
+只有	only
+有没有	is there
+难道	could it be
+及其	and their
+还不如	better to
+要看	depends
+称之为	call it
+足以	enough to
+与其	rather than

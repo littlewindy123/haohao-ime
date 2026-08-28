@@ -107,17 +107,14 @@ internal object CedictDictionaryGenerator {
             }
         }
 
-        overrides.buffered().useLines { lines ->
-            lines.forEach { rawLine ->
-                val line = rawLine.trim()
-                if (line.isEmpty() || line.startsWith('#')) return@forEach
-                val columns = line.split('\t', limit = 2)
-                if (columns.size != 2) return@forEach
-                val sourceText = columns[0].trim()
-                val translation = columns[1].trim()
-                if (sourceText.isNotEmpty() && translation.isNotEmpty()) {
-                    translations[sourceText] = translation
+        TranslationQuality.parseOverrides(overrides).forEach { (sourceText, translation) ->
+            if (translation == null) {
+                translations.remove(sourceText)
+            } else {
+                require(TranslationQuality.translationIssues(translation).isEmpty()) {
+                    "Invalid translation override for $sourceText: $translation"
                 }
+                translations[sourceText] = translation
             }
         }
 
@@ -182,7 +179,7 @@ internal object CedictDictionaryGenerator {
         return normalized
     }
 
-    private fun readPronunciations(source: InputStream): Map<String, String> = buildMap {
+    internal fun readPronunciations(source: InputStream): Map<String, String> = buildMap {
         GZIPInputStream(source).bufferedReader(Charsets.UTF_8).useLines { lines ->
             lines.forEach { rawLine ->
                 val columns = rawLine.split('\t', limit = 2)
@@ -194,7 +191,7 @@ internal object CedictDictionaryGenerator {
         }
     }
 
-    private fun findPronunciation(
+    internal fun findPronunciation(
         translation: String,
         pronunciations: Map<String, String>,
     ): String? {
