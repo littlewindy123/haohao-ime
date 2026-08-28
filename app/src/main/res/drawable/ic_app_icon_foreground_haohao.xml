@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!--
+  ~ SPDX-FileCopyrightText: 2026 HaoHao IME contributors
+  ~ SPDX-License-Identifier: GPL-3.0-or-later
+  -->
+
+<bitmap xmlns:android="http://schemas.android.com/apk/res/android"
+    android:antialias="true"
+    android:filter="true"
+    android:gravity="fill"
+    android:src="@drawable/haohao_golden_foreground" />

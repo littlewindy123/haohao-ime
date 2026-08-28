@@ -9,4 +9,21 @@ SPDX-License-Identifier: GPL-3.0-or-later
 <resources>
     <color name="colorAccent">#0A7CB2</color>
     <color name="colorAccentDark">#28566d</color>
+
+    <!-- HaoHao settings home -->
+    <color name="haohao_page_background">#171A18</color>
+    <color name="haohao_surface">#202522</color>
+    <color name="haohao_brand_header">#A9D2BE</color>
+    <color name="haohao_brand_header_pressed">#6E9E88</color>
+    <color name="haohao_header_foreground">#513A32</color>
+    <color name="haohao_honey">#E0A947</color>
+    <color name="haohao_honey_pressed">#F0BD60</color>
+    <color name="haohao_on_honey">#3D2C26</color>
+    <color name="haohao_cocoa">#F4ECE2</color>
+    <color name="haohao_cocoa_secondary">#C6B8AA</color>
+    <color name="haohao_divider">#3B403D</color>
+    <color name="haohao_segment_surface">#272C29</color>
+    <color name="haohao_segment_border">#4A504C</color>
+    <color name="haohao_switch_off">#686D69</color>
+    <color name="haohao_switch_thumb_color">#F4ECE2</color>
 </resources>

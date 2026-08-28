@@ -1,0 +1,561 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!--
+  ~ SPDX-FileCopyrightText: 2026 HaoHao IME contributors
+  ~ SPDX-License-Identifier: GPL-3.0-or-later
+  -->
+
+<androidx.core.widget.NestedScrollView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/haohao_page_background"
+    android:clipToPadding="false"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:id="@+id/brand_header"
+            android:layout_width="match_parent"
+            android:layout_height="@dimen/haohao_home_header_height"
+            android:background="@color/haohao_brand_header"
+            android:clipChildren="true"
+            android:paddingStart="24dp">
+
+            <ImageView
+                android:id="@+id/brand_mascot"
+                android:layout_width="174dp"
+                android:layout_height="174dp"
+                android:contentDescription="@string/quick_settings_brand_mascot"
+                android:scaleType="centerCrop"
+                android:src="@drawable/haohao_golden_foreground"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toEndOf="parent" />
+
+            <ImageButton
+                android:id="@+id/more_button"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_marginTop="4dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/quick_settings_more_actions"
+                android:padding="12dp"
+                android:src="@drawable/ic_haohao_more_vert_24"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintTop_toTopOf="parent" />
+
+            <TextView
+                android:id="@+id/brand_title"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:includeFontPadding="false"
+                android:maxLines="1"
+                android:text="@string/app_name_release"
+                android:textColor="@color/haohao_header_foreground"
+                android:textSize="30sp"
+                android:textStyle="bold"
+                app:layout_constraintEnd_toStartOf="@id/brand_mascot"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent" />
+
+            <TextView
+                android:id="@+id/brand_slogan"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:includeFontPadding="false"
+                android:maxLines="2"
+                android:text="@string/trime_app_slogan"
+                android:textColor="@color/haohao_header_foreground"
+                android:textSize="15sp"
+                app:layout_constraintEnd_toStartOf="@id/brand_mascot"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/brand_title" />
+
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/try_keyboard_button"
+                style="@style/Widget.HaoHao.HeaderButton"
+                android:layout_width="wrap_content"
+                android:layout_height="48dp"
+                android:layout_marginBottom="18dp"
+                android:text="@string/quick_settings_try_keyboard"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintStart_toStartOf="parent" />
+        </androidx.constraintlayout.widget.ConstraintLayout>
+
+        <LinearLayout
+            android:id="@+id/bilingual_preview"
+            android:layout_width="match_parent"
+            android:layout_height="112dp"
+            android:background="@color/haohao_surface"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="24dp"
+            android:paddingEnd="20dp">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1.05"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:includeFontPadding="false"
+                    android:text="@string/quick_settings_preview_pinyin"
+                    android:textColor="@color/haohao_cocoa_secondary"
+                    android:textSize="15sp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:includeFontPadding="false"
+                    android:text="@string/quick_settings_preview_chinese"
+                    android:textColor="@color/haohao_cocoa"
+                    android:textSize="28sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="72dp"
+                android:layout_weight="0.95"
+                android:gravity="center_vertical"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/preview_english"
+                    android:layout_width="match_parent"
+                    android:layout_height="28dp"
+                    android:gravity="center_vertical"
+                    android:includeFontPadding="false"
+                    android:text="@string/quick_settings_preview_english"
+                    android:textColor="@color/haohao_cocoa_secondary"
+                    android:textSize="18sp" />
+
+                <TextView
+                    android:id="@+id/preview_ipa"
+                    android:layout_width="match_parent"
+                    android:layout_height="28dp"
+                    android:gravity="center_vertical"
+                    android:includeFontPadding="false"
+                    android:text="@string/quick_settings_preview_ipa"
+                    android:textColor="@color/haohao_cocoa_secondary"
+                    android:textSize="15sp" />
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@drawable/haohao_preview_badge_background"
+                android:maxLines="1"
+                android:text="@string/quick_settings_bilingual"
+                android:textColor="@color/haohao_header_foreground"
+                android:textSize="13sp" />
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="@color/haohao_divider" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp"
+            android:paddingBottom="32dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="28dp"
+                android:layout_marginBottom="8dp"
+                android:text="@string/quick_settings_bilingual"
+                android:textAppearance="@style/TextAppearance.HaoHao.SectionTitle" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="64dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/bilingual_candidate_translation"
+                    android:textAppearance="@style/TextAppearance.HaoHao.SettingTitle" />
+
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/translation_switch"
+                    android:layout_width="wrap_content"
+                    android:layout_height="48dp"
+                    android:gravity="center"
+                    android:minWidth="48dp"
+                    android:showText="false"
+                    app:thumbTint="@color/haohao_switch_thumb"
+                    app:trackTint="@color/haohao_switch_track" />
+            </LinearLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="@color/haohao_divider" />
+
+            <LinearLayout
+                android:id="@+id/translation_options"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="64dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/bilingual_candidate_phonetic"
+                        android:textAppearance="@style/TextAppearance.HaoHao.SettingTitle" />
+
+                    <androidx.appcompat.widget.SwitchCompat
+                        android:id="@+id/phonetic_switch"
+                        android:layout_width="wrap_content"
+                        android:layout_height="48dp"
+                        android:gravity="center"
+                        android:minWidth="48dp"
+                        android:showText="false"
+                        app:thumbTint="@color/haohao_switch_thumb"
+                        app:trackTint="@color/haohao_switch_track" />
+                </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:background="@color/haohao_divider" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="96dp"
+                    android:orientation="vertical"
+                    android:paddingTop="14dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:id="@+id/translation_delay_label"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="@string/bilingual_candidate_translation_delay"
+                            android:textAppearance="@style/TextAppearance.HaoHao.SettingTitle" />
+
+                        <TextView
+                            android:id="@+id/translation_delay_value"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:textColor="@color/haohao_cocoa"
+                            android:textSize="15sp" />
+                    </LinearLayout>
+
+                    <androidx.appcompat.widget.AppCompatSeekBar
+                        android:id="@+id/translation_delay_slider"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:progressTint="@color/haohao_brand_header_pressed"
+                        android:thumbTint="@color/haohao_brand_header_pressed" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="@color/haohao_divider" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="28dp"
+                android:layout_marginBottom="8dp"
+                android:text="@string/quick_settings_candidate_bar"
+                android:textAppearance="@style/TextAppearance.HaoHao.SectionTitle" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="64dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/quick_settings_portrait_candidate_count"
+                    android:textAppearance="@style/TextAppearance.HaoHao.SettingTitle" />
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="48dp"
+                    android:orientation="horizontal">
+
+                    <androidx.appcompat.widget.AppCompatButton
+                        android:id="@+id/portrait_count_3"
+                        style="@style/Widget.HaoHao.SegmentButton"
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:text="3" />
+
+                    <androidx.appcompat.widget.AppCompatButton
+                        android:id="@+id/portrait_count_4"
+                        style="@style/Widget.HaoHao.SegmentButton"
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:layout_marginStart="4dp"
+                        android:text="4" />
+
+                    <androidx.appcompat.widget.AppCompatButton
+                        android:id="@+id/portrait_count_5"
+                        style="@style/Widget.HaoHao.SegmentButton"
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:layout_marginStart="4dp"
+                        android:text="5" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="@color/haohao_divider" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="64dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/quick_settings_landscape_candidate_count"
+                    android:textAppearance="@style/TextAppearance.HaoHao.SettingTitle" />
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="48dp"
+                    android:orientation="horizontal">
+
+                    <androidx.appcompat.widget.AppCompatButton
+                        android:id="@+id/landscape_count_5"
+                        style="@style/Widget.HaoHao.SegmentButton"
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:text="5" />
+
+                    <androidx.appcompat.widget.AppCompatButton
+                        android:id="@+id/landscape_count_6"
+                        style="@style/Widget.HaoHao.SegmentButton"
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:layout_marginStart="4dp"
+                        android:text="6" />
+
+                    <androidx.appcompat.widget.AppCompatButton
+                        android:id="@+id/landscape_count_7"
+                        style="@style/Widget.HaoHao.SegmentButton"
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:layout_marginStart="4dp"
+                        android:text="7" />
+
+                    <androidx.appcompat.widget.AppCompatButton
+                        android:id="@+id/landscape_count_8"
+                        style="@style/Widget.HaoHao.SegmentButton"
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:layout_marginStart="4dp"
+                        android:text="8" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="@color/haohao_divider" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="28dp"
+                android:layout_marginBottom="14dp"
+                android:text="@string/quick_settings_keyboard"
+                android:textAppearance="@style/TextAppearance.HaoHao.SectionTitle" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:orientation="horizontal">
+
+                <androidx.appcompat.widget.AppCompatButton
+                    android:id="@+id/feedback_silent"
+                    style="@style/Widget.HaoHao.SegmentButton"
+                    android:layout_width="0dp"
+                    android:layout_height="48dp"
+                    android:layout_weight="1"
+                    android:text="@string/keyboard_feedback_silent" />
+
+                <androidx.appcompat.widget.AppCompatButton
+                    android:id="@+id/feedback_soft_sound"
+                    style="@style/Widget.HaoHao.SegmentButton"
+                    android:layout_width="0dp"
+                    android:layout_height="48dp"
+                    android:layout_marginStart="4dp"
+                    android:layout_weight="1"
+                    android:text="@string/keyboard_feedback_soft_sound" />
+
+                <androidx.appcompat.widget.AppCompatButton
+                    android:id="@+id/feedback_soft_haptic"
+                    style="@style/Widget.HaoHao.SegmentButton"
+                    android:layout_width="0dp"
+                    android:layout_height="48dp"
+                    android:layout_marginStart="4dp"
+                    android:layout_weight="1"
+                    android:text="@string/keyboard_feedback_soft_haptic" />
+
+                <androidx.appcompat.widget.AppCompatButton
+                    android:id="@+id/feedback_sound_haptic"
+                    style="@style/Widget.HaoHao.SegmentButton"
+                    android:layout_width="0dp"
+                    android:layout_height="48dp"
+                    android:layout_marginStart="4dp"
+                    android:layout_weight="1"
+                    android:maxLines="1"
+                    android:text="@string/keyboard_feedback_sound_haptic" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/custom_feedback_action"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:background="?attr/selectableItemBackground"
+                android:gravity="center_vertical"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp"
+                android:text="@string/quick_settings_adjust_custom_feedback"
+                android:textColor="@color/haohao_brand_header_pressed"
+                android:textSize="14sp"
+                android:visibility="gone" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_marginTop="16dp"
+                android:background="@color/haohao_divider" />
+
+            <LinearLayout
+                android:id="@+id/theme_destination"
+                android:layout_width="match_parent"
+                android:layout_height="72dp"
+                android:background="?attr/selectableItemBackground"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/quick_settings_theme"
+                        android:textAppearance="@style/TextAppearance.HaoHao.SettingTitle" />
+
+                    <TextView
+                        android:id="@+id/theme_summary"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="3dp"
+                        android:textColor="@color/haohao_cocoa_secondary"
+                        android:textSize="13sp" />
+                </LinearLayout>
+
+                <ImageView
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:contentDescription="@null"
+                    android:padding="12dp"
+                    android:src="@drawable/ic_haohao_chevron_right_24" />
+            </LinearLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="@color/haohao_divider" />
+
+            <LinearLayout
+                android:id="@+id/all_settings_destination"
+                android:layout_width="match_parent"
+                android:layout_height="72dp"
+                android:background="?attr/selectableItemBackground"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/all_settings"
+                        android:textAppearance="@style/TextAppearance.HaoHao.SettingTitle" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="3dp"
+                        android:text="@string/all_settings_summary"
+                        android:textColor="@color/haohao_cocoa_secondary"
+                        android:textSize="13sp" />
+                </LinearLayout>
+
+                <ImageView
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:contentDescription="@null"
+                    android:padding="12dp"
+                    android:src="@drawable/ic_haohao_chevron_right_24" />
+            </LinearLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="@color/haohao_divider" />
+        </LinearLayout>
+    </LinearLayout>
+</androidx.core.widget.NestedScrollView>

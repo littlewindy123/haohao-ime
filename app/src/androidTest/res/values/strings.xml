@@ -1,11 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-
 <!--
 SPDX-FileCopyrightText: 2026 HaoHao IME contributors
 
 SPDX-License-Identifier: GPL-3.0-or-later
 -->
-
 <resources>
-    <color name="ic_app_icon_background">#AACDBB</color>
+    <string name="app_name_debug">HaoHao IME Regression Test</string>
 </resources>

@@ -17,15 +17,7 @@ class KeyboardSettingsFragment : PreferenceDelegateFragment(AppPrefs.defaultInst
     private val prefs = AppPrefs.defaultInstance().keyboard
 
     override fun onPreferenceUiCreated(screen: PreferenceScreen) {
-        screen.findPreference<ListPreference>(AppPrefs.Keyboard.FEEDBACK_PRESET)?.apply {
-            setOnPreferenceChangeListener { _, newValue ->
-                val preset = runCatching {
-                    AppPrefs.Keyboard.FeedbackPreset.valueOf(newValue.toString().uppercase())
-                }.getOrNull() ?: return@setOnPreferenceChangeListener false
-                prefs.applyFeedbackPreset(preset)
-                true
-            }
-        }
+        screen.bindFeedbackPreset(prefs)
 
         ADVANCED_FEEDBACK_KEYS.forEach { key ->
             screen.findPreference<Preference>(key)?.setOnPreferenceChangeListener { _, _ ->
@@ -56,5 +48,17 @@ class KeyboardSettingsFragment : PreferenceDelegateFragment(AppPrefs.defaultInst
             AppPrefs.Keyboard.VIBRATION_DURATION,
             AppPrefs.Keyboard.VIBRATION_AMPLITUDE,
         )
+    }
+}
+
+internal fun PreferenceScreen.bindFeedbackPreset(prefs: AppPrefs.Keyboard) {
+    findPreference<ListPreference>(AppPrefs.Keyboard.FEEDBACK_PRESET)?.apply {
+        setOnPreferenceChangeListener { _, newValue ->
+            val preset = runCatching {
+                AppPrefs.Keyboard.FeedbackPreset.valueOf(newValue.toString().uppercase())
+            }.getOrNull() ?: return@setOnPreferenceChangeListener false
+            prefs.applyFeedbackPreset(preset)
+            true
+        }
     }
 }

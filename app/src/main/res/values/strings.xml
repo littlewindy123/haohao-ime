@@ -21,6 +21,26 @@
     <string name="build_info_format">Builder: %1$s\nBuild Git Hash: %2$s\nBuild Time: %3$s</string>
     <string name="selected_theme">Themes</string>
     <string name="selected_theme_summary">Select desired theme</string>
+    <string name="quick_settings_bilingual">Bilingual candidates</string>
+    <string name="quick_settings_candidate_bar">Candidate bar</string>
+    <string name="quick_settings_keyboard">Keyboard experience</string>
+    <string name="quick_settings_theme">Keyboard appearance and theme</string>
+    <string name="quick_settings_theme_summary">Choose the keyboard theme and light or dark colors</string>
+    <string name="quick_settings_try_keyboard">Try keyboard</string>
+    <string name="quick_settings_more_actions">More actions</string>
+    <string name="quick_settings_brand_mascot">HaoHao golden retriever mascot</string>
+    <string name="quick_settings_preview_pinyin" translatable="false">ni hao</string>
+    <string name="quick_settings_preview_chinese" translatable="false">你好</string>
+    <string name="quick_settings_preview_english" translatable="false">hello</string>
+    <string name="quick_settings_preview_ipa" translatable="false">/həˈloʊ/</string>
+    <string name="quick_settings_delay_value">%1$d ms</string>
+    <string name="quick_settings_portrait_candidate_count">Portrait target candidates</string>
+    <string name="quick_settings_landscape_candidate_count">Landscape target candidates</string>
+    <string name="quick_settings_adjust_custom_feedback">Adjust custom feedback parameters</string>
+    <string name="quick_settings_theme_current">Current: %1$s</string>
+    <string name="quick_settings_theme_haohao">HaoHao</string>
+    <string name="all_settings">More advanced settings</string>
+    <string name="all_settings_summary">Schemas, dictionaries, configuration, and advanced options</string>
     <string name="normal_mode_color">Colors</string>
     <string name="normal_mode_color_summary">Select desired color</string>
     <string name="reset">Reset</string>
