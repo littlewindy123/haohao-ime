@@ -263,4 +263,9 @@
     <string name="word_segment">Word segment</string>
     <string name="star_success">Star success</string>
     <string name="ignore_system_gesture_insets">Ignore system gesture insets</string>
+    <string name="haohao_toolbox_title">Quick tools</string>
+    <string name="haohao_toolbox_clipboard">Clipboard</string>
+    <string name="haohao_toolbox_emoji">Emoji</string>
+    <string name="haohao_toolbox_voice">Voice input</string>
+    <string name="haohao_toolbox_settings">Common settings</string>
 </resources>

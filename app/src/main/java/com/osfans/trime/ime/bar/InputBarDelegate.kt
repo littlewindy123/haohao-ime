@@ -62,6 +62,7 @@ import splitties.views.dsl.core.lParams
 import splitties.views.dsl.core.matchParent
 import java.util.concurrent.Executor
 import kotlin.coroutines.resume
+import kotlin.math.max
 
 class InputBarDelegate : InputBroadcastReceiver {
     private val di = InputDependencyManager.getInstance().di
@@ -73,7 +74,8 @@ class InputBarDelegate : InputBroadcastReceiver {
     private val candidate: CompactCandidateDelegate by di.instance()
     private val rime: RimeSession by di.instance()
 
-    val themedHeight = theme.generalStyle.run { candidateViewHeight + commentHeight }
+    private val minimumToolBarHeight = theme.toolBar.primaryButton?.size?.getOrNull(1) ?: 0
+    val themedHeight = theme.generalStyle.run { max(candidateViewHeight + commentHeight, minimumToolBarHeight) }
 
     private val bilingualThemedHeight =
         theme.generalStyle.run {
@@ -185,12 +187,17 @@ class InputBarDelegate : InputBroadcastReceiver {
     }
 
     private val candidateUi by lazy {
-        CandidateUi(context, theme, candidate.view).apply {
+        CandidateUi(context, theme, candidate.view) { action ->
+            commonKeyboardActionListener.listener.onAction(KeyActionManager.getAction(action))
+        }.apply {
             unrollButton.apply {
                 onSwipe = swipeDownHideKeyboardCallback
             }
         }
     }
+
+    internal val compactCandidateLeadingControlWidth: Int
+        get() = candidateUi.leadingControlWidth
 
     private val tabUi by lazy {
         TabUi(context, theme)

@@ -51,6 +51,7 @@ internal const val COMPACT_CANDIDATE_PORTRAIT_DEFAULT = 4
 internal const val COMPACT_CANDIDATE_LANDSCAPE_MIN = 5
 internal const val COMPACT_CANDIDATE_LANDSCAPE_MAX = 8
 internal const val COMPACT_CANDIDATE_LANDSCAPE_DEFAULT = 6
+internal const val COMPACT_CANDIDATE_TRAILING_CONTROL_WIDTH_DP = 40
 private const val COMPACT_PRIMARY_TRANSLATION_MIN_LETTERS = 8
 private const val COMPACT_PRIMARY_TRANSLATION_MAX_LETTERS = 10
 private const val COMPACT_SECONDARY_TRANSLATION_MAX_LETTERS = 8
@@ -59,6 +60,12 @@ private val PINYIN_SYLLABLE = Regex("[a-züv]+", RegexOption.IGNORE_CASE)
 private val PINYIN_SEPARATOR = Regex("[\\s']+")
 private const val PREEDIT_CARET = '\u2038'
 private const val TRANSLATION_WIDTH_SAMPLE = "abcdefghij"
+
+internal fun compactCandidateAvailableWidth(
+    totalWidth: Int,
+    leadingWidth: Int,
+    trailingWidth: Int,
+): Int = (totalWidth - leadingWidth - trailingWidth).coerceAtLeast(0)
 
 internal fun resolveCompactCandidateCount(
     isLandscape: Boolean,
@@ -405,7 +412,11 @@ class CompactCandidateDelegate : InputBroadcastReceiver {
     override fun onCandidateListUpdate(data: Candidates.Bulk) {
         latestCandidates = data
         val measuredWidth = view.width
-        val estimatedWidth = context.resources.displayMetrics.widthPixels - context.dp(40)
+        val estimatedWidth = compactCandidateAvailableWidth(
+            totalWidth = context.resources.displayMetrics.widthPixels,
+            leadingWidth = bar.compactCandidateLeadingControlWidth,
+            trailingWidth = context.dp(COMPACT_CANDIDATE_TRAILING_CONTROL_WIDTH_DP),
+        )
         renderCandidates(measuredWidth.takeIf { it > 0 } ?: estimatedWidth)
     }
 

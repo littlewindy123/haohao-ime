@@ -13,6 +13,7 @@ import android.util.TypedValue
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
+import androidx.annotation.DrawableRes
 import com.osfans.trime.data.theme.ColorManager
 import com.osfans.trime.data.theme.Theme
 import com.osfans.trime.ime.core.AutoScaleTextView
@@ -114,20 +115,23 @@ class SwitchOptionEntryUi(
             }
         }
 
-    fun setEntry(entry: SwitchOptionEntry) {
-        if (entry.icon != 0) {
+    fun setEntry(entry: SwitchOptionEntry) = setEntry(entry.label, entry.icon)
+
+    fun setEntry(labelText: String, @DrawableRes iconRes: Int = 0) {
+        if (iconRes != 0) {
             icon.visibility = View.VISIBLE
             textIcon.visibility = View.GONE
-            icon.imageDrawable = ctx.drawable(entry.icon)!!.apply {
+            icon.imageDrawable = ctx.drawable(iconRes)!!.apply {
                 setTint(ColorManager.getColor("key_text_color"))
             }
         } else {
             icon.visibility = View.GONE
             textIcon.visibility = View.VISIBLE
-            textIcon.text = getFirstCharacter(entry.label)
+            textIcon.text = getFirstCharacter(labelText)
             textIcon.setTextColor(ColorManager.getColor("key_text_color"))
         }
-        label.text = entry.label
+        label.text = labelText
+        root.contentDescription = labelText
     }
 
     private fun getFirstCharacter(s: String): String {
