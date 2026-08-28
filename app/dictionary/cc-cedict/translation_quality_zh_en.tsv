@@ -1,0 +1,201 @@
+# Chinese<TAB>expected short English or -<TAB>category
+你	you	single
+好	good	single
+我	I	single
+中	middle	single
+国	country	single
+人	person	single
+是	to be	single
+时	time	single
+事	matter	single
+市	city	single
+十	ten	single
+有	have	single
+在	at	single
+鸡	chicken	single
+行	okay	single
+打	hit	single
+上	up	single
+下	down	single
+大	big	single
+小	small	single
+多	many	single
+少	few	single
+来	come	single
+去	go	single
+看	look	single
+听	listen	single
+说	speak	single
+吃	eat	single
+喝	drink	single
+买	buy	single
+卖	sell	single
+开	open	single
+关	close	single
+早	early	single
+晚	late	single
+快	fast	single
+慢	slow	single
+新	new	single
+旧	old	single
+热	hot	single
+冷	cold	single
+高	high	single
+低	low	single
+长	long	single
+短	short	single
+前	front	single
+后	back	single
+左	left	single
+右	right	single
+家	home	single
+你好	hello	word
+我们	we	word
+中国	China	word
+中文	Chinese	word
+英文	English	word
+英语	English	word
+学习	study	word
+工作	work	word
+生活	life	word
+世界	world	word
+输入	input	word
+输入法	input method	word
+天气	weather	word
+电脑	computer	word
+意思	meaning	word
+好看	good-looking	word
+朋友	friend	word
+老师	teacher	word
+学生	student	word
+学校	school	word
+公司	company	word
+时间	time	word
+今天	today	word
+明天	tomorrow	word
+昨天	yesterday	word
+现在	now	word
+东西	thing	word
+手机	phone	word
+软件	software	word
+键盘	keyboard	word
+文字	text	word
+语言	language	word
+翻译	translation	word
+问题	question	word
+答案	answer	word
+名字	name	word
+地方	place	word
+城市	city	word
+国家	country	word
+家庭	family	word
+孩子	child	word
+父亲	father	word
+母亲	mother	word
+爸爸	dad	word
+妈妈	mom	word
+哥哥	older brother	word
+姐姐	older sister	word
+弟弟	younger brother	word
+妹妹	younger sister	word
+医生	doctor	word
+医院	hospital	word
+吃饭	eat	word
+喝水	drink water	word
+回家	go home	word
+上班	go to work	word
+下班	leave work	word
+开始	start	word
+结束	end	word
+喜欢	like	word
+知道	know	word
+觉得	feel	word
+需要	need	word
+可以	can	word
+应该	should	word
+帮助	help	word
+谢谢	thanks	word
+对不起	sorry	word
+再见	goodbye	word
+没事	it's okay	word
+见面	meet	word
+没关系	no problem	phrase
+早上好	good morning	phrase
+晚上好	good evening	phrase
+晚安	good night	phrase
+欢迎	welcome	phrase
+不客气	you're welcome	phrase
+辛苦了	much appreciated	phrase
+请问	excuse me	phrase
+稍等	please wait	phrase
+等一下	hold on	phrase
+没问题	no problem	phrase
+不知道	I don't know	phrase
+我知道	I know	phrase
+我觉得	I think	phrase
+我喜欢	I like it	phrase
+我需要	I need it	phrase
+我可以	I can	phrase
+可以吗	may I	phrase
+怎么样	how is it	phrase
+为什么	why	phrase
+什么时候	when	phrase
+在哪里	where	phrase
+怎么办	what to do	phrase
+没办法	no way	phrase
+不要紧	it's okay	phrase
+小心点	be careful	phrase
+慢一点	slow down	phrase
+快一点	hurry up	phrase
+看一下	take a look	phrase
+听一下	have a listen	phrase
+说一下	say it	phrase
+试一下	give it a try	phrase
+很好看	looks great	phrase
+太好了	great	phrase
+回头见	see you later	phrase
+塔斯汀	Tastien	modern
+库迪	Cotti	modern
+小红书	REDnote	modern
+通义千问	Qwen	modern
+豆包	Doubao	modern
+哔哩哔哩	Bilibili	modern
+拼多多	Pinduoduo	modern
+微信	WeChat	modern
+支付宝	Alipay	modern
+淘宝	Taobao	modern
+京东	JD.com	modern
+抖音	Douyin	modern
+快手	Kuaishou	modern
+美团	Meituan	modern
+高德地图	Amap	modern
+人工智能	AI	modern
+大模型	AI model	modern
+提示词	prompt	modern
+智能体	AI agent	modern
+云计算	cloud computing	modern
+数据库	database	modern
+开源	open source	modern
+程序员	programmer	modern
+代码	code	modern
+应用程序	app	modern
+倪	-	risk
+伲	-	risk
+我去	damn	risk
+只有	only	risk
+即可	that will do	risk
+有没有	is there	risk
+地	ground	risk
+得	get	risk
+着	-	risk
+难道	could it be	risk
+要	want	risk
+及其	and its or their	risk
+给	give	risk
+过	pass	risk
+还不如	better to	risk
+要看	depends	risk
+就	then	risk
+称之为	call it	risk
+足以	enough to	risk
+与其	rather than	risk

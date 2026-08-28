@@ -88,6 +88,20 @@ class CedictDictionaryGeneratorTest :
             )
         }
 
+        "override tombstones remove unsafe translations" {
+            val source =
+                """
+                倪 倪 [Ni2] /surname Ni/to look askance/
+                鸡 鸡 [ji1] /chicken/
+                """.trimIndent()
+
+            CedictDictionaryGenerator.readForTesting(
+                generate(source, "倪\t-\n鸡\tchicken\n"),
+            ).entries.shouldContainExactly(
+                CedictDictionaryGenerator.GeneratedEntry("鸡", "chicken", null),
+            )
+        }
+
         "generated translations never expose metadata brackets" {
             val source =
                 """
