@@ -29,6 +29,7 @@ android {
         targetSdk = 36
         versionCode = 20260901
         versionName = "3.3.12"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         multiDexEnabled = true
         buildConfigField("String", "BUILDER", "\"${project.builder}\"")
@@ -74,11 +75,22 @@ android {
 
             resValue("string", "trime_app_name", "@string/app_name_debug")
         }
+        create("regression") {
+            initWith(getByName("debug"))
+            applicationIdSuffix = ".regression"
+            matchingFallbacks += listOf("debug")
+        }
         all {
             // remove META-INF/version-control-info.textproto
             @Suppress("UnstableApiUsage")
             vcsInfo.include = false
         }
+    }
+
+    testBuildType = "regression"
+
+    sourceSets {
+        getByName("androidTest").assets.directories.add("dictionary/regression")
     }
 
     compileOptions {
@@ -182,6 +194,8 @@ dependencies {
     testImplementation(libs.kotest.runner.junit5)
     testImplementation(libs.kotest.assertions.core)
     androidTestImplementation(libs.junit)
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.androidx.test.ext.junit)
 }
 
 configurations {

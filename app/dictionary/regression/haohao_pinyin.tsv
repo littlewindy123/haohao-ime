@@ -1,0 +1,107 @@
+# HaoHao Pinyin regression corpus
+# pinyin<TAB>expected text<TAB>maximum compact rank<TAB>category
+
+ni hao	你好	1	daily
+zhong guo	中国	1	daily
+tian qi	天气	1	daily
+dian nao	电脑	1	daily
+shou ji	手机	1	daily
+xue xi	学习	1	daily
+gong zuo	工作	1	daily
+sheng huo	生活	1	daily
+shi jie	世界	1	daily
+shu ru fa	输入法	1	daily
+chi fan	吃饭	1	daily
+shui jiao	睡觉	1	daily
+he shui	喝水	1	daily
+shang ban	上班	1	daily
+xia ban	下班	1	daily
+hui jia	回家	1	daily
+zao shang	早上	1	daily
+wan shang	晚上	1	daily
+jin tian	今天	1	daily
+ming tian	明天	1	daily
+xian zai	现在	1	daily
+ke yi	可以	1	daily
+mei you	没有	1	daily
+zhi dao	知道	1	daily
+yin wei	因为	1	daily
+suo yi	所以	1	daily
+peng you	朋友	1	daily
+jia ren	家人	1	daily
+hai zi	孩子	1	daily
+lao shi	老师	1	daily
+tong xue	同学	4	daily
+gong si	公司	4	daily
+wen ti	问题	4	daily
+shi jian	时间	4	daily
+dong xi	东西	4	daily
+zi liao	资料	4	daily
+xin xi	信息	4	daily
+xi huan	喜欢	4	daily
+fang zi	房子	4	daily
+wang ye	网页	4	daily
+
+dian wai mai	点外卖	1	scenario
+fa xiao xi	发消息	1	scenario
+kan shi pin	看视频	1	scenario
+ting yin yue	听音乐	1	scenario
+kai hui	开会	1	scenario
+xie dai ma	写代码	1	scenario
+zuo fan	做饭	1	scenario
+mai dong xi	买东西	1	scenario
+da che	打车	1	scenario
+shou kuai di	收快递	1	scenario
+cha tian qi	查天气	4	scenario
+ding nao zhong	定闹钟	4	scenario
+pai zhao pian	拍照片	4	scenario
+kan dian ying	看电影	4	scenario
+wan you xi	玩游戏	4	scenario
+shang wang	上网	4	scenario
+xia zai wen jian	下载文件	4	scenario
+fa peng you quan	发朋友圈	4	scenario
+sao er wei ma	扫二维码	4	scenario
+lian jie lan ya	连接蓝牙	4	scenario
+
+ta si ting	塔斯汀	1	brand
+ku di	库迪	1	brand
+xiao hong shu	小红书	1	brand
+tong yi qian wen	通义千问	1	brand
+dou bao	豆包	1	brand
+bi li bi li	哔哩哔哩	4	brand
+pin duo duo	拼多多	4	brand
+zhi fu bao	支付宝	4	brand
+wei xin	微信	4	brand
+dou yin	抖音	4	brand
+mei tuan	美团	4	brand
+e le me	饿了么	4	brand
+hua wei	华为	4	brand
+xiao mi	小米	4	brand
+zi jie tiao dong	字节跳动	4	brand
+
+ren gong zhi neng	人工智能	1	tech
+da mo xing	大模型	1	tech
+sheng cheng shi ren gong zhi neng	生成式人工智能	1	tech
+ti shi ci	提示词	1	tech
+zhi neng ti	智能体	1	tech
+suan li	算力	4	tech
+yun yuan sheng	云原生	4	tech
+kai yuan	开源	4	tech
+shen du xue xi	深度学习	4	tech
+ji qi xue xi	机器学习	4	tech
+da shu ju	大数据	4	tech
+shu ju ku	数据库	4	tech
+dai ma bu quan	代码补全	4	tech
+zi ran yu yan chu li	自然语言处理	4	tech
+tu xiang sheng cheng	图像生成	4	tech
+
+qing xu jia zhi	情绪价值	4	slang
+song chi gan	松弛感	4	slang
+xian yan bao	显眼包	4	slang
+da zi	搭子	4	slang
+ying kong	硬控	4	slang
+zhong cao	种草	4	slang
+bi lei	避雷	4	slang
+dian zi zha cai	电子榨菜	4	slang
+shang lian jie	上链接	4	slang
+po fang	破防	4	slang
