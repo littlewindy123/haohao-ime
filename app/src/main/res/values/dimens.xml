@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!--
+  ~ SPDX-FileCopyrightText: 2026 HaoHao IME contributors
+  ~ SPDX-License-Identifier: GPL-3.0-or-later
+  -->
+
+<resources>
+    <dimen name="haohao_home_header_height">184dp</dimen>
+</resources>

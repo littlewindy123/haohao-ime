@@ -6,6 +6,7 @@
 package com.osfans.trime.ui.main
 
 import android.content.Intent
+import android.content.res.Configuration
 import android.os.Bundle
 import android.view.Menu
 import android.view.ViewGroup
@@ -50,6 +51,7 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var navController: NavController
     private var testInputPanel: TestInputPanel? = null
+    private var defaultNavigationBarColor: Int = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         val uiMode =
@@ -61,6 +63,7 @@ class MainActivity : AppCompatActivity() {
         AppCompatDelegate.setDefaultNightMode(uiMode)
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        defaultNavigationBarColor = window.navigationBarColor
         val binding = ActivityMainBinding.inflate(layoutInflater)
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, windowInsets ->
             val systemBars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
@@ -129,12 +132,10 @@ class MainActivity : AppCompatActivity() {
         }
         navController.addOnDestinationChangedListener { _, dest, _ ->
             dest.label?.let { viewModel.setToolbarTitle(it.toString()) }
-            binding.mainToolbar.toolbar.subtitle =
-                if (dest.hasRoute<NavigationRoute.Main>()) {
-                    getString(R.string.trime_app_slogan)
-                } else {
-                    ""
-                }
+            val isMain = dest.hasRoute<NavigationRoute.Main>()
+            binding.mainToolbar.root.isVisible = !isMain
+            binding.mainToolbar.toolbar.subtitle = ""
+            updateSystemBars(isMain)
         }
 
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
@@ -167,7 +168,7 @@ class MainActivity : AppCompatActivity() {
                 viewModel.rime.launchOnReady { it.deploy() }
             },
             menu.item(R.string.test_input, R.drawable.ic_baseline_keyboard_24, showAsAction = true) {
-                testInputPanel?.show(window)
+                showTestInputPanel()
             },
             menu.item(R.string.developer) {
                 navController.navigate(NavigationRoute.Developer)
@@ -224,6 +225,28 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         testInputPanel = null
         super.onDestroy()
+    }
+
+    internal fun showTestInputPanel() {
+        testInputPanel?.show(window)
+    }
+
+    private fun updateSystemBars(isMain: Boolean) {
+        val isNightMode =
+            resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK ==
+                Configuration.UI_MODE_NIGHT_YES
+        val controller = WindowCompat.getInsetsController(window, window.decorView)
+        if (isMain) {
+            window.statusBarColor = ContextCompat.getColor(this, R.color.haohao_brand_header)
+            window.navigationBarColor = ContextCompat.getColor(this, R.color.haohao_page_background)
+            controller.isAppearanceLightStatusBars = true
+            controller.isAppearanceLightNavigationBars = !isNightMode
+        } else {
+            window.statusBarColor = ContextCompat.getColor(this, R.color.colorPrimaryDark)
+            window.navigationBarColor = defaultNavigationBarColor
+            controller.isAppearanceLightStatusBars = false
+            controller.isAppearanceLightNavigationBars = isNightMode.not()
+        }
     }
 
     private fun checkNotificationPermission() {

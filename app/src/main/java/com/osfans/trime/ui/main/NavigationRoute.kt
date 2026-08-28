@@ -29,6 +29,9 @@ sealed class NavigationRoute : Parcelable {
     data object Main : NavigationRoute()
 
     @Serializable
+    data object AllSettings : NavigationRoute()
+
+    @Serializable
     data object SchemaList : NavigationRoute()
 
     @Serializable
@@ -70,6 +73,9 @@ sealed class NavigationRoute : Parcelable {
 
             fragment<MainFragment, Main> {
                 label = ctx.getString(R.string.trime_app_name)
+            }
+            fragment<AllSettingsFragment, AllSettings> {
+                label = ctx.getString(R.string.all_settings)
             }
 
             fragment<SchemaListFragment, SchemaList> {
