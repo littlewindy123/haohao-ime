@@ -36,6 +36,10 @@ gradlePlugin {
             id = "com.osfans.trime.cedict-dictionary"
             implementationClass = "CedictDictionaryPlugin"
         }
+        register("wanxiangDictionary") {
+            id = "com.osfans.trime.wanxiang-dictionary"
+            implementationClass = "WanxiangDictionaryPlugin"
+        }
         register("nativeAppConvention") {
             id = "com.osfans.trime.native-app-convention"
             implementationClass = "NativeAppConventionPlugin"

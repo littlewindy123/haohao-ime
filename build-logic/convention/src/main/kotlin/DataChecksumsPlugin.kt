@@ -7,24 +7,21 @@ import kotlinx.serialization.encodeToString
 import org.gradle.api.DefaultTask
 import org.gradle.api.Plugin
 import org.gradle.api.Project
+import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.file.RegularFileProperty
-import org.gradle.api.logging.LogLevel
 import org.gradle.api.tasks.Delete
 import org.gradle.api.tasks.InputDirectory
+import org.gradle.api.tasks.InputFiles
 import org.gradle.api.tasks.OutputFile
 import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
 import org.gradle.api.tasks.TaskAction
 import org.gradle.kotlin.dsl.register
 import org.gradle.kotlin.dsl.task
-import org.gradle.work.ChangeType
-import org.gradle.work.Incremental
-import org.gradle.work.InputChanges
 import org.jetbrains.kotlin.com.google.common.hash.Hashing
-import org.jetbrains.kotlin.com.google.common.io.ByteSource
 import java.io.File
-import java.nio.charset.Charset
+import java.security.MessageDigest
 import kotlin.collections.set
 
 /**
@@ -56,10 +53,13 @@ class DataChecksumsPlugin : Plugin<Project> {
             val files: Map<String, String>,
         )
 
-        @get:Incremental
         @get:PathSensitive(PathSensitivity.NAME_ONLY)
         @get:InputDirectory
         abstract val inputDir: DirectoryProperty
+
+        @get:InputFiles
+        @get:PathSensitive(PathSensitivity.RELATIVE)
+        abstract val generatedInputDirs: ConfigurableFileCollection
 
         @get:OutputFile
         abstract val outputFile: RegularFileProperty
@@ -73,58 +73,48 @@ class DataChecksumsPlugin : Plugin<Project> {
                         .sha256()
                         .hashString(
                             files.entries.joinToString { it.key + it.value },
-                            Charset.defaultCharset(),
+                            Charsets.UTF_8,
                         ).toString(),
                     files,
                 )
             file.writeText(json.encodeToString(checksums))
         }
 
-        private fun deserialize(): Map<String, String> = json.decodeFromString<DataChecksums>(file.readText()).files
-
         companion object {
-            fun sha256(file: File): String = ByteSource.wrap(file.readBytes()).hash(Hashing.sha256()).toString()
+            fun sha256(file: File): String {
+                val digest = MessageDigest.getInstance("SHA-256")
+                file.inputStream().buffered().use { input ->
+                    val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                    while (true) {
+                        val count = input.read(buffer)
+                        if (count < 0) break
+                        digest.update(buffer, 0, count)
+                    }
+                }
+                return digest.digest().joinToString("") { "%02x".format(it) }
+            }
         }
 
         @TaskAction
-        fun execute(inputChanges: InputChanges) {
-            val map =
-                file
-                    .exists()
-                    .takeIf { it }
-                    ?.runCatching {
-                        deserialize()
-                            // remove all old dirs
-                            .filterValues { it.isNotBlank() }
-                            .toMutableMap()
-                    }?.getOrNull()
-                    ?: mutableMapOf()
-
-            fun File.allParents(): List<File> = if (parentFile == null || parentFile.invariantSeparatorsPath in map) {
-                listOf()
-            } else {
-                listOf(parentFile) + parentFile.allParents()
-            }
-            inputChanges.getFileChanges(inputDir).forEach { change ->
-                if (change.file.name == file.name) {
-                    return@forEach
-                }
-                logger.log(LogLevel.DEBUG, "${change.changeType}: ${change.normalizedPath}")
-                val relativeFile = change.file.relativeTo(file.parentFile)
-                val key = relativeFile.invariantSeparatorsPath
-                if (change.changeType == ChangeType.REMOVED) {
-                    map.remove(key)
-                } else {
-                    map[key] = sha256(change.file)
+        fun execute() {
+            val map = sortedMapOf<String, String>()
+            val roots =
+                (listOf(inputDir.get().asFile) + generatedInputDirs.files)
+                    .distinctBy(File::getAbsolutePath)
+                    .sortedBy(File::getAbsolutePath)
+            roots.forEach { root ->
+                if (!root.exists()) return@forEach
+                root.walkTopDown().forEach { candidate ->
+                    if (candidate == root || candidate.absoluteFile == file.absoluteFile) return@forEach
+                    val key = candidate.relativeTo(root).invariantSeparatorsPath
+                    val value = if (candidate.isDirectory) "" else sha256(candidate)
+                    val previous = map.putIfAbsent(key, value)
+                    check(previous == null || previous == value) {
+                        "Conflicting asset path across source directories: $key"
+                    }
                 }
             }
-            // calculate dirs
-            inputDir.asFileTree.forEach {
-                it.relativeTo(file.parentFile).allParents().forEach { p ->
-                    map[p.invariantSeparatorsPath] = ""
-                }
-            }
-            serialize(map.toSortedMap())
+            serialize(map)
         }
     }
 }
