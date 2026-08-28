@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2015 - 2024 Rime community
+// SPDX-FileCopyrightText: 2015 - 2026 Rime community
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -6,14 +6,15 @@ package com.osfans.trime.ui.setup
 
 import android.app.PendingIntent
 import android.content.Intent
+import android.content.res.Configuration
 import android.os.Bundle
-import android.view.View
 import androidx.activity.enableEdgeToEdge
-import androidx.activity.viewModels
 import androidx.appcompat.app.AlertDialog
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import androidx.core.os.bundleOf
 import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentActivity
@@ -21,15 +22,15 @@ import androidx.viewpager2.adapter.FragmentStateAdapter
 import androidx.viewpager2.widget.ViewPager2
 import com.osfans.trime.R
 import com.osfans.trime.databinding.ActivitySetupBinding
-import com.osfans.trime.ui.setup.SetupPage.Companion.firstUndonePage
-import com.osfans.trime.ui.setup.SetupPage.Companion.isLastPage
+import com.osfans.trime.ui.main.MainActivity
 import com.osfans.trime.util.appContext
 import com.osfans.trime.util.createNotificationChannel
 import splitties.systemservices.notificationManager
 
 class SetupActivity : FragmentActivity() {
+    private lateinit var binding: ActivitySetupBinding
     private lateinit var viewPager: ViewPager2
-    private val viewModel: SetupViewModel by viewModels()
+    private var lastKnownDone = BooleanArray(SetupPage.entries.size)
 
     companion object {
         private var binaryCount = false
@@ -42,7 +43,7 @@ class SetupActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        val binding = ActivitySetupBinding.inflate(layoutInflater)
+        binding = ActivitySetupBinding.inflate(layoutInflater)
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, windowInsets ->
             val sysBars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
             binding.root.setPadding(
@@ -54,64 +55,36 @@ class SetupActivity : FragmentActivity() {
             windowInsets
         }
         setContentView(binding.root)
-        val prevButton =
-            binding.prevButton.apply {
-                text = getString(R.string.setup__prev)
-                setOnClickListener { viewPager.currentItem -= 1 }
-            }
-        binding.skipButton.apply {
-            text = getString(R.string.setup__skip)
-            setOnClickListener {
-                AlertDialog
-                    .Builder(this@SetupActivity)
-                    .setMessage(R.string.setup__skip_hint)
-                    .setPositiveButton(R.string.setup__skip_hint_yes) { _, _ ->
-                        finish()
-                    }.setNegativeButton(R.string.setup__skip_hint_no, null)
-                    .show()
-            }
-        }
-        val nextButton =
-            binding.nextButton.apply {
-                setOnClickListener {
-                    if (viewPager.currentItem != SetupPage.entries.size - 1) {
-                        viewPager.currentItem += 1
-                    } else {
-                        finish()
-                    }
-                }
-            }
+        setupSystemBars()
+        setupSkipAction()
+
         viewPager = binding.viewpager
         viewPager.adapter = Adapter()
+        viewPager.isUserInputEnabled = false
         viewPager.registerOnPageChangeCallback(
             object : ViewPager2.OnPageChangeCallback() {
                 override fun onPageSelected(position: Int) {
-                    // Manually call following observer when page changed
-                    // intentionally before changing the text of nextButton
-                    viewModel.isAllDone.value = viewModel.isAllDone.value
-                    // Hide prev button for the first page
-                    prevButton.visibility = if (position != 0) View.VISIBLE else View.GONE
-                    nextButton.text =
+                    binding.progressText.text =
                         getString(
-                            if (position.isLastPage()) {
-                                R.string.done
-                            } else {
-                                R.string.setup__next
-                            },
+                            R.string.setup__progress,
+                            SetupFlow.progressStep(position),
+                            SetupPage.entries.size,
                         )
+                    currentFragment()?.sync()
                 }
             },
         )
-        viewModel.isAllDone.observe(this) { allDone ->
-            nextButton.apply {
-                // Hide next button for the last page when allDone == false
-                (allDone || !viewPager.currentItem.isLastPage()).let {
-                    visibility = if (it) View.VISIBLE else View.GONE
-                }
-            }
-        }
-        // Skip to undone page
-        firstUndonePage()?.let { viewPager.currentItem = it.ordinal }
+
+        val doneStates = readDoneStates()
+        lastKnownDone = doneStates.toBooleanArray()
+        viewPager.currentItem = SetupFlow.firstUndoneIndex(doneStates) ?: SetupPage.entries.lastIndex
+        binding.progressText.text =
+            getString(
+                R.string.setup__progress,
+                SetupFlow.progressStep(viewPager.currentItem),
+                SetupPage.entries.size,
+            )
+
         binaryCount = true
         createNotificationChannel(
             CHANNEL_ID,
@@ -121,8 +94,9 @@ class SetupActivity : FragmentActivity() {
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
-        val fragment = supportFragmentManager.findFragmentByTag("f${viewPager.currentItem}")
-        (fragment as SetupFragment).sync()
+        if (hasFocus && ::binding.isInitialized) {
+            binding.root.post(::syncCurrentStepAndAdvance)
+        }
     }
 
     override fun onPause() {
@@ -148,9 +122,76 @@ class SetupActivity : FragmentActivity() {
     }
 
     override fun onResume() {
-        notificationManager.cancel(NOTIFY_ID)
         super.onResume()
+        notificationManager.cancel(NOTIFY_ID)
+        if (::binding.isInitialized) {
+            binding.root.post(::syncCurrentStepAndAdvance)
+        }
     }
+
+    internal fun startTyping() {
+        startActivity(
+            Intent(this, MainActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                .putExtra(MainActivity.EXTRA_SHOW_TEST_INPUT, true),
+        )
+        finish()
+    }
+
+    private fun setupSkipAction() {
+        binding.skipButton.setOnClickListener {
+            val dialog =
+                AlertDialog
+                    .Builder(this)
+                    .setIcon(R.mipmap.ic_app_icon)
+                    .setTitle(R.string.setup__skip_dialog_title)
+                    .setMessage(R.string.setup__skip_hint)
+                    .setPositiveButton(R.string.setup__skip_hint_yes) { _, _ -> finish() }
+                    .setNegativeButton(R.string.setup__skip_hint_no, null)
+                    .show()
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(
+                ContextCompat.getColor(this, R.color.haohao_honey_pressed),
+            )
+            dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(
+                ContextCompat.getColor(this, R.color.haohao_cocoa),
+            )
+        }
+    }
+
+    private fun setupSystemBars() {
+        val isNightMode =
+            resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK ==
+                Configuration.UI_MODE_NIGHT_YES
+        window.statusBarColor = ContextCompat.getColor(this, R.color.haohao_brand_header)
+        window.navigationBarColor = ContextCompat.getColor(this, R.color.haohao_page_background)
+        WindowCompat.getInsetsController(window, window.decorView).apply {
+            isAppearanceLightStatusBars = true
+            isAppearanceLightNavigationBars = !isNightMode
+        }
+    }
+
+    private fun readDoneStates() = SetupPage.entries.map { it.isDone() }
+
+    private fun syncCurrentStepAndAdvance() {
+        val position = viewPager.currentItem
+        val doneStates = readDoneStates()
+        val wasDone = lastKnownDone[position]
+        val isDone = doneStates[position]
+        currentFragment()?.sync()
+        val nextIndex =
+            SetupFlow.nextIndexAfterSync(
+                currentIndex = position,
+                wasDone = wasDone,
+                isDone = isDone,
+                doneStates = doneStates,
+            )
+        lastKnownDone = doneStates.toBooleanArray()
+        if (nextIndex != null && nextIndex != position) {
+            viewPager.setCurrentItem(nextIndex, true)
+        }
+    }
+
+    private fun currentFragment() = supportFragmentManager.findFragmentByTag("f${viewPager.currentItem}") as? SetupFragment
 
     private inner class Adapter : FragmentStateAdapter(this) {
         override fun getItemCount(): Int = SetupPage.entries.size
