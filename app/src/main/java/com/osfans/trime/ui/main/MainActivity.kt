@@ -149,6 +149,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun processIntent(intent: Intent?) {
+        if (intent?.getBooleanExtra(EXTRA_SHOW_TEST_INPUT, false) == true) {
+            intent.removeExtra(EXTRA_SHOW_TEST_INPUT)
+            navController.popBackStack(NavigationRoute.Main, false)
+            testInputPanel?.post(::showTestInputPanel)
+            return
+        }
         val action = intent?.action ?: return
         when (action) {
             Intent.ACTION_MAIN -> if (SetupActivity.shouldSetup()) {
@@ -270,5 +276,6 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         const val EXTRA_SETTINGS_ROUTE = "${BuildConfig.APPLICATION_ID}.EXTRA_SETTINGS_ROUTE"
+        const val EXTRA_SHOW_TEST_INPUT = "${BuildConfig.APPLICATION_ID}.EXTRA_SHOW_TEST_INPUT"
     }
 }

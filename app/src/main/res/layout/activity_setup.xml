@@ -1,49 +1,138 @@
 <?xml version="1.0" encoding="utf-8"?>
 
 <!--
-SPDX-FileCopyrightText: 2015 - 2024 Rime community
+  ~ SPDX-FileCopyrightText: 2015 - 2026 Rime community
+  ~ SPDX-License-Identifier: GPL-3.0-or-later
+  -->
 
-SPDX-License-Identifier: GPL-3.0-or-later
--->
-
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="@color/haohao_page_background"
     tools:context=".ui.setup.SetupActivity">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/brand_header"
+        android:layout_width="0dp"
+        android:layout_height="174dp"
+        android:background="@color/haohao_brand_header"
+        android:clipChildren="true"
+        android:paddingStart="24dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <ImageView
+            android:id="@+id/brand_mascot"
+            android:layout_width="154dp"
+            android:layout_height="154dp"
+            android:contentDescription="@string/quick_settings_brand_mascot"
+            android:scaleType="centerCrop"
+            android:src="@drawable/haohao_golden_foreground"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+        <TextView
+            android:id="@+id/brand_title"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="22dp"
+            android:includeFontPadding="false"
+            android:maxLines="1"
+            android:text="@string/app_name_release"
+            android:textColor="@color/haohao_header_foreground"
+            android:textSize="28sp"
+            android:textStyle="bold"
+            app:layout_constraintEnd_toStartOf="@id/brand_mascot"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <TextView
+            android:id="@+id/brand_slogan"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="7dp"
+            android:includeFontPadding="false"
+            android:maxLines="2"
+            android:text="@string/trime_app_slogan"
+            android:textColor="@color/haohao_header_foreground"
+            android:textSize="14sp"
+            app:layout_constraintEnd_toStartOf="@id/brand_mascot"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/brand_title" />
+
+        <TextView
+            android:id="@+id/progress_text"
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
+            android:layout_marginBottom="18dp"
+            android:background="@drawable/haohao_header_button_background"
+            android:gravity="center"
+            android:minWidth="68dp"
+            android:paddingStart="14dp"
+            android:paddingEnd="14dp"
+            android:textColor="@color/haohao_on_honey"
+            android:textSize="15sp"
+            android:textStyle="bold"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            tools:text="1 / 3" />
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
     <androidx.viewpager2.widget.ViewPager2
         android:id="@+id/viewpager"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        app:layout_constraintBottom_toBottomOf="parent"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:orientation="horizontal"
+        app:layout_constraintBottom_toTopOf="@id/setup_footer"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        android:orientation="horizontal" />
+        app:layout_constraintTop_toBottomOf="@id/brand_header" />
 
-    <Button
-        android:id="@+id/next_button"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+    <LinearLayout
+        android:id="@+id/setup_footer"
+        android:layout_width="0dp"
+        android:layout_height="72dp"
+        android:background="@color/haohao_surface"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="18dp"
+        android:paddingEnd="10dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        android:background="?android:attr/selectableItemBackground" />
+        app:layout_constraintStart_toStartOf="parent">
 
-    <Button
-        android:id="@+id/prev_button"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintBottom_toBottomOf="parent"
-        android:background="?android:attr/selectableItemBackground" />
+        <ImageView
+            android:layout_width="24dp"
+            android:layout_height="48dp"
+            android:contentDescription="@null"
+            android:padding="3dp"
+            android:src="@drawable/ic_baseline_lock_24"
+            app:tint="@color/haohao_cocoa_secondary" />
 
-    <Button
-        android:id="@+id/skip_button"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        android:background="?android:attr/selectableItemBackground"/>
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:layout_weight="1"
+            android:maxLines="2"
+            android:text="@string/setup__privacy"
+            android:textColor="@color/haohao_cocoa_secondary"
+            android:textSize="13sp" />
+
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/skip_button"
+            android:layout_width="wrap_content"
+            android:layout_height="48dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:minWidth="88dp"
+            android:stateListAnimator="@null"
+            android:text="@string/setup__skip"
+            android:textAllCaps="false"
+            android:textColor="@color/haohao_cocoa"
+            android:textSize="14sp" />
+    </LinearLayout>
 </androidx.constraintlayout.widget.ConstraintLayout>

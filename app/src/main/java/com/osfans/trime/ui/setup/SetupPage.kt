@@ -5,6 +5,7 @@
 package com.osfans.trime.ui.setup
 
 import android.content.Context
+import androidx.annotation.DrawableRes
 import com.osfans.trime.R
 import com.osfans.trime.util.InputMethodUtils
 import com.osfans.trime.util.appContext
@@ -41,6 +42,13 @@ enum class SetupPage {
         },
     )
 
+    @DrawableRes
+    fun getIconRes() = when (this) {
+        Permissions -> R.drawable.ic_baseline_snippet_folder_24
+        Enable -> R.drawable.ic_baseline_keyboard_24
+        Select -> R.drawable.ic_input_box
+    }
+
     fun getButtonAction(context: Context) {
         when (this) {
             Permissions -> context.requestExternalStoragePermission()
@@ -63,5 +71,24 @@ enum class SetupPage {
         fun hasUndonePage() = entries.any { !it.isDone() }
 
         fun firstUndonePage() = entries.firstOrNull { !it.isDone() }
+    }
+}
+
+internal object SetupFlow {
+    fun progressStep(currentIndex: Int) = currentIndex + 1
+
+    fun firstUndoneIndex(doneStates: List<Boolean>) = doneStates.indexOfFirst { !it }.takeIf { it >= 0 }
+
+    fun nextIndexAfterSync(
+        currentIndex: Int,
+        wasDone: Boolean,
+        isDone: Boolean,
+        doneStates: List<Boolean>,
+    ): Int? {
+        if (wasDone || !isDone || currentIndex !in doneStates.indices || currentIndex == doneStates.lastIndex) {
+            return null
+        }
+        return ((currentIndex + 1)..doneStates.lastIndex).firstOrNull { !doneStates[it] }
+            ?: doneStates.lastIndex
     }
 }
