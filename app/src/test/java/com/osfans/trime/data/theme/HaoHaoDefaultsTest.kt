@@ -13,12 +13,14 @@ import com.osfans.trime.data.base.managedSchemaDisplayName
 import com.osfans.trime.data.base.upgradeSimplifiedSchemaCustomPatch
 import com.osfans.trime.data.theme.model.KeyActionToken
 import com.osfans.trime.data.theme.model.TextKeyboard
+import com.osfans.trime.ime.haohao.HaoHaoToolboxAction
 import com.osfans.trime.ime.keyboard.KeyBehavior
 import com.osfans.trime.util.yaml.Yaml
 import com.osfans.trime.util.yaml.boolean
 import com.osfans.trime.util.yaml.float
 import com.osfans.trime.util.yaml.int
 import com.osfans.trime.util.yaml.mapping
+import com.osfans.trime.util.yaml.sequence
 import com.osfans.trime.util.yaml.string
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.collections.shouldContainExactly
@@ -37,6 +39,7 @@ class HaoHaoDefaultsTest :
         val presetKeys = requireNotNull(config["preset_keys"]?.mapping)
         val style = requireNotNull(config["style"]?.mapping)
         val colorSchemes = requireNotNull(config["preset_color_schemes"]?.mapping)
+        val toolBar = requireNotNull(config["tool_bar"]?.mapping)
         val wanxiangMetadata =
             Properties().apply {
                 File("dictionary/wanxiang/source.properties").inputStream().use(::load)
@@ -130,6 +133,29 @@ class HaoHaoDefaultsTest :
                 "HaoHaoLetters",
                 "HaoHaoReturn",
             ).all { id -> presetKeys[id]?.mapping?.get("functional")?.boolean == true } shouldBe true
+        }
+
+        "HaoHao toolbar exposes one branded toolbox entry" {
+            val primaryButton = requireNotNull(toolBar["primary_button"]?.mapping)
+            val foreground = requireNotNull(primaryButton["foreground"]?.mapping)
+
+            primaryButton["action"]?.string shouldBe "HaoHaoToolbox"
+            primaryButton["size"]?.sequence?.mapNotNull { it.int } shouldContainExactly listOf(48, 48)
+            foreground["style"]?.string shouldBe "好"
+            toolBar["buttons"]?.sequence?.size shouldBe 0
+
+            val toolboxKey = requireNotNull(presetKeys["HaoHaoToolbox"]?.mapping)
+            toolboxKey["send"]?.string shouldBe "FUNCTION"
+            toolboxKey["command"]?.string shouldBe "haohao_toolbox"
+        }
+
+        "HaoHao toolbox keeps four explicit common actions" {
+            HaoHaoToolboxAction.entries.map { it.actionToken } shouldContainExactly listOf(
+                "clipboard_window",
+                "liquid_keyboard_emoji",
+                "VOICE_ASSIST",
+                "Settings",
+            )
         }
 
         "main keyboard is a four-row 26-key layout without technical shortcuts" {

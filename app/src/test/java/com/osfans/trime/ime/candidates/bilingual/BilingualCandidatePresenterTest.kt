@@ -16,6 +16,7 @@ import com.osfans.trime.ime.candidates.compact.COMPACT_CANDIDATE_PORTRAIT_MAX
 import com.osfans.trime.ime.candidates.compact.COMPACT_CANDIDATE_PORTRAIT_MIN
 import com.osfans.trime.ime.candidates.compact.CompactCandidateWidthBounds
 import com.osfans.trime.ime.candidates.compact.CompactTranslationWidthLimits
+import com.osfans.trime.ime.candidates.compact.compactCandidateAvailableWidth
 import com.osfans.trime.ime.candidates.compact.compactCandidateCellWidth
 import com.osfans.trime.ime.candidates.compact.fitCompactCandidateRow
 import com.osfans.trime.ime.candidates.compact.resolveCompactCandidateCount
@@ -206,6 +207,11 @@ class BilingualCandidatePresenterTest :
             compactCandidateCellWidth(10, minWidth = 48, horizontalPadding = 10, maxWidth = 112) shouldBe 48
             compactCandidateCellWidth(44, minWidth = 48, horizontalPadding = 10, maxWidth = 112) shouldBe 64
             compactCandidateCellWidth(200, minWidth = 48, horizontalPadding = 10, maxWidth = 112) shouldBe 112
+        }
+
+        "compact candidate width excludes the branded and expand controls" {
+            compactCandidateAvailableWidth(totalWidth = 360, leadingWidth = 48, trailingWidth = 40) shouldBe 272
+            compactCandidateAvailableWidth(totalWidth = 80, leadingWidth = 48, trailingWidth = 40) shouldBe 0
         }
 
         "compact translation reservation does not change the content width boundaries" {

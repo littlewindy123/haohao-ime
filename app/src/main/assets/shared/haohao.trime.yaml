@@ -52,6 +52,25 @@ window:
   border: 1
   shadow: 4
 
+tool_bar:
+  button_spacing: 0
+  primary_button:
+    size: [48, 48]
+    background:
+      type: circle
+      normal: on_key_back_color
+      highlight: hilited_on_key_back_color
+      vertical_inset: 4
+      horizontal_inset: 4
+    foreground:
+      style: "好"
+      normal: on_key_text_color
+      highlight: hilited_on_key_text_color
+      font_size: 20
+      padding: 8
+    action: HaoHaoToolbox
+  buttons: []
+
 preset_keys:
   BackSpace: {label: "⌫", preview: "", repeatable: true, functional: true, send: BackSpace}
   Shift_L: {label: "⇧", preview: "", functional: true, send: Shift_L, shift_lock: ascii_long}
@@ -61,6 +80,7 @@ preset_keys:
   HaoHaoLetters: {label: ABC, preview: "", functional: true, send: Eisu_toggle, select: .default}
   HaoHaoSpace: {label: " ", preview: "", functional: false, send: space}
   HaoHaoReturn: {label: "↵", preview: "", functional: true, send: Return}
+  HaoHaoToolbox: {label: "好", preview: "", functional: true, send: FUNCTION, command: haohao_toolbox}
 
 preset_color_schemes:
   default:
