@@ -68,6 +68,9 @@ jobs:
       - name: Check code style
         run: make style-lint
 
+      - name: Run dictionary and unit tests
+        run: ./gradlew :build-logic:convention:test :app:testRegressionUnitTest --no-daemon
+
       - name: Build Debug APKs
         run: make debug
 

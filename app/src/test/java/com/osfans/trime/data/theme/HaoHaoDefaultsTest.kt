@@ -83,6 +83,8 @@ class HaoHaoDefaultsTest :
             (composite.indexOf("  - haohao_hotwords") < composite.indexOf("  - haohao_wanxiang_core")) shouldBe true
             (composite.indexOf("  - haohao_wanxiang_core") < composite.indexOf("  - luna_pinyin")) shouldBe true
             hotwords.contains("塔斯汀\tta si ting\t1000000") shouldBe true
+            hotwords.contains("老师\tlao shi\t1000000") shouldBe true
+            hotwords.contains("搭子\tda zi\t300000") shouldBe true
             translations.contains("塔斯汀\tTastien") shouldBe true
             wanxiangMetadata.getProperty("release") shouldBe "v17.7.1"
             wanxiangMetadata.getProperty("entryCount") shouldBe "1418352"
