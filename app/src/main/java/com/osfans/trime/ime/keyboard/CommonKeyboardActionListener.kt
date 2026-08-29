@@ -25,7 +25,9 @@ import com.osfans.trime.ime.clipboard.ClipboardWindow
 import com.osfans.trime.ime.core.TrimeInputMethodService
 import com.osfans.trime.ime.dependency.InputDependencyManager
 import com.osfans.trime.ime.dialog.EnabledSchemaPickerDialog
+import com.osfans.trime.ime.haohao.HAOHAO_EDITOR_ACTION
 import com.osfans.trime.ime.haohao.HAOHAO_INPUT_FOOTPRINTS_ACTION
+import com.osfans.trime.ime.haohao.HaoHaoEditorWindow
 import com.osfans.trime.ime.haohao.HaoHaoToolboxWindow
 import com.osfans.trime.ime.switches.SwitchOptionWindow
 import com.osfans.trime.ime.symbol.LiquidData
@@ -181,6 +183,7 @@ class CommonKeyboardActionListener {
                     "liquid_keyboard" -> handleLiquidKeyboard(arg)
                     "menu_keyboard" -> windowManager.attachWindow(SwitchOptionWindow())
                     "haohao_toolbox" -> windowManager.attachWindow(HaoHaoToolboxWindow())
+                    HAOHAO_EDITOR_ACTION -> openHaoHaoEditor()
                     HAOHAO_INPUT_FOOTPRINTS_ACTION -> AppUtils.launchMainToInputFootprints(service)
                     "clipboard_window" -> handleClipboardWindow(arg)
                     "set_color_scheme" -> handleColorScheme(arg)
@@ -196,6 +199,18 @@ class CommonKeyboardActionListener {
                     "switch_hide_key_symbol" -> switchHideKeySymbol()
                     "switch_hide_key_hint" -> switchHideKeyHint()
                     else -> handleIntentAction(action.command, arg)
+                }
+            }
+
+            private fun openHaoHaoEditor() {
+                rime.launchOnReady { api ->
+                    service.lifecycleScope.launch {
+                        if (api.statusCached.isComposing) {
+                            service.toast(R.string.haohao_editor_finish_composing)
+                        } else {
+                            windowManager.attachWindow(HaoHaoEditorWindow())
+                        }
+                    }
                 }
             }
 

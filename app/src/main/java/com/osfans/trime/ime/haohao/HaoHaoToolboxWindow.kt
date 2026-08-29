@@ -7,13 +7,12 @@ package com.osfans.trime.ime.haohao
 
 import android.view.Gravity
 import android.view.View
-import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import androidx.lifecycle.lifecycleScope
 import com.osfans.trime.R
 import com.osfans.trime.data.footprints.InputFootprints
-import com.osfans.trime.data.theme.ColorManager
 import com.osfans.trime.data.theme.KeyActionManager
 import com.osfans.trime.data.theme.Theme
 import com.osfans.trime.ime.core.TrimeInputMethodService
@@ -34,15 +33,20 @@ internal const val HAOHAO_TOOLBOX_KEY = "HaoHaoToolbox"
 internal const val HAOHAO_TOOLBOX_BUTTON_WIDTH_DP = 48
 internal const val HAOHAO_INPUT_FOOTPRINTS_KEY = "HaoHaoInputFootprints"
 internal const val HAOHAO_INPUT_FOOTPRINTS_ACTION = "haohao_input_footprints"
+internal const val HAOHAO_EDITOR_KEY = "HaoHaoEditor"
+internal const val HAOHAO_EDITOR_ACTION = "haohao_editor"
 
 internal enum class HaoHaoToolboxAction(
     @param:StringRes val labelRes: Int,
     val actionToken: String,
+    @param:DrawableRes val iconRes: Int,
 ) {
-    Clipboard(R.string.haohao_toolbox_clipboard, "clipboard_window"),
-    Emoji(R.string.haohao_toolbox_emoji, "liquid_keyboard_emoji"),
-    Voice(R.string.haohao_toolbox_voice, "VOICE_ASSIST"),
-    Settings(R.string.haohao_toolbox_settings, "Settings"),
+    Footprints(R.string.input_footprints_title, HAOHAO_INPUT_FOOTPRINTS_KEY, R.drawable.ic_baseline_book_24),
+    Editor(R.string.haohao_toolbox_editor, HAOHAO_EDITOR_KEY, R.drawable.ic_baseline_edit_24),
+    Clipboard(R.string.haohao_toolbox_clipboard, "clipboard_window", R.drawable.ic_clipboard_24),
+    Emoji(R.string.haohao_toolbox_emoji, "liquid_keyboard_emoji", R.drawable.ic_haohao_emoji_24),
+    Voice(R.string.haohao_toolbox_voice, "VOICE_ASSIST", R.drawable.ic_haohao_mic_24),
+    Settings(R.string.haohao_toolbox_settings, "Settings", R.drawable.ic_baseline_settings_24),
 }
 
 class HaoHaoToolboxWindow : BoardWindow.BarBoardWindow() {
@@ -58,79 +62,30 @@ class HaoHaoToolboxWindow : BoardWindow.BarBoardWindow() {
     private fun item(action: HaoHaoToolboxAction): View {
         val label = context.getString(action.labelRes)
         return SwitchOptionEntryUi(context, theme).apply {
-            setEntry(label)
+            setEntry(label, action.iconRes)
+            if (action == HaoHaoToolboxAction.Footprints) {
+                this@HaoHaoToolboxWindow.countsText = this.label
+                this.label.maxLines = 2
+                updateCounts(0, 0)
+            }
             root.setOnClickListener {
                 actionListener.listener.onAction(KeyActionManager.getAction(action.actionToken))
             }
         }.root
     }
 
-    private fun footprintsEntry(): View {
-        val label = context.getString(R.string.input_footprints_title)
-        return LinearLayout(context).apply {
-            gravity = Gravity.CENTER_VERTICAL
-            orientation = LinearLayout.HORIZONTAL
-            setPadding(dp(12), dp(8), dp(12), dp(8))
-            background = ColorManager.getDecorDrawable(
-                "key_back_color",
-                "key_border_color",
-                dp(theme.generalStyle.keyBorder),
-                dp(theme.generalStyle.roundCorner),
-            )
-            isClickable = true
-            isFocusable = true
-            contentDescription = label
-            addView(
-                TextView(context).apply {
-                    text = "好"
-                    gravity = Gravity.CENTER
-                    textSize = 22f
-                    setTextColor(ColorManager.getColor("key_text_color"))
-                },
-                LinearLayout.LayoutParams(dp(48), dp(48)),
-            )
-            addView(
-                LinearLayout(context).apply {
-                    orientation = LinearLayout.VERTICAL
-                    gravity = Gravity.CENTER_VERTICAL
-                    addView(
-                        TextView(context).apply {
-                            text = label
-                            textSize = 16f
-                            setTextColor(ColorManager.getColor("key_text_color"))
-                        },
-                    )
-                    addView(
-                        TextView(context).apply {
-                            countsText = this
-                            text = context.getString(R.string.input_footprints_toolbox_summary, 0, 0)
-                            textSize = 12f
-                            setTextColor(ColorManager.getColor("comment_text_color"))
-                        },
-                    )
-                },
-                LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f),
-            )
-            addView(
-                TextView(context).apply {
-                    text = "›"
-                    gravity = Gravity.CENTER
-                    textSize = 26f
-                    setTextColor(ColorManager.getColor("key_text_color"))
-                },
-                LinearLayout.LayoutParams(dp(48), dp(48)),
-            )
-            setOnClickListener {
-                actionListener.listener.onAction(KeyActionManager.getAction(HAOHAO_INPUT_FOOTPRINTS_KEY))
-            }
+    private fun updateCounts(recent: Int, favorites: Int) {
+        countsText?.text = buildString {
+            append(context.getString(R.string.input_footprints_title))
+            append('\n')
+            append(context.getString(R.string.input_footprints_toolbox_summary_compact, recent, favorites))
         }
     }
 
     override fun onCreateView(): View = context.verticalLayout {
         gravity = Gravity.CENTER
         setPadding(dp(12), dp(8), dp(12), dp(8))
-        add(footprintsEntry(), lParams(matchParent, dp(72)))
-        HaoHaoToolboxAction.entries.chunked(2).forEach { rowActions ->
+        HaoHaoToolboxAction.entries.chunked(3).forEach { rowActions ->
             add(
                 horizontalLayout {
                     rowActions.forEach { action ->
@@ -145,11 +100,7 @@ class HaoHaoToolboxWindow : BoardWindow.BarBoardWindow() {
     override fun onAttached() {
         countsJob = service.lifecycleScope.launch {
             InputFootprints.store.counts.collect { counts ->
-                countsText?.text = context.getString(
-                    R.string.input_footprints_toolbox_summary,
-                    counts.recent,
-                    counts.favorites,
-                )
+                updateCounts(counts.recent, counts.favorites)
             }
         }
     }
