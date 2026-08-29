@@ -41,6 +41,7 @@ import com.osfans.trime.core.RimeKeyMapping
 import com.osfans.trime.core.RimeMessage
 import com.osfans.trime.daemon.RimeDaemon
 import com.osfans.trime.daemon.RimeSession
+import com.osfans.trime.data.base.DEFAULT_SCHEMA_ID
 import com.osfans.trime.data.footprints.InputFootprintRecorder
 import com.osfans.trime.data.prefs.AppPrefs
 import com.osfans.trime.data.prefs.PreferenceDelegate
@@ -108,6 +109,10 @@ open class TrimeInputMethodService : LifecycleInputMethodService() {
         prefs.keyboard.hideKeySymbol,
         prefs.keyboard.hideKeyHint,
         prefs.keyboard.hideInputBar,
+        prefs.keyboard.spacebarSlideCursor,
+        prefs.keyboard.backspaceSlideDelete,
+        prefs.keyboard.heightMode,
+        prefs.keyboard.oneHandMode,
         prefs.advanced.ignoreSystemGestureInsets,
     )
 
@@ -157,6 +162,10 @@ open class TrimeInputMethodService : LifecycleInputMethodService() {
 
     private suspend fun updateRimeOption(api: RimeApi) {
         try {
+            if (api.selectedSchemaId() != DEFAULT_SCHEMA_ID) {
+                api.selectSchema(DEFAULT_SCHEMA_ID)
+            }
+            api.setRuntimeOption("zh_simp", true)
             api.setRuntimeOption("soft_cursor", prefs.keyboard.useSoftCursor.getValue()) // 軟光標
             // HaoHao targets common Simplified Chinese first. Keep Rime's charset filter enabled
             // so rare extension ideographs that most Android fonts cannot render do not become candidates.

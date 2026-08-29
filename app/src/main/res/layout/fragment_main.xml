@@ -177,6 +177,67 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:layout_marginBottom="8dp"
+                android:text="@string/rime_runtime_section"
+                android:textAppearance="@style/TextAppearance.HaoHao.SectionTitle" />
+
+            <LinearLayout
+                android:id="@+id/engine_status_card"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="72dp"
+                android:gravity="center_vertical"
+                android:orientation="vertical"
+                android:paddingTop="10dp"
+                android:paddingBottom="10dp">
+
+                <TextView
+                    android:id="@+id/engine_status_title"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textAppearance="@style/TextAppearance.HaoHao.SettingTitle"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/engine_status_summary"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:textColor="@color/haohao_cocoa_secondary"
+                    android:textSize="14sp" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:orientation="horizontal">
+
+                    <androidx.appcompat.widget.AppCompatButton
+                        android:id="@+id/repair_engine_button"
+                        style="@style/Widget.HaoHao.SegmentButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="48dp"
+                        android:text="@string/rime_runtime_repair" />
+
+                    <androidx.appcompat.widget.AppCompatButton
+                        android:id="@+id/copy_diagnostics_button"
+                        style="@style/Widget.HaoHao.SegmentButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="48dp"
+                        android:layout_marginStart="8dp"
+                        android:text="@string/rime_runtime_copy_diagnostics" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="@color/haohao_divider" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
                 android:layout_marginTop="28dp"
                 android:layout_marginBottom="8dp"
                 android:text="@string/quick_settings_bilingual"
@@ -500,10 +561,159 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="28dp"
+                android:layout_marginTop="24dp"
                 android:layout_marginBottom="14dp"
                 android:text="@string/quick_settings_keyboard"
                 android:textAppearance="@style/TextAppearance.HaoHao.SectionTitle" />
+
+            <LinearLayout
+                android:id="@+id/ergonomics_options"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="64dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/spacebar_slide_cursor"
+                        android:textAppearance="@style/TextAppearance.HaoHao.SettingTitle" />
+
+                    <androidx.appcompat.widget.SwitchCompat
+                        android:id="@+id/spacebar_slide_cursor_switch"
+                        android:layout_width="wrap_content"
+                        android:layout_height="48dp"
+                        android:gravity="center"
+                        android:minWidth="48dp"
+                        android:showText="false"
+                        app:thumbTint="@color/haohao_switch_thumb"
+                        app:trackTint="@color/haohao_switch_track" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="64dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/backspace_slide_delete"
+                        android:textAppearance="@style/TextAppearance.HaoHao.SettingTitle" />
+
+                    <androidx.appcompat.widget.SwitchCompat
+                        android:id="@+id/backspace_slide_delete_switch"
+                        android:layout_width="wrap_content"
+                        android:layout_height="48dp"
+                        android:gravity="center"
+                        android:minWidth="48dp"
+                        android:showText="false"
+                        app:thumbTint="@color/haohao_switch_thumb"
+                        app:trackTint="@color/haohao_switch_track" />
+                </LinearLayout>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:layout_marginBottom="8dp"
+                    android:text="@string/keyboard_height_mode"
+                    android:textAppearance="@style/TextAppearance.HaoHao.SettingTitle" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:orientation="horizontal">
+
+                    <androidx.appcompat.widget.AppCompatButton
+                        android:id="@+id/height_compact"
+                        style="@style/Widget.HaoHao.SegmentButton"
+                        android:layout_width="0dp"
+                        android:layout_height="48dp"
+                        android:layout_weight="1"
+                        android:text="@string/keyboard_height_compact" />
+
+                    <androidx.appcompat.widget.AppCompatButton
+                        android:id="@+id/height_standard"
+                        style="@style/Widget.HaoHao.SegmentButton"
+                        android:layout_width="0dp"
+                        android:layout_height="48dp"
+                        android:layout_marginStart="4dp"
+                        android:layout_weight="1"
+                        android:text="@string/keyboard_height_standard" />
+
+                    <androidx.appcompat.widget.AppCompatButton
+                        android:id="@+id/height_roomy"
+                        style="@style/Widget.HaoHao.SegmentButton"
+                        android:layout_width="0dp"
+                        android:layout_height="48dp"
+                        android:layout_marginStart="4dp"
+                        android:layout_weight="1"
+                        android:text="@string/keyboard_height_roomy" />
+                </LinearLayout>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:layout_marginBottom="8dp"
+                    android:text="@string/one_hand_mode"
+                    android:textAppearance="@style/TextAppearance.HaoHao.SettingTitle" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:orientation="horizontal">
+
+                    <androidx.appcompat.widget.AppCompatButton
+                        android:id="@+id/one_hand_off"
+                        style="@style/Widget.HaoHao.SegmentButton"
+                        android:layout_width="0dp"
+                        android:layout_height="48dp"
+                        android:layout_weight="1"
+                        android:text="@string/one_hand_mode_off" />
+
+                    <androidx.appcompat.widget.AppCompatButton
+                        android:id="@+id/one_hand_left"
+                        style="@style/Widget.HaoHao.SegmentButton"
+                        android:layout_width="0dp"
+                        android:layout_height="48dp"
+                        android:layout_marginStart="4dp"
+                        android:layout_weight="1"
+                        android:text="@string/one_hand_mode_left" />
+
+                    <androidx.appcompat.widget.AppCompatButton
+                        android:id="@+id/one_hand_right"
+                        style="@style/Widget.HaoHao.SegmentButton"
+                        android:layout_width="0dp"
+                        android:layout_height="48dp"
+                        android:layout_marginStart="4dp"
+                        android:layout_weight="1"
+                        android:text="@string/one_hand_mode_right" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_marginTop="20dp"
+                android:layout_marginBottom="12dp"
+                android:background="@color/haohao_divider" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
+                android:text="@string/keyboard_feedback_preset"
+                android:textAppearance="@style/TextAppearance.HaoHao.SettingTitle" />
 
             <LinearLayout
                 android:layout_width="match_parent"

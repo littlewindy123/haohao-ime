@@ -14,6 +14,9 @@ import com.osfans.trime.util.appContext
 import kotlinx.serialization.json.Json
 import timber.log.Timber
 import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
@@ -53,13 +56,97 @@ internal fun managedSchemaDisplayName(
     currentName: String,
 ): String = if (schemaId == DEFAULT_SCHEMA_ID) SIMPLIFIED_SCHEMA_DISPLAY_NAME else currentName
 
+internal data class LegacyRimeMigrationResult(
+    val copiedFiles: Int = 0,
+    val skippedExistingFiles: Int = 0,
+    val skippedBuildFiles: Int = 0,
+)
+
+internal fun migrateLegacyRimeData(
+    source: File,
+    target: File,
+): LegacyRimeMigrationResult {
+    if (!source.isDirectory) return LegacyRimeMigrationResult()
+    val sourceRoot = source.canonicalFile
+    val targetRoot = target.canonicalFile
+    if (sourceRoot == targetRoot) return LegacyRimeMigrationResult()
+    targetRoot.mkdirs()
+
+    var copiedFiles = 0
+    var skippedExistingFiles = 0
+    var skippedBuildFiles = 0
+    sourceRoot.walkTopDown().forEach { entry ->
+        if (entry == sourceRoot || !entry.isFile) return@forEach
+        val relative = entry.relativeTo(sourceRoot)
+        if (relative.invariantSeparatorsPath.split('/').firstOrNull() == "build") {
+            skippedBuildFiles += 1
+            return@forEach
+        }
+        val canonicalSource = entry.canonicalFile
+        check(canonicalSource.path.startsWith(sourceRoot.path + File.separator)) {
+            "Legacy Rime entry escaped source directory: $entry"
+        }
+        val destination = targetRoot.resolve(relative.path).canonicalFile
+        check(destination.path.startsWith(targetRoot.path + File.separator)) {
+            "Legacy Rime entry escaped target directory: $destination"
+        }
+        if (destination.exists()) {
+            skippedExistingFiles += 1
+        } else {
+            destination.parentFile?.mkdirs()
+            canonicalSource.copyTo(destination, overwrite = false)
+            copiedFiles += 1
+        }
+    }
+    return LegacyRimeMigrationResult(copiedFiles, skippedExistingFiles, skippedBuildFiles)
+}
+
+internal data class ManagedRimeRepairResult(
+    val backedUpFiles: Int,
+    val defaultPatch: String,
+)
+
+internal fun repairManagedRimeData(
+    userDataDir: File,
+    backupName: String,
+): ManagedRimeRepairResult {
+    val root = userDataDir.canonicalFile.apply { mkdirs() }
+    val backupDir = root.resolve("repair-backups/$backupName").canonicalFile
+    check(backupDir.path.startsWith(root.path + File.separator)) {
+        "Repair backup escaped Rime directory: $backupDir"
+    }
+    var backedUpFiles = 0
+    root.listFiles { file -> file.isFile && file.name.endsWith(".custom.yaml") }
+        .orEmpty()
+        .forEach { source ->
+            backupDir.mkdirs()
+            source.copyTo(backupDir.resolve(source.name), overwrite = false)
+            backedUpFiles += 1
+        }
+
+    val defaultPatch = DataManager.SCHEMA_LIST_CUSTOM_PATCH.trimIndent()
+    root.resolve(DataManager.DEFAULT_CUSTOM_FILE_NAME).writeText(defaultPatch)
+    root.resolve(DataManager.SIMPLIFIED_SCHEMA_CUSTOM_FILE_NAME).writeText(
+        SIMPLIFIED_SCHEMA_CUSTOM_PATCH.trimIndent(),
+    )
+
+    val buildDir = root.resolve("build").canonicalFile
+    check(buildDir.path.startsWith(root.path + File.separator)) {
+        "Repair build directory escaped Rime directory: $buildDir"
+    }
+    if (buildDir.exists() && !buildDir.deleteRecursively()) {
+        error("Failed to remove rebuildable Rime data: $buildDir")
+    }
+    return ManagedRimeRepairResult(backedUpFiles, defaultPatch)
+}
+
 object DataManager {
-    private const val DEFAULT_CUSTOM_FILE_NAME = "default.custom.yaml"
-    private const val SIMPLIFIED_SCHEMA_CUSTOM_FILE_NAME = "luna_pinyin_simp.custom.yaml"
+    internal const val DEFAULT_CUSTOM_FILE_NAME = "default.custom.yaml"
+    internal const val SIMPLIFIED_SCHEMA_CUSTOM_FILE_NAME = "luna_pinyin_simp.custom.yaml"
 
     private const val DATA_CHECKSUMS_NAME = "checksums.json"
 
-    private const val SCHEMA_LIST_CUSTOM_PATCH = """
+    internal const val SCHEMA_LIST_CUSTOM_PATCH = """
       patch:
         schema_list:
           - schema: $DEFAULT_SCHEMA_ID
@@ -88,15 +175,49 @@ object DataManager {
 
     private val prefs by lazy { AppPrefs.defaultInstance() }
 
-    val defaultDataDir = File(Environment.getExternalStorageDirectory(), "rime")
+    private val privateUserDataDir = File(appContext.filesDir, "rime")
+
+    val defaultDataDir: File
+        get() = privateUserDataDir
+
+    val legacyDefaultDataDir = File(Environment.getExternalStorageDirectory(), "rime")
 
     val sharedDataDir = File(appContext.getExternalFilesDir(null), "shared").also { it.mkdirs() }
 
     val userDataDir
-        get() = File(prefs.profile.userDataDir.getValue()).also { it.mkdirs() }
+        get() = privateUserDataDir.also { it.mkdirs() }
 
     val prebuiltDataDir = File(sharedDataDir, "build")
     val stagingDir get() = File(userDataDir, "build")
+
+    private fun migrateLegacyDataIfNeeded() {
+        if (prefs.internal.privateRimeDataMigrated.getValue()) return
+        val configuredLegacyDir = File(prefs.profile.userDataDir.getValue())
+        val sources = listOf(configuredLegacyDir, legacyDefaultDataDir).distinctBy {
+            runCatching { it.canonicalPath }.getOrDefault(it.absolutePath)
+        }
+        sources.forEach { source ->
+            runCatching { migrateLegacyRimeData(source, userDataDir) }
+                .onSuccess { result ->
+                    Timber.i(
+                        "Legacy Rime migration from %s: copied=%d, existing=%d, build=%d",
+                        source,
+                        result.copiedFiles,
+                        result.skippedExistingFiles,
+                        result.skippedBuildFiles,
+                    )
+                }.onFailure { error ->
+                    Timber.w(error, "Unable to migrate legacy Rime data from %s", source)
+                }
+        }
+        prefs.profile.userDataDir.setValue(userDataDir.absolutePath)
+        prefs.internal.privateRimeDataMigrated.setValue(true)
+    }
+
+    internal fun repairManagedData(): ManagedRimeRepairResult = lock.withLock {
+        val backupName = SimpleDateFormat("yyyyMMdd-HHmmss-SSS", Locale.US).format(Date())
+        repairManagedRimeData(userDataDir, backupName)
+    }
 
     /**
      * Return the absolute path of the compiled config file
@@ -116,6 +237,7 @@ object DataManager {
     }
 
     fun sync() = lock.withLock {
+        migrateLegacyDataIfNeeded()
         val oldChecksumsFile = File(dataDir, DATA_CHECKSUMS_NAME)
         val oldChecksums =
             oldChecksumsFile

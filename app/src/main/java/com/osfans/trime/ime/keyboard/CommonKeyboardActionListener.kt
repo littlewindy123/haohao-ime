@@ -19,6 +19,7 @@ import com.osfans.trime.daemon.RimeSession
 import com.osfans.trime.daemon.launchOnReady
 import com.osfans.trime.data.prefs.AppPrefs
 import com.osfans.trime.data.theme.ColorManager
+import com.osfans.trime.data.theme.DEFAULT_THEME_ID
 import com.osfans.trime.data.theme.KeyActionManager
 import com.osfans.trime.data.theme.ThemeManager
 import com.osfans.trime.ime.clipboard.ClipboardWindow
@@ -28,6 +29,7 @@ import com.osfans.trime.ime.dialog.EnabledSchemaPickerDialog
 import com.osfans.trime.ime.haohao.HAOHAO_EDITOR_ACTION
 import com.osfans.trime.ime.haohao.HAOHAO_INPUT_FOOTPRINTS_ACTION
 import com.osfans.trime.ime.haohao.HaoHaoEditorWindow
+import com.osfans.trime.ime.haohao.HaoHaoShiftPolicy
 import com.osfans.trime.ime.haohao.HaoHaoToolboxWindow
 import com.osfans.trime.ime.switches.SwitchOptionWindow
 import com.osfans.trime.ime.symbol.LiquidData
@@ -122,6 +124,7 @@ class CommonKeyboardActionListener {
             }
 
             override fun onAction(action: KeyAction) {
+                if (handleHaoHaoSingleUppercase(action)) return
                 val text = action.getText(KeyboardSwitcher.currentKeyboard)
                 val shouldHandle = when {
                     action.commit.isNotEmpty() -> {
@@ -148,6 +151,23 @@ class CommonKeyboardActionListener {
                         else -> handleDefaultKeyAction(action)
                     }
                 }
+            }
+
+            private fun handleHaoHaoSingleUppercase(action: KeyAction): Boolean {
+                if (ThemeManager.prefs.selectedTheme.getValue() != DEFAULT_THEME_ID) return false
+                val keyboard = KeyboardSwitcher.currentKeyboard
+                val status = rime.run { statusCached }
+                if (!HaoHaoShiftPolicy.shouldCommitSingleUppercase(
+                        asciiMode = status.isAsciiMode,
+                        composing = status.isComposing,
+                        shifted = keyboard.isOnlyShiftOn,
+                        keyCode = action.code,
+                    )
+                ) {
+                    return false
+                }
+                service.commitText(HaoHaoShiftPolicy.uppercaseFor(action.code))
+                return true
             }
 
             private fun handleSwitchCharset(action: KeyAction) {

@@ -208,6 +208,9 @@ class KeyboardWindow :
     }
 
     override fun onStartInput(info: EditorInfo) {
+        if (currentKeyboard?.clearTransientShift() == true) {
+            currentKeyboardView?.invalidateAllKeys()
+        }
         val targetKeyboard =
             when (info.imeOptions and EditorInfo.IME_FLAG_FORCE_ASCII) {
                 EditorInfo.IME_FLAG_FORCE_ASCII -> ".ascii"

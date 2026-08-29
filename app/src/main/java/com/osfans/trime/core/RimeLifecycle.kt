@@ -34,7 +34,8 @@ class RimeLifecycleRegistry : RimeLifecycle {
 
     override val lifecycleScope: CoroutineScope = RimeLifecycleScope(this)
 
-    fun emitState(state: RimeLifecycle.State) = synchronized(internalState) {
+    @Synchronized
+    fun emitState(state: RimeLifecycle.State) {
         when (state) {
             RimeLifecycle.State.STARTING -> {
                 checkAtState(RimeLifecycle.State.STOPPED)
@@ -56,9 +57,26 @@ class RimeLifecycleRegistry : RimeLifecycle {
         observers.forEach { it.onChanged(state) }
     }
 
+    @Synchronized
+    fun emitStartupFailed() {
+        checkAtState(RimeLifecycle.State.STARTING)
+        internalState = RimeLifecycle.State.STOPPED
+        observers.forEach { it.onChanged(RimeLifecycle.State.STOPPED) }
+    }
+
     private fun checkAtState(state: RimeLifecycle.State) = takeIf { (internalState == state) }
         ?: throw IllegalStateException("Currently not at $state! Actual state is $internalState")
 }
+
+enum class RimeRuntimeState {
+    PREPARING,
+    READY,
+    FAILED,
+}
+
+class RimeUnavailableException(
+    message: String,
+) : IllegalStateException(message)
 
 interface RimeLifecycle {
     val currentState: State

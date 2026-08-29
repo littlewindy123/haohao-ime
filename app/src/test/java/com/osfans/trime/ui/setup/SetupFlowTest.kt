@@ -4,21 +4,31 @@
 
 package com.osfans.trime.ui.setup
 
+import android.content.Intent
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
 
 class SetupFlowTest :
     StringSpec({
-        "progress follows the three real setup steps" {
+        "progress follows the two permission-free setup steps" {
+            SetupPage.entries.map { it.name } shouldBe listOf("Enable", "Select")
             SetupFlow.progressStep(0) shouldBe 1
             SetupFlow.progressStep(1) shouldBe 2
-            SetupFlow.progressStep(2) shouldBe 3
+        }
+
+        "ordinary launches always resume incomplete setup including Xiaomi installer intents" {
+            SetupLaunchPolicy.shouldOpenSetup(null, false, true) shouldBe true
+            SetupLaunchPolicy.shouldOpenSetup(Intent.ACTION_MAIN, false, true) shouldBe true
+            SetupLaunchPolicy.shouldOpenSetup("vendor.installer.OPEN", false, true) shouldBe true
+            SetupLaunchPolicy.shouldOpenSetup(Intent.ACTION_RUN, false, true) shouldBe false
+            SetupLaunchPolicy.shouldOpenSetup(null, true, true) shouldBe false
+            SetupLaunchPolicy.shouldOpenSetup(null, false, false) shouldBe false
         }
 
         "first undone step resumes incomplete setup" {
-            SetupFlow.firstUndoneIndex(listOf(true, false, false)) shouldBe 1
-            SetupFlow.firstUndoneIndex(listOf(true, true, false)) shouldBe 2
-            SetupFlow.firstUndoneIndex(listOf(true, true, true)) shouldBe null
+            SetupFlow.firstUndoneIndex(listOf(false, false)) shouldBe 0
+            SetupFlow.firstUndoneIndex(listOf(true, false)) shouldBe 1
+            SetupFlow.firstUndoneIndex(listOf(true, true)) shouldBe null
         }
 
         "a newly completed step advances once" {
@@ -26,7 +36,7 @@ class SetupFlowTest :
                 currentIndex = 0,
                 wasDone = false,
                 isDone = true,
-                doneStates = listOf(true, false, false),
+                doneStates = listOf(true, false),
             ) shouldBe 1
         }
 
@@ -35,8 +45,8 @@ class SetupFlowTest :
                 currentIndex = 0,
                 wasDone = false,
                 isDone = true,
-                doneStates = listOf(true, true, false),
-            ) shouldBe 2
+                doneStates = listOf(true, true),
+            ) shouldBe 1
         }
 
         "unchanged completion state does not advance" {
@@ -44,22 +54,35 @@ class SetupFlowTest :
                 0,
                 wasDone = false,
                 isDone = false,
-                doneStates = listOf(false, false, false),
+                doneStates = listOf(false, false),
             ) shouldBe null
             SetupFlow.nextIndexAfterSync(
                 0,
                 wasDone = true,
                 isDone = true,
-                doneStates = listOf(true, false, false),
+                doneStates = listOf(true, false),
             ) shouldBe null
         }
 
         "the final step waits for start typing" {
             SetupFlow.nextIndexAfterSync(
-                currentIndex = 2,
+                currentIndex = 1,
                 wasDone = false,
                 isDone = true,
-                doneStates = listOf(true, true, true),
+                doneStates = listOf(true, true),
             ) shouldBe null
+        }
+
+        "enabling the IME offers the system picker exactly on the new transition" {
+            SetupFlow.shouldAutoOpenPicker(
+                currentIndex = 0,
+                wasDone = false,
+                isDone = true,
+                doneStates = listOf(true, false),
+            ) shouldBe true
+            SetupFlow.shouldAutoOpenPicker(0, true, true, listOf(true, false)) shouldBe false
+            SetupFlow.shouldAutoOpenPicker(0, false, false, listOf(false, false)) shouldBe false
+            SetupFlow.shouldAutoOpenPicker(0, false, true, listOf(true, true)) shouldBe false
+            SetupFlow.shouldAutoOpenPicker(1, false, true, listOf(true, true)) shouldBe false
         }
     })

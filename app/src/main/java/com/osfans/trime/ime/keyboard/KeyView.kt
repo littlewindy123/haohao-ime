@@ -13,19 +13,26 @@ import android.graphics.PorterDuff
 import android.graphics.PorterDuffColorFilter
 import android.graphics.Rect
 import android.graphics.drawable.GradientDrawable
+import android.os.Build
 import android.view.KeyEvent
 import com.mikepenz.iconics.IconicsDrawable
 import com.mikepenz.iconics.utils.sizeDp
 import com.osfans.trime.daemon.RimeDaemon
 import com.osfans.trime.data.prefs.AppPrefs
 import com.osfans.trime.data.theme.ColorManager
+import com.osfans.trime.data.theme.DEFAULT_THEME_ID
 import com.osfans.trime.data.theme.FontManager
+import com.osfans.trime.data.theme.ThemeManager
 import com.osfans.trime.ime.core.TrimeInputMethodService
+import com.osfans.trime.ime.haohao.HaoHaoGesturePolicy
+import com.osfans.trime.ime.haohao.HaoHaoSlideDeleteController
+import com.osfans.trime.ime.haohao.isPasswordInputType
 import com.osfans.trime.ime.popup.PopupAction
 import com.osfans.trime.ime.popup.PopupDelegate
 import com.osfans.trime.util.sp
 import splitties.dimensions.dp
 import timber.log.Timber
+import kotlin.math.abs
 
 @SuppressLint("ClickableViewAccessibility", "ViewConstructor")
 class KeyView(
@@ -44,7 +51,15 @@ class KeyView(
 
     private val rime get() = RimeDaemon.getFirstSessionOrNull()!!
 
-    private val deletedTextBuffer = ArrayDeque<String>()
+    private val keyboardPrefs = AppPrefs.defaultInstance().keyboard
+
+    private val slideDeleteController by lazy {
+        HaoHaoSlideDeleteController(
+            readPreviousCodePoint = ::readPreviousCodePoint,
+            deletePreviousCodePoint = ::deletePreviousCodePoint,
+            restoreText = { service.currentInputConnection?.commitText(it, 1) == true },
+        )
+    }
 
     private var keyPressed = false
     override fun isPressed(): Boolean = keyPressed
@@ -77,8 +92,11 @@ class KeyView(
     init {
         setWillNotDraw(false)
         isRepeatable = key.click?.isRepeatable ?: false
-        isSlideCursor = key.click?.isSlideCursor ?: false
-        isSlideDelete = key.click?.isSlideDelete ?: false
+        isSlideCursor = key.click?.isSlideCursor == true && keyboardPrefs.spacebarSlideCursor.getValue()
+        isSlideDelete = key.click?.isSlideDelete == true && keyboardPrefs.backspaceSlideDelete.getValue()
+        if (ThemeManager.prefs.selectedTheme.getValue() == DEFAULT_THEME_ID) {
+            slideStepDensity = resources.displayMetrics.density
+        }
         hasLongPress = key.hasAction(KeyBehavior.LONG_CLICK)
         hasDouble = key.hasAction(KeyBehavior.DOUBLE_CLICK)
         hasLazyDouble = key.hasAction(KeyBehavior.LAZY_DOUBLE_CLICK)
@@ -123,6 +141,7 @@ class KeyView(
                 dismissPopupPreview()
             }
             if (keyboard.firstPressedKeyIndex == id) keyboard.firstPressedKeyIndex = -1
+            slideDeleteController.clear()
         }
 
         onSwipe = { direction ->
@@ -132,25 +151,24 @@ class KeyView(
 
         onSlide = { delta, _, _ ->
             if (isSlideCursor) {
-                when {
-                    delta > 0 -> keyboardActionListener?.onAction(KeyAction("Right"))
-                    delta < 0 -> keyboardActionListener?.onAction(KeyAction("Left"))
+                if (HaoHaoGesturePolicy.canSlideCursor(rime.run { statusCached.isComposing })) {
+                    val action = if (delta > 0) KeyAction("Right") else KeyAction("Left")
+                    repeat(abs(delta)) {
+                        keyboardActionListener.onAction(action)
+                        provideSlideFeedback(action.code)
+                    }
                 }
             } else if (isSlideDelete) {
-                val ic = service.currentInputConnection
-                when {
-                    delta < 0 -> {
-                        val beforeText = ic.getTextBeforeCursor(1, 0) ?: ""
-                        if (beforeText.isNotEmpty()) {
-                            deletedTextBuffer.addFirst(beforeText.toString())
-                            ic.deleteSurroundingText(1, 0)
-                        }
-                    }
-
-                    delta > 0 -> {
-                        if (deletedTextBuffer.isNotEmpty()) {
-                            ic.commitText(deletedTextBuffer.removeFirst(), 1)
-                        }
+                val editorInfo = service.currentInputEditorInfo
+                val allowed = HaoHaoGesturePolicy.canSlideDelete(
+                    composing = rime.run { statusCached.isComposing },
+                    password = editorInfo == null || isPasswordInputType(editorInfo.inputType),
+                    selectionStart = service.currentSelectionStart,
+                    selectionEnd = service.currentSelectionEnd,
+                )
+                if (allowed) {
+                    repeat(slideDeleteController.slide(delta)) {
+                        provideSlideFeedback(KeyEvent.KEYCODE_DEL)
                     }
                 }
             }
@@ -176,10 +194,34 @@ class KeyView(
         }
 
         onCancel = {
-            deletedTextBuffer.clear()
+            slideDeleteController.clear()
             setPressedState(false)
             dismissPopupPreview()
         }
+    }
+
+    private fun readPreviousCodePoint(): String? {
+        val inputConnection = service.currentInputConnection ?: return null
+        val beforeCursor = inputConnection.getTextBeforeCursor(2, 0)?.toString().orEmpty()
+        if (beforeCursor.isEmpty()) return null
+        val codePoint = beforeCursor.codePointBefore(beforeCursor.length)
+        return String(Character.toChars(codePoint))
+    }
+
+    private fun deletePreviousCodePoint(): Boolean {
+        val inputConnection = service.currentInputConnection ?: return false
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N &&
+            inputConnection.deleteSurroundingTextInCodePoints(1, 0)
+        ) {
+            return true
+        }
+        val previous = readPreviousCodePoint() ?: return false
+        return inputConnection.deleteSurroundingText(previous.length, 0)
+    }
+
+    private fun provideSlideFeedback(keyCode: Int) {
+        InputFeedbackManager.keyPressSound(keyCode)
+        InputFeedbackManager.keyPressVibrate(this)
     }
 
     fun setPressedState(pressed: Boolean) {
@@ -198,8 +240,16 @@ class KeyView(
         Timber.d("processKeyAction: label=${key.getLabel()}, code=${action.code}, type=$behavior")
 
         if (action.isModifierKey) {
+            val status = rime.run { statusCached }
+            if (action.modifierKeyOnMask == KeyEvent.META_SHIFT_ON &&
+                ThemeManager.prefs.selectedTheme.getValue() == DEFAULT_THEME_ID &&
+                status.isComposing
+            ) {
+                return
+            }
+            val requestedLock = action.isShiftLock xor (behavior == KeyBehavior.LONG_CLICK)
             keyboard.clickModifierKey(
-                action.isShiftLock xor (behavior == KeyBehavior.LONG_CLICK),
+                requestedLock && status.isAsciiMode,
                 action.modifierKeyOnMask,
             )
             keyboardView.invalidateAllKeys()

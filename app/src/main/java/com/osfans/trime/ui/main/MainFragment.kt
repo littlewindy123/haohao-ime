@@ -5,6 +5,7 @@
 
 package com.osfans.trime.ui.main
 
+import android.content.ClipData
 import android.os.Bundle
 import android.view.View
 import android.widget.PopupMenu
@@ -25,6 +26,8 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
 import androidx.preference.PreferenceGroup
 import com.osfans.trime.R
+import com.osfans.trime.core.RimeRuntimeState
+import com.osfans.trime.daemon.RimeDaemon
 import com.osfans.trime.daemon.launchOnReady
 import com.osfans.trime.data.footprints.InputFootprints
 import com.osfans.trime.data.prefs.AppPrefs
@@ -36,9 +39,11 @@ import com.osfans.trime.ui.common.PaddingPreferenceFragment
 import com.osfans.trime.util.addCategory
 import com.osfans.trime.util.addPreference
 import com.osfans.trime.util.navigateWithAnim
+import com.osfans.trime.util.toast
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import splitties.systemservices.clipboardManager
 
 abstract class TopOptionsPreferenceFragment : PaddingPreferenceFragment() {
     private val viewModel: MainViewModel by activityViewModels()
@@ -87,8 +92,23 @@ class MainFragment : Fragment(R.layout.fragment_main) {
         PreferenceDelegate.OnChangeListener<AppPrefs.Keyboard.FeedbackPreset> { _, _ ->
             renderFeedbackSetting()
         }
+    private val spacebarSlideListener = PreferenceDelegate.OnChangeListener<Boolean> { _, _ ->
+        renderErgonomicsSettings()
+    }
+    private val backspaceSlideListener = PreferenceDelegate.OnChangeListener<Boolean> { _, _ ->
+        renderErgonomicsSettings()
+    }
+    private val heightModeListener =
+        PreferenceDelegate.OnChangeListener<AppPrefs.Keyboard.KeyboardHeightMode> { _, _ ->
+            renderErgonomicsSettings()
+        }
+    private val oneHandModeListener =
+        PreferenceDelegate.OnChangeListener<AppPrefs.Keyboard.OneHandMode> { _, _ ->
+            renderErgonomicsSettings()
+        }
     private val themeListener = PreferenceDelegate.OnChangeListener<String> { _, _ ->
         renderThemeSetting()
+        renderErgonomicsSettings()
     }
 
     override fun onViewCreated(
@@ -99,8 +119,10 @@ class MainFragment : Fragment(R.layout.fragment_main) {
         viewBinding = FragmentMainBinding.bind(view)
         setupInsets()
         setupHeader()
+        setupEngineStatus()
         setupCandidateSettings()
         setupLearningSettings()
+        setupErgonomicsSettings()
         setupFeedbackSettings()
         setupDestinations()
         registerPreferenceListeners()
@@ -199,6 +221,45 @@ class MainFragment : Fragment(R.layout.fragment_main) {
         ) { prefs.candidates.compactCandidateCountLandscape.setValue(it) }
     }
 
+    private fun setupEngineStatus() {
+        binding.repairEngineButton.setOnClickListener { RimeDaemon.repairRime() }
+        binding.copyDiagnosticsButton.setOnClickListener {
+            clipboardManager.setPrimaryClip(
+                ClipData.newPlainText(
+                    getString(R.string.rime_runtime_diagnostics_label),
+                    RimeDaemon.diagnosticText(),
+                ),
+            )
+            requireContext().toast(R.string.rime_runtime_diagnostics_copied)
+        }
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                RimeDaemon.runtimeState.collect(::renderEngineStatus)
+            }
+        }
+    }
+
+    private fun renderEngineStatus(state: RimeRuntimeState) {
+        if (viewBinding == null) return
+        when (state) {
+            RimeRuntimeState.PREPARING -> {
+                binding.engineStatusTitle.setText(R.string.rime_runtime_preparing)
+                binding.engineStatusSummary.setText(R.string.rime_runtime_preparing_summary)
+                binding.repairEngineButton.isVisible = false
+            }
+            RimeRuntimeState.READY -> {
+                binding.engineStatusTitle.setText(R.string.rime_runtime_ready)
+                binding.engineStatusSummary.setText(R.string.rime_runtime_ready_summary)
+                binding.repairEngineButton.isVisible = false
+            }
+            RimeRuntimeState.FAILED -> {
+                binding.engineStatusTitle.setText(R.string.rime_runtime_failed)
+                binding.engineStatusSummary.setText(R.string.rime_runtime_failed_summary)
+                binding.repairEngineButton.isVisible = true
+            }
+        }
+    }
+
     private fun setupFeedbackSettings() {
         bindSegmentButtons(
             listOf(
@@ -214,6 +275,29 @@ class MainFragment : Fragment(R.layout.fragment_main) {
         binding.customFeedbackAction.setOnClickListener {
             findNavController().navigateWithAnim(NavigationRoute.VirtualKeyboard)
         }
+    }
+
+    private fun setupErgonomicsSettings() {
+        binding.spacebarSlideCursorSwitch.setOnCheckedChangeListener { _, checked ->
+            if (!updatingUi) prefs.keyboard.spacebarSlideCursor.setValue(checked)
+        }
+        binding.backspaceSlideDeleteSwitch.setOnCheckedChangeListener { _, checked ->
+            if (!updatingUi) prefs.keyboard.backspaceSlideDelete.setValue(checked)
+        }
+        bindSegmentButtons(
+            listOf(
+                binding.heightCompact to AppPrefs.Keyboard.KeyboardHeightMode.COMPACT,
+                binding.heightStandard to AppPrefs.Keyboard.KeyboardHeightMode.STANDARD,
+                binding.heightRoomy to AppPrefs.Keyboard.KeyboardHeightMode.ROOMY,
+            ),
+        ) { prefs.keyboard.heightMode.setValue(it) }
+        bindSegmentButtons(
+            listOf(
+                binding.oneHandOff to AppPrefs.Keyboard.OneHandMode.OFF,
+                binding.oneHandLeft to AppPrefs.Keyboard.OneHandMode.LEFT,
+                binding.oneHandRight to AppPrefs.Keyboard.OneHandMode.RIGHT,
+            ),
+        ) { prefs.keyboard.oneHandMode.setValue(it) }
     }
 
     private fun setupLearningSettings() {
@@ -253,6 +337,10 @@ class MainFragment : Fragment(R.layout.fragment_main) {
         prefs.candidates.compactCandidateCount.registerOnChangeListener(portraitCountListener)
         prefs.candidates.compactCandidateCountLandscape.registerOnChangeListener(landscapeCountListener)
         prefs.keyboard.feedbackPreset.registerOnChangeListener(feedbackListener)
+        prefs.keyboard.spacebarSlideCursor.registerOnChangeListener(spacebarSlideListener)
+        prefs.keyboard.backspaceSlideDelete.registerOnChangeListener(backspaceSlideListener)
+        prefs.keyboard.heightMode.registerOnChangeListener(heightModeListener)
+        prefs.keyboard.oneHandMode.registerOnChangeListener(oneHandModeListener)
         ThemeManager.prefs.selectedTheme.registerOnChangeListener(themeListener)
     }
 
@@ -264,6 +352,10 @@ class MainFragment : Fragment(R.layout.fragment_main) {
         prefs.candidates.compactCandidateCount.unregisterOnChangeListener(portraitCountListener)
         prefs.candidates.compactCandidateCountLandscape.unregisterOnChangeListener(landscapeCountListener)
         prefs.keyboard.feedbackPreset.unregisterOnChangeListener(feedbackListener)
+        prefs.keyboard.spacebarSlideCursor.unregisterOnChangeListener(spacebarSlideListener)
+        prefs.keyboard.backspaceSlideDelete.unregisterOnChangeListener(backspaceSlideListener)
+        prefs.keyboard.heightMode.unregisterOnChangeListener(heightModeListener)
+        prefs.keyboard.oneHandMode.unregisterOnChangeListener(oneHandModeListener)
         ThemeManager.prefs.selectedTheme.unregisterOnChangeListener(themeListener)
     }
 
@@ -271,6 +363,7 @@ class MainFragment : Fragment(R.layout.fragment_main) {
         if (viewBinding == null) return
         renderCandidateSettings(reschedulePreview)
         renderLearningSetting()
+        renderErgonomicsSettings()
         renderFeedbackSetting()
         renderThemeSetting()
     }
@@ -325,6 +418,45 @@ class MainFragment : Fragment(R.layout.fragment_main) {
         )
         binding.customFeedbackAction.isVisible = preset == AppPrefs.Keyboard.FeedbackPreset.CUSTOM
     }
+
+    private fun renderErgonomicsSettings() {
+        if (viewBinding == null) return
+        val keyboard = prefs.keyboard
+        val controlsEnabled = ThemeManager.prefs.selectedTheme.getValue() == DEFAULT_THEME_ID
+        updatingUi = true
+        binding.spacebarSlideCursorSwitch.isChecked = keyboard.spacebarSlideCursor.getValue()
+        binding.backspaceSlideDeleteSwitch.isChecked = keyboard.backspaceSlideDelete.getValue()
+        selectSegment(
+            listOf(
+                binding.heightCompact to AppPrefs.Keyboard.KeyboardHeightMode.COMPACT,
+                binding.heightStandard to AppPrefs.Keyboard.KeyboardHeightMode.STANDARD,
+                binding.heightRoomy to AppPrefs.Keyboard.KeyboardHeightMode.ROOMY,
+            ),
+            keyboard.heightMode.getValue(),
+        )
+        selectSegment(
+            listOf(
+                binding.oneHandOff to AppPrefs.Keyboard.OneHandMode.OFF,
+                binding.oneHandLeft to AppPrefs.Keyboard.OneHandMode.LEFT,
+                binding.oneHandRight to AppPrefs.Keyboard.OneHandMode.RIGHT,
+            ),
+            keyboard.oneHandMode.getValue(),
+        )
+        ergonomicsControls().forEach { it.isEnabled = controlsEnabled }
+        binding.ergonomicsOptions.alpha = if (controlsEnabled) ENABLED_ALPHA else DISABLED_ALPHA
+        updatingUi = false
+    }
+
+    private fun ergonomicsControls(): List<View> = listOf(
+        binding.spacebarSlideCursorSwitch,
+        binding.backspaceSlideDeleteSwitch,
+        binding.heightCompact,
+        binding.heightStandard,
+        binding.heightRoomy,
+        binding.oneHandOff,
+        binding.oneHandLeft,
+        binding.oneHandRight,
+    )
 
     private fun renderLearningSetting() {
         if (viewBinding == null) return

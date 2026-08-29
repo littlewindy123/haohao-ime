@@ -31,13 +31,18 @@ class SetupActivity : FragmentActivity() {
     private lateinit var binding: ActivitySetupBinding
     private lateinit var viewPager: ViewPager2
     private var lastKnownDone = BooleanArray(SetupPage.entries.size)
+    private val autoPickerRunnable = Runnable {
+        if (::binding.isInitialized && !isFinishing && hasWindowFocus() && !SetupPage.Select.isDone()) {
+            SetupPage.Select.getButtonAction(this)
+        }
+    }
 
     companion object {
-        private var binaryCount = false
         private const val CHANNEL_ID = "setup"
         private const val NOTIFY_ID = 87463
+        private const val AUTO_PICKER_DELAY_MILLIS = 300L
 
-        fun shouldSetup() = !binaryCount && SetupPage.hasUndonePage()
+        fun shouldSetup() = SetupPage.hasUndonePage()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -85,7 +90,6 @@ class SetupActivity : FragmentActivity() {
                 SetupPage.entries.size,
             )
 
-        binaryCount = true
         createNotificationChannel(
             CHANNEL_ID,
             appContext.getString(R.string.setup_channel),
@@ -185,10 +189,26 @@ class SetupActivity : FragmentActivity() {
                 isDone = isDone,
                 doneStates = doneStates,
             )
+        val shouldAutoOpenPicker =
+            SetupFlow.shouldAutoOpenPicker(
+                currentIndex = position,
+                wasDone = wasDone,
+                isDone = isDone,
+                doneStates = doneStates,
+            )
         lastKnownDone = doneStates.toBooleanArray()
         if (nextIndex != null && nextIndex != position) {
             viewPager.setCurrentItem(nextIndex, true)
         }
+        if (shouldAutoOpenPicker) {
+            binding.root.removeCallbacks(autoPickerRunnable)
+            binding.root.postDelayed(autoPickerRunnable, AUTO_PICKER_DELAY_MILLIS)
+        }
+    }
+
+    override fun onDestroy() {
+        if (::binding.isInitialized) binding.root.removeCallbacks(autoPickerRunnable)
+        super.onDestroy()
     }
 
     private fun currentFragment() = supportFragmentManager.findFragmentByTag("f${viewPager.currentItem}") as? SetupFragment

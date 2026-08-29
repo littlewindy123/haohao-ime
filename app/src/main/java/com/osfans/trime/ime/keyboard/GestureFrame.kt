@@ -63,6 +63,7 @@ open class GestureFrame(context: Context) : FrameLayout(context) {
     var isRepeatable = false
     var isSlideCursor = false
     var isSlideDelete = false
+    var slideStepDensity = 1f
 
     var hasLongPress = false
     var hasDouble = false
@@ -127,7 +128,7 @@ open class GestureFrame(context: Context) : FrameLayout(context) {
                     }
 
                     if (slideActivated) {
-                        val step = getNStep(lastX, x, slideStepSize.toFloat())
+                        val step = getNStep(lastX, x, (slideStepSize * slideStepDensity).coerceAtLeast(1f))
                         if (step != 0) {
                             onSlide?.invoke(step, x, y)
                             lastX = x

@@ -5,12 +5,11 @@
 
 package com.osfans.trime.regression
 
-import android.os.ParcelFileDescriptor
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.osfans.trime.daemon.RimeDaemon
 import com.osfans.trime.daemon.RimeSession
-import com.osfans.trime.data.prefs.AppPrefs
+import com.osfans.trime.data.base.DataManager
 import com.osfans.trime.ime.candidates.compact.toCompactCandidateItems
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
@@ -88,19 +87,11 @@ class HaoHaoPinyinRegressionTest {
     }
 
     private fun prepareRegressionStorage(): File {
-        val instrumentation = InstrumentationRegistry.getInstrumentation()
-        val targetContext = instrumentation.targetContext
+        val targetContext = InstrumentationRegistry.getInstrumentation().targetContext
         check(targetContext.packageName.endsWith(".regression")) {
             "Refusing to run against ${targetContext.packageName}"
         }
-        val externalFilesDir = checkNotNull(targetContext.getExternalFilesDir(null))
-        val userDataDir = externalFilesDir.resolve("regression-rime").also { it.mkdirs() }
-        AppPrefs.defaultInstance().profile.userDataDir.setValue(userDataDir.absolutePath)
-        val output = instrumentation.uiAutomation.executeShellCommand(
-            "appops set ${targetContext.packageName} MANAGE_EXTERNAL_STORAGE allow",
-        )
-        ParcelFileDescriptor.AutoCloseInputStream(output).use { it.readBytes() }
-        return userDataDir
+        return DataManager.userDataDir.also { it.mkdirs() }
     }
 
     private suspend fun awaitAndSelectSchema(session: RimeSession) {

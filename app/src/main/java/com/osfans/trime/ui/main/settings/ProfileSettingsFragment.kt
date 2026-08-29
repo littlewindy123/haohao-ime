@@ -5,12 +5,7 @@
 
 package com.osfans.trime.ui.main.settings
 
-import android.net.Uri
 import android.os.Bundle
-import android.provider.DocumentsContract
-import android.view.ViewGroup
-import androidx.activity.result.ActivityResultLauncher
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.lifecycleScope
@@ -28,30 +23,9 @@ import com.osfans.trime.util.ResourceUtils
 import com.osfans.trime.util.addCategory
 import com.osfans.trime.util.addPreference
 import com.osfans.trime.util.customFormatTimeInDefault
-import com.osfans.trime.util.getFileFromUri
-import com.osfans.trime.util.getUriForFile
 import com.osfans.trime.util.toast
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import splitties.dimensions.dp
-import splitties.resources.drawable
-import splitties.resources.styledColor
-import splitties.views.dsl.constraintlayout.centerVertically
-import splitties.views.dsl.constraintlayout.constraintLayout
-import splitties.views.dsl.constraintlayout.endOfParent
-import splitties.views.dsl.constraintlayout.endToStartOf
-import splitties.views.dsl.constraintlayout.lParams
-import splitties.views.dsl.constraintlayout.matchConstraints
-import splitties.views.dsl.constraintlayout.startOfParent
-import splitties.views.dsl.constraintlayout.startToEndOf
-import splitties.views.dsl.core.add
-import splitties.views.dsl.core.editText
-import splitties.views.dsl.core.imageButton
-import splitties.views.dsl.core.matchParent
-import splitties.views.dsl.core.wrapContent
-import splitties.views.imageDrawable
-import splitties.views.topPadding
-import java.io.File
 
 class ProfileSettingsFragment : PaddingPreferenceFragment() {
     private val viewModel: MainViewModel by activityViewModels()
@@ -71,31 +45,12 @@ class ProfileSettingsFragment : PaddingPreferenceFragment() {
             }
         }
 
-    private val onUserDataDirChange = PreferenceDelegate.OnChangeListener<String> { _, newValue ->
-        findPreference<Preference>(AppPrefs.Profile.USER_DATA_DIR)?.summary = newValue
-    }
-
-    private lateinit var browseLauncher: ActivityResultLauncher<Uri?>
-    private var launcherResultCallback: ((path: String) -> Unit)? = null
-
     private lateinit var editSyncIntervalPreference: EditTextIntPreference
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         prefs.periodicBackgroundSync.registerOnChangeListener(onBackgroundSyncEnable)
         prefs.periodicBackgroundSyncInterval.registerOnChangeListener(onSyncIntervalChange)
-        prefs.userDataDir.registerOnChangeListener(onUserDataDirChange)
-
-        browseLauncher = registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) {
-            it ?: return@registerForActivityResult
-            val uri =
-                DocumentsContract.buildDocumentUriUsingTree(
-                    it,
-                    DocumentsContract.getTreeDocumentId(it),
-                ) ?: return@registerForActivityResult
-            val path = requireContext().getFileFromUri(uri)?.absolutePath ?: return@registerForActivityResult
-            launcherResultCallback?.invoke(path)
-        }
     }
 
     override fun onCreatePreferences(
@@ -111,62 +66,8 @@ class ProfileSettingsFragment : PaddingPreferenceFragment() {
                         key = AppPrefs.Profile.USER_DATA_DIR
                         isIconSpaceReserved = false
                         setTitle(R.string.user_data_dir)
-                        setDefaultValue(DataManager.defaultDataDir.absolutePath)
-                        summary = prefs.userDataDir.getValue()
-                        setOnPreferenceClickListener {
-                            val dirNameText = ctx.editText {
-                                setText(prefs.userDataDir.getValue())
-                            }
-                            launcherResultCallback = { path ->
-                                dirNameText.setText(path)
-                            }
-                            val browseButton = ctx.imageButton {
-                                imageDrawable = ctx.drawable(R.drawable.ic_baseline_more_horiz_24)!!.apply {
-                                    setTint(styledColor(android.R.attr.colorControlNormal))
-                                }
-                                setOnClickListener {
-                                    val currentValue = prefs.userDataDir.getValue()
-                                    browseLauncher.launch(ctx.getUriForFile(File(currentValue)))
-                                }
-                            }
-                            val dialogContent = ctx.constraintLayout {
-                                layoutParams = ViewGroup.LayoutParams(matchParent, wrapContent)
-                                topPadding = dp(8)
-                                add(
-                                    dirNameText,
-                                    lParams(matchConstraints, wrapContent) {
-                                        centerVertically()
-                                        startOfParent(dp(20))
-                                        endToStartOf(browseButton, dp(2))
-                                    },
-                                )
-                                val size = dp(48)
-                                add(
-                                    browseButton,
-                                    lParams(size, size) {
-                                        centerVertically()
-                                        startToEndOf(dirNameText, dp(2))
-                                        endOfParent(dp(20))
-                                    },
-                                )
-                            }
-                            AlertDialog.Builder(ctx)
-                                .setTitle(R.string.user_data_dir)
-                                .setView(dialogContent)
-                                .setPositiveButton(android.R.string.ok) { _, _ ->
-                                    prefs.userDataDir.setValue(dirNameText.text.toString())
-                                }
-                                .setNegativeButton(android.R.string.cancel, null)
-                                .setNeutralButton(R.string.default_) { _, _ ->
-                                    prefs.userDataDir.setValue(DataManager.defaultDataDir.absolutePath)
-                                }
-                                .setOnDismissListener {
-                                    // avoid memory leak
-                                    launcherResultCallback = null
-                                }
-                                .show()
-                            true
-                        }
+                        summary = getString(R.string.private_rime_storage_summary)
+                        isSelectable = false
                     },
                 )
             }
@@ -254,6 +155,5 @@ class ProfileSettingsFragment : PaddingPreferenceFragment() {
         super.onDestroy()
         prefs.periodicBackgroundSync.unregisterOnChangeListener(onBackgroundSyncEnable)
         prefs.periodicBackgroundSyncInterval.unregisterOnChangeListener(onSyncIntervalChange)
-        prefs.userDataDir.unregisterOnChangeListener(onUserDataDirChange)
     }
 }

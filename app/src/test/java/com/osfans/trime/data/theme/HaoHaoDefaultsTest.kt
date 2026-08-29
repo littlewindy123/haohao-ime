@@ -7,9 +7,12 @@ package com.osfans.trime.data.theme
 
 import com.osfans.trime.data.base.BRANDED_SIMPLIFIED_SCHEMA_CUSTOM_PATCH
 import com.osfans.trime.data.base.DEFAULT_SCHEMA_ID
+import com.osfans.trime.data.base.DataManager
 import com.osfans.trime.data.base.LEGACY_SIMPLIFIED_SCHEMA_CUSTOM_PATCH
 import com.osfans.trime.data.base.SIMPLIFIED_SCHEMA_CUSTOM_PATCH
 import com.osfans.trime.data.base.managedSchemaDisplayName
+import com.osfans.trime.data.base.migrateLegacyRimeData
+import com.osfans.trime.data.base.repairManagedRimeData
 import com.osfans.trime.data.base.upgradeSimplifiedSchemaCustomPatch
 import com.osfans.trime.data.theme.model.KeyActionToken
 import com.osfans.trime.data.theme.model.TextKeyboard
@@ -30,6 +33,7 @@ import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
 import java.io.File
+import java.nio.file.Files
 import java.util.Properties
 
 class HaoHaoDefaultsTest :
@@ -80,6 +84,11 @@ class HaoHaoDefaultsTest :
             config["__include"]?.string shouldBe "trime:/"
             config["name"]?.string shouldBe "好好输入法"
             DEFAULT_FOLLOW_SYSTEM_DAY_NIGHT shouldBe true
+
+            DataManager.SCHEMA_LIST_CUSTOM_PATCH
+                .lines()
+                .filter { it.trimStart().startsWith("- schema:") }
+                .map { it.substringAfter(":").trim() } shouldContainExactly listOf(DEFAULT_SCHEMA_ID)
         }
 
         "HaoHao Pinyin combines pinned Wanxiang data with hotword and translation overrides" {
@@ -123,11 +132,14 @@ class HaoHaoDefaultsTest :
             presetKeys["BackSpace"]?.mapping?.get("label")?.string shouldBe "⌫"
             presetKeys["Shift_L"]?.mapping?.get("label")?.string shouldBe "⇧"
             presetKeys["Shift_L"]?.mapping?.get("send")?.string shouldBe "Shift_L"
+            presetKeys["Shift_L"]?.mapping?.get("shift_lock")?.string shouldBe "long"
             presetKeys["HaoHaoReturn"]?.mapping?.get("label")?.string shouldBe "↵"
             val spaceLabel = presetKeys["HaoHaoSpace"]?.mapping?.get("label")?.string
             spaceLabel shouldBe " "
             spaceLabel?.isNotEmpty() shouldBe true
             spaceLabel?.isBlank() shouldBe true
+            presetKeys["HaoHaoSpace"]?.mapping?.get("slide_cursor")?.boolean shouldBe true
+            presetKeys["BackSpace"]?.mapping?.get("slide_delete")?.boolean shouldBe true
             listOf(
                 "BackSpace",
                 "Shift_L",
@@ -191,9 +203,12 @@ class HaoHaoDefaultsTest :
             )
             main.keys.all { key ->
                 key.hint.isEmpty() &&
-                    key.labelSymbol.isEmpty() &&
-                    key.behaviors[KeyBehavior.LONG_CLICK] == null
+                    key.labelSymbol.isEmpty()
             } shouldBe true
+            main.keys.single { it.behaviors[KeyBehavior.CLICK] == KeyActionToken.Plain("Shift_L") }
+                .behaviors[KeyBehavior.LONG_CLICK] shouldBe KeyActionToken.Plain("Shift_L")
+            main.keys.filterNot { it.behaviors[KeyBehavior.CLICK] == KeyActionToken.Plain("Shift_L") }
+                .all { it.behaviors[KeyBehavior.LONG_CLICK] == null } shouldBe true
         }
 
         "letter-only schemas route qwerty to the HaoHao main keyboard" {
@@ -212,6 +227,58 @@ class HaoHaoDefaultsTest :
         "managed simplified schema name only changes the branded default schema" {
             managedSchemaDisplayName("luna_pinyin_simp", "朙月拼音·简化字") shouldBe "好好拼音"
             managedSchemaDisplayName("other_schema", "Other") shouldBe "Other"
+        }
+
+        "legacy Rime migration skips compiled data and never overwrites private files" {
+            val root = Files.createTempDirectory("haohao-rime-migration").toFile()
+            val legacy = root.resolve("legacy").apply { mkdirs() }
+            val target = root.resolve("private").apply { mkdirs() }
+            legacy.resolve("luna_pinyin_simp.custom.yaml").writeText("legacy config")
+            legacy.resolve("luna_pinyin.userdb/value").apply {
+                parentFile.mkdirs()
+                writeText("learned")
+            }
+            legacy.resolve("build/luna_pinyin_simp.prism.bin").apply {
+                parentFile.mkdirs()
+                writeText("compiled")
+            }
+            target.resolve("luna_pinyin_simp.custom.yaml").writeText("private config")
+
+            val result = migrateLegacyRimeData(legacy, target)
+
+            target.resolve("luna_pinyin_simp.custom.yaml").readText() shouldBe "private config"
+            target.resolve("luna_pinyin.userdb/value").readText() shouldBe "learned"
+            target.resolve("build").exists() shouldBe false
+            result.copiedFiles shouldBe 1
+            result.skippedExistingFiles shouldBe 1
+            result.skippedBuildFiles shouldBe 1
+            root.deleteRecursively()
+        }
+
+        "managed repair backs up custom yaml and preserves learned data" {
+            val root = Files.createTempDirectory("haohao-rime-repair").toFile()
+            root.resolve("default.custom.yaml").writeText("user default")
+            root.resolve("luna_pinyin_simp.custom.yaml").writeText("user schema")
+            root.resolve("extra.custom.yaml").writeText("user extra")
+            root.resolve("luna_pinyin.userdb/value").apply {
+                parentFile.mkdirs()
+                writeText("learned")
+            }
+            root.resolve("build/obsolete.bin").apply {
+                parentFile.mkdirs()
+                writeText("compiled")
+            }
+
+            val result = repairManagedRimeData(root, "test-backup")
+
+            result.backedUpFiles shouldBe 3
+            root.resolve("repair-backups/test-backup/default.custom.yaml").readText() shouldBe "user default"
+            root.resolve("repair-backups/test-backup/extra.custom.yaml").readText() shouldBe "user extra"
+            root.resolve("default.custom.yaml").readText() shouldBe result.defaultPatch
+            root.resolve("luna_pinyin_simp.custom.yaml").readText() shouldBe SIMPLIFIED_SCHEMA_CUSTOM_PATCH.trimIndent()
+            root.resolve("build").exists() shouldBe false
+            root.resolve("luna_pinyin.userdb/value").readText() shouldBe "learned"
+            root.deleteRecursively()
         }
 
         "number and common-symbol pages always provide a path back to letters" {

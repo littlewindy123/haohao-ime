@@ -7,15 +7,19 @@ package com.osfans.trime.daemon
 import android.app.PendingIntent
 import android.content.Intent
 import android.graphics.Color
+import android.os.Build
 import androidx.core.app.NotificationCompat
+import com.osfans.trime.BuildConfig
 import com.osfans.trime.R
 import com.osfans.trime.TrimeApplication
 import com.osfans.trime.core.Rime
 import com.osfans.trime.core.RimeApi
 import com.osfans.trime.core.RimeLifecycle
 import com.osfans.trime.core.RimeMessage
+import com.osfans.trime.core.RimeRuntimeState
+import com.osfans.trime.core.RimeUnavailableException
 import com.osfans.trime.core.lifecycleScope
-import com.osfans.trime.core.whenReady
+import com.osfans.trime.data.base.DataManager
 import com.osfans.trime.ui.main.LogActivity
 import com.osfans.trime.util.appContext
 import com.osfans.trime.util.createNotificationChannel
@@ -23,7 +27,7 @@ import com.osfans.trime.util.readText
 import com.osfans.trime.util.subprocess
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
@@ -66,7 +70,12 @@ object RimeDaemon {
         }
 
         override suspend fun <T> runOnReady(block: suspend RimeApi.() -> T): T = ensureEstablished {
-            realRime.lifecycle.whenReady { block(rimeImpl) }
+            val state = realRime.runtimeState.value.takeUnless { it == RimeRuntimeState.PREPARING }
+                ?: realRime.runtimeState.first { it != RimeRuntimeState.PREPARING }
+            if (state == RimeRuntimeState.FAILED) {
+                throw RimeUnavailableException(realRime.lastFailure ?: "Rime is unavailable")
+            }
+            block(rimeImpl)
         }
 
         override fun runIfReady(block: suspend RimeApi.() -> Unit) {
@@ -114,6 +123,9 @@ object RimeDaemon {
     private const val MESSAGE_ID = 2331
     private var restartId = 0
 
+    val runtimeState get() = realRime.runtimeState
+    val lastFailure get() = realRime.lastFailure
+
     init {
         createNotificationChannel(
             CHANNEL_ID,
@@ -154,12 +166,32 @@ object RimeDaemon {
             }
         }
         realRime.finalize()
-        realRime.startup()
+        realRime.startup(fullCheck)
         TrimeApplication.getInstance().coroutineScope.launch {
-            realRime.lifecycle.whenReady {
-                notificationManager.cancel(id)
+            realRime.runtimeState.first { it != RimeRuntimeState.PREPARING }
+            notificationManager.cancel(id)
+        }
+    }
+
+    fun repairRime() {
+        TrimeApplication.getInstance().coroutineScope.launch(Dispatchers.IO) {
+            lock.withLock {
+                realRime.finalize()
+                runCatching { DataManager.repairManagedData() }
+                    .onSuccess { realRime.startup(fullCheck = true) }
+                    .onFailure(realRime::markFailed)
             }
         }
+    }
+
+    fun diagnosticText(): String = buildString {
+        appendLine("HaoHao IME ${BuildConfig.VERSION_NAME} (${BuildConfig.BUILD_VERSION_NAME})")
+        appendLine("Device: ${Build.MANUFACTURER} ${Build.MODEL}")
+        appendLine("Android: ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})")
+        appendLine("ABI: ${Build.SUPPORTED_ABIS.joinToString()}")
+        appendLine("Engine: ${runtimeState.value}")
+        appendLine("Schema: ${realRime.schemaCached.schemaId}")
+        append("Last failure: ${lastFailure ?: "none"}")
     }
 
     private suspend fun handleRimeMessage(it: RimeMessage<*>) {

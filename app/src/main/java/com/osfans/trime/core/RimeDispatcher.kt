@@ -32,6 +32,8 @@ class RimeDispatcher(
     interface RimeController {
         fun nativeStartup()
 
+        fun nativeStartupFailed(error: Throwable)
+
         fun nativeFinalize()
     }
 
@@ -89,10 +91,18 @@ class RimeDispatcher(
             mutex.withLock {
                 if (isRunning.compareAndSet(false, true)) {
                     Timber.d("nativeStartup()")
-                    controller.nativeStartup()
+                    try {
+                        controller.nativeStartup()
+                    } catch (error: Throwable) {
+                        isRunning.set(false)
+                        Timber.e(error, "nativeStartup() failed")
+                        controller.nativeStartupFailed(error)
+                        return@withLock
+                    }
                     while (isActive && isRunning.get()) {
                         val block = queue.take()
-                        block.run()
+                        runCatching(block::run)
+                            .onFailure { Timber.e(it, "%s failed", block) }
                     }
                     Timber.i("nativeFinalize()")
                     controller.nativeFinalize()
