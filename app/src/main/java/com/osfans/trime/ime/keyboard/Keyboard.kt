@@ -6,13 +6,19 @@
 package com.osfans.trime.ime.keyboard
 
 import android.content.Context
+import android.content.res.Configuration
 import android.graphics.Point
 import android.os.Build
 import android.view.KeyEvent
 import android.view.WindowInsets
 import com.osfans.trime.data.prefs.AppPrefs
+import com.osfans.trime.data.theme.DEFAULT_THEME_ID
 import com.osfans.trime.data.theme.Theme
+import com.osfans.trime.data.theme.ThemeManager
 import com.osfans.trime.data.theme.model.TextKeyboard
+import com.osfans.trime.ime.haohao.HAOHAO_ONE_HAND_RAIL_WIDTH_DP
+import com.osfans.trime.ime.haohao.calculateHaoHaoKeyboardViewport
+import com.osfans.trime.ime.haohao.scaleHaoHaoKeyboardHeight
 import com.osfans.trime.ime.keyboard.KeyboardPrefs.isLandscapeMode
 import splitties.bitflags.hasFlag
 import splitties.dimensions.dp
@@ -117,7 +123,15 @@ class Keyboard(
                 context.windowManager.defaultDisplay.getSize(size)
                 size.x
             }
-            return safeWidth - 2 * context.dp(padding)
+            val isHaoHaoTheme = ThemeManager.prefs.selectedTheme.getValue() == DEFAULT_THEME_ID
+            if (!isHaoHaoTheme) return safeWidth - 2 * context.dp(padding)
+            return calculateHaoHaoKeyboardViewport(
+                availableWidth = safeWidth,
+                themePadding = context.dp(padding),
+                railWidth = context.dp(HAOHAO_ONE_HAND_RAIL_WIDTH_DP),
+                mode = AppPrefs.defaultInstance().keyboard.oneHandMode.getValue(),
+                landscape = context.resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE,
+            ).contentWidth
         }
 
     /** Keyboard default ascii mode  */
@@ -144,11 +158,14 @@ class Keyboard(
     val isLock = selfConfig?.lock ?: false // 切換程序時記憶鍵盤
     val asciiKeyboard: String? = selfConfig?.asciiKeyboard // 英文鍵盤
 
-    val keyboardHeight: Int =
+    val keyboardHeight: Int = scaleHaoHaoKeyboardHeight(
         intArrayOf(
             selfConfig?.let { getKeyboardHeightFromKeyboardConfig(it) } ?: 0,
             getKeyboardHeightFromTheme(theme),
-        ).firstOrNull { it > 0 } ?: 0
+        ).firstOrNull { it > 0 } ?: 0,
+        mode = AppPrefs.defaultInstance().keyboard.heightMode.getValue(),
+        haoHaoTheme = ThemeManager.prefs.selectedTheme.getValue() == DEFAULT_THEME_ID,
+    )
 
     private val expandKeypressArea: Boolean by AppPrefs.defaultInstance().keyboard.expandKeypressArea
 

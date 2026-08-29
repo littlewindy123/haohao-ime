@@ -72,13 +72,13 @@ tool_bar:
   buttons: []
 
 preset_keys:
-  BackSpace: {label: "⌫", preview: "", repeatable: true, functional: true, send: BackSpace}
+  BackSpace: {label: "⌫", preview: "", repeatable: true, slide_delete: true, functional: true, send: BackSpace}
   Shift_L: {label: "⇧", preview: "", functional: true, send: Shift_L, shift_lock: ascii_long}
   Mode_switch: {toggle: ascii_mode, preview: "", functional: true, send: SWITCH_CHARSET, states: [中, En]}
   HaoHaoNumber: {label: "123", preview: "", functional: true, send: Eisu_toggle, select: number}
   HaoHaoSymbols: {label: 符号, preview: "", functional: true, send: Eisu_toggle, select: symbols}
   HaoHaoLetters: {label: ABC, preview: "", functional: true, send: Eisu_toggle, select: .default}
-  HaoHaoSpace: {label: " ", preview: "", functional: false, send: space}
+  HaoHaoSpace: {label: " ", preview: "", slide_cursor: true, functional: false, send: space}
   HaoHaoReturn: {label: "↵", preview: "", functional: true, send: Return}
   HaoHaoToolbox: {label: "好", preview: "", functional: true, send: FUNCTION, command: haohao_toolbox}
   HaoHaoInputFootprints: {label: 足迹, preview: "", functional: true, send: FUNCTION, command: haohao_input_footprints}

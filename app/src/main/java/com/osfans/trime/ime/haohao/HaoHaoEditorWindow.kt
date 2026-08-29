@@ -12,7 +12,6 @@ import android.graphics.Typeface
 import android.graphics.drawable.RippleDrawable
 import android.os.Handler
 import android.os.Looper
-import android.text.InputType
 import android.view.Gravity
 import android.view.KeyEvent
 import android.view.MotionEvent
@@ -141,19 +140,6 @@ internal class HaoHaoEditorRepeatController(
     fun stop() {
         removeCallback(runnable)
         action = null
-    }
-}
-
-internal fun isPasswordInputType(inputType: Int): Boolean {
-    val inputClass = inputType and InputType.TYPE_MASK_CLASS
-    val variation = inputType and InputType.TYPE_MASK_VARIATION
-    return when (inputClass) {
-        InputType.TYPE_CLASS_TEXT ->
-            variation == InputType.TYPE_TEXT_VARIATION_PASSWORD ||
-                variation == InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD ||
-                variation == InputType.TYPE_TEXT_VARIATION_WEB_PASSWORD
-        InputType.TYPE_CLASS_NUMBER -> variation == InputType.TYPE_NUMBER_VARIATION_PASSWORD
-        else -> false
     }
 }
 

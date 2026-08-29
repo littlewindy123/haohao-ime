@@ -138,6 +138,11 @@ class AppPrefs(
             const val HIDE_KEY_SYMBOL = "hide_key_symbol"
             const val HIDE_KEY_HINT = "hide_key_hint"
 
+            const val SPACEBAR_SLIDE_CURSOR = "spacebar_slide_cursor_enabled"
+            const val BACKSPACE_SLIDE_DELETE = "backspace_slide_delete_enabled"
+            const val HEIGHT_MODE = "haohao_keyboard_height_mode"
+            const val ONE_HAND_MODE = "haohao_one_hand_mode"
+
             const val FEEDBACK_PRESET = "keyboard_feedback_preset"
             const val DEFAULT_SOUND_VOLUME = 10
             const val SOUND_ON_KEYPRESS = "sound_on_keypress"
@@ -177,6 +182,21 @@ class AppPrefs(
             LANDSCAPE(R.string.landscape_only),
             WIDE(R.string.wide_or_landscape),
             ALWAYS(R.string.always),
+        }
+
+        enum class KeyboardHeightMode(
+            override val stringRes: Int,
+            val percent: Int,
+        ) : PreferenceDelegateEnum {
+            COMPACT(R.string.keyboard_height_compact, 90),
+            STANDARD(R.string.keyboard_height_standard, 100),
+            ROOMY(R.string.keyboard_height_roomy, 110),
+        }
+
+        enum class OneHandMode(override val stringRes: Int) : PreferenceDelegateEnum {
+            OFF(R.string.one_hand_mode_off),
+            LEFT(R.string.one_hand_mode_left),
+            RIGHT(R.string.one_hand_mode_right),
         }
 
         data class FeedbackSettings(
@@ -244,6 +264,27 @@ class AppPrefs(
         val hideInputBar = switch(R.string.hide_input_bar, HIDE_INPUT_BAR, false)
         val hideKeySymbol = switch(R.string.hide_key_symbol, HIDE_KEY_SYMBOL, false)
         val hideKeyHint = switch(R.string.hide_key_hint, HIDE_KEY_HINT, false)
+
+        val spacebarSlideCursor = switch(
+            R.string.spacebar_slide_cursor,
+            SPACEBAR_SLIDE_CURSOR,
+            true,
+        )
+        val backspaceSlideDelete = switch(
+            R.string.backspace_slide_delete,
+            BACKSPACE_SLIDE_DELETE,
+            true,
+        )
+        val heightMode = enum(
+            R.string.keyboard_height_mode,
+            HEIGHT_MODE,
+            KeyboardHeightMode.STANDARD,
+        )
+        val oneHandMode = enum(
+            R.string.one_hand_mode,
+            ONE_HAND_MODE,
+            OneHandMode.OFF,
+        )
 
         val feedbackPreset = enum(
             R.string.keyboard_feedback_preset,

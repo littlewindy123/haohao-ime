@@ -128,6 +128,8 @@ class HaoHaoDefaultsTest :
             spaceLabel shouldBe " "
             spaceLabel?.isNotEmpty() shouldBe true
             spaceLabel?.isBlank() shouldBe true
+            presetKeys["HaoHaoSpace"]?.mapping?.get("slide_cursor")?.boolean shouldBe true
+            presetKeys["BackSpace"]?.mapping?.get("slide_delete")?.boolean shouldBe true
             listOf(
                 "BackSpace",
                 "Shift_L",

@@ -87,8 +87,23 @@ class MainFragment : Fragment(R.layout.fragment_main) {
         PreferenceDelegate.OnChangeListener<AppPrefs.Keyboard.FeedbackPreset> { _, _ ->
             renderFeedbackSetting()
         }
+    private val spacebarSlideListener = PreferenceDelegate.OnChangeListener<Boolean> { _, _ ->
+        renderErgonomicsSettings()
+    }
+    private val backspaceSlideListener = PreferenceDelegate.OnChangeListener<Boolean> { _, _ ->
+        renderErgonomicsSettings()
+    }
+    private val heightModeListener =
+        PreferenceDelegate.OnChangeListener<AppPrefs.Keyboard.KeyboardHeightMode> { _, _ ->
+            renderErgonomicsSettings()
+        }
+    private val oneHandModeListener =
+        PreferenceDelegate.OnChangeListener<AppPrefs.Keyboard.OneHandMode> { _, _ ->
+            renderErgonomicsSettings()
+        }
     private val themeListener = PreferenceDelegate.OnChangeListener<String> { _, _ ->
         renderThemeSetting()
+        renderErgonomicsSettings()
     }
 
     override fun onViewCreated(
@@ -101,6 +116,7 @@ class MainFragment : Fragment(R.layout.fragment_main) {
         setupHeader()
         setupCandidateSettings()
         setupLearningSettings()
+        setupErgonomicsSettings()
         setupFeedbackSettings()
         setupDestinations()
         registerPreferenceListeners()
@@ -216,6 +232,29 @@ class MainFragment : Fragment(R.layout.fragment_main) {
         }
     }
 
+    private fun setupErgonomicsSettings() {
+        binding.spacebarSlideCursorSwitch.setOnCheckedChangeListener { _, checked ->
+            if (!updatingUi) prefs.keyboard.spacebarSlideCursor.setValue(checked)
+        }
+        binding.backspaceSlideDeleteSwitch.setOnCheckedChangeListener { _, checked ->
+            if (!updatingUi) prefs.keyboard.backspaceSlideDelete.setValue(checked)
+        }
+        bindSegmentButtons(
+            listOf(
+                binding.heightCompact to AppPrefs.Keyboard.KeyboardHeightMode.COMPACT,
+                binding.heightStandard to AppPrefs.Keyboard.KeyboardHeightMode.STANDARD,
+                binding.heightRoomy to AppPrefs.Keyboard.KeyboardHeightMode.ROOMY,
+            ),
+        ) { prefs.keyboard.heightMode.setValue(it) }
+        bindSegmentButtons(
+            listOf(
+                binding.oneHandOff to AppPrefs.Keyboard.OneHandMode.OFF,
+                binding.oneHandLeft to AppPrefs.Keyboard.OneHandMode.LEFT,
+                binding.oneHandRight to AppPrefs.Keyboard.OneHandMode.RIGHT,
+            ),
+        ) { prefs.keyboard.oneHandMode.setValue(it) }
+    }
+
     private fun setupLearningSettings() {
         binding.learningHistorySwitch.setOnCheckedChangeListener { _, checked ->
             if (!updatingUi) prefs.candidates.learningHistoryEnabled.setValue(checked)
@@ -253,6 +292,10 @@ class MainFragment : Fragment(R.layout.fragment_main) {
         prefs.candidates.compactCandidateCount.registerOnChangeListener(portraitCountListener)
         prefs.candidates.compactCandidateCountLandscape.registerOnChangeListener(landscapeCountListener)
         prefs.keyboard.feedbackPreset.registerOnChangeListener(feedbackListener)
+        prefs.keyboard.spacebarSlideCursor.registerOnChangeListener(spacebarSlideListener)
+        prefs.keyboard.backspaceSlideDelete.registerOnChangeListener(backspaceSlideListener)
+        prefs.keyboard.heightMode.registerOnChangeListener(heightModeListener)
+        prefs.keyboard.oneHandMode.registerOnChangeListener(oneHandModeListener)
         ThemeManager.prefs.selectedTheme.registerOnChangeListener(themeListener)
     }
 
@@ -264,6 +307,10 @@ class MainFragment : Fragment(R.layout.fragment_main) {
         prefs.candidates.compactCandidateCount.unregisterOnChangeListener(portraitCountListener)
         prefs.candidates.compactCandidateCountLandscape.unregisterOnChangeListener(landscapeCountListener)
         prefs.keyboard.feedbackPreset.unregisterOnChangeListener(feedbackListener)
+        prefs.keyboard.spacebarSlideCursor.unregisterOnChangeListener(spacebarSlideListener)
+        prefs.keyboard.backspaceSlideDelete.unregisterOnChangeListener(backspaceSlideListener)
+        prefs.keyboard.heightMode.unregisterOnChangeListener(heightModeListener)
+        prefs.keyboard.oneHandMode.unregisterOnChangeListener(oneHandModeListener)
         ThemeManager.prefs.selectedTheme.unregisterOnChangeListener(themeListener)
     }
 
@@ -271,6 +318,7 @@ class MainFragment : Fragment(R.layout.fragment_main) {
         if (viewBinding == null) return
         renderCandidateSettings(reschedulePreview)
         renderLearningSetting()
+        renderErgonomicsSettings()
         renderFeedbackSetting()
         renderThemeSetting()
     }
@@ -325,6 +373,45 @@ class MainFragment : Fragment(R.layout.fragment_main) {
         )
         binding.customFeedbackAction.isVisible = preset == AppPrefs.Keyboard.FeedbackPreset.CUSTOM
     }
+
+    private fun renderErgonomicsSettings() {
+        if (viewBinding == null) return
+        val keyboard = prefs.keyboard
+        val controlsEnabled = ThemeManager.prefs.selectedTheme.getValue() == DEFAULT_THEME_ID
+        updatingUi = true
+        binding.spacebarSlideCursorSwitch.isChecked = keyboard.spacebarSlideCursor.getValue()
+        binding.backspaceSlideDeleteSwitch.isChecked = keyboard.backspaceSlideDelete.getValue()
+        selectSegment(
+            listOf(
+                binding.heightCompact to AppPrefs.Keyboard.KeyboardHeightMode.COMPACT,
+                binding.heightStandard to AppPrefs.Keyboard.KeyboardHeightMode.STANDARD,
+                binding.heightRoomy to AppPrefs.Keyboard.KeyboardHeightMode.ROOMY,
+            ),
+            keyboard.heightMode.getValue(),
+        )
+        selectSegment(
+            listOf(
+                binding.oneHandOff to AppPrefs.Keyboard.OneHandMode.OFF,
+                binding.oneHandLeft to AppPrefs.Keyboard.OneHandMode.LEFT,
+                binding.oneHandRight to AppPrefs.Keyboard.OneHandMode.RIGHT,
+            ),
+            keyboard.oneHandMode.getValue(),
+        )
+        ergonomicsControls().forEach { it.isEnabled = controlsEnabled }
+        binding.ergonomicsOptions.alpha = if (controlsEnabled) ENABLED_ALPHA else DISABLED_ALPHA
+        updatingUi = false
+    }
+
+    private fun ergonomicsControls(): List<View> = listOf(
+        binding.spacebarSlideCursorSwitch,
+        binding.backspaceSlideDeleteSwitch,
+        binding.heightCompact,
+        binding.heightStandard,
+        binding.heightRoomy,
+        binding.oneHandOff,
+        binding.oneHandLeft,
+        binding.oneHandRight,
+    )
 
     private fun renderLearningSetting() {
         if (viewBinding == null) return

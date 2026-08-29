@@ -6,29 +6,40 @@
 package com.osfans.trime.ime.core
 
 import android.annotation.SuppressLint
+import android.content.res.ColorStateList
+import android.content.res.Configuration
+import android.graphics.drawable.RippleDrawable
 import android.os.Build
+import android.view.Gravity
 import android.view.View
 import android.view.WindowInsets
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InlineSuggestionsResponse
 import android.widget.ImageView
+import android.widget.LinearLayout
 import androidx.annotation.RequiresApi
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.updateLayoutParams
 import androidx.lifecycle.lifecycleScope
+import com.osfans.trime.R
 import com.osfans.trime.core.CompositionProto
 import com.osfans.trime.core.RimeMessage
 import com.osfans.trime.daemon.RimeSession
 import com.osfans.trime.data.prefs.AppPrefs
 import com.osfans.trime.data.theme.ColorManager
+import com.osfans.trime.data.theme.DEFAULT_THEME_ID
 import com.osfans.trime.data.theme.Theme
+import com.osfans.trime.data.theme.ThemeManager
 import com.osfans.trime.ime.bar.InputBarDelegate
 import com.osfans.trime.ime.broadcast.EnterKeyDisplayDelegate
 import com.osfans.trime.ime.broadcast.InputBroadcaster
 import com.osfans.trime.ime.candidates.popup.PopupCandidatesMode
 import com.osfans.trime.ime.composition.PreeditDelegate
 import com.osfans.trime.ime.dependency.InputDependencyManager
+import com.osfans.trime.ime.haohao.HAOHAO_ONE_HAND_RAIL_WIDTH_DP
+import com.osfans.trime.ime.haohao.calculateHaoHaoKeyboardViewport
+import com.osfans.trime.ime.keyboard.InputFeedbackManager
 import com.osfans.trime.ime.keyboard.KeyboardPrefs.isLandscapeMode
 import com.osfans.trime.ime.keyboard.KeyboardWindow
 import com.osfans.trime.ime.popup.PopupDelegate
@@ -70,17 +81,19 @@ class InputView(
         imageView {
             scaleType = ImageView.ScaleType.CENTER_CROP
         }
-    private val placeholderListener = OnClickListener { }
-
     private val leftPaddingSpace =
-        view(::View) {
-            setOnClickListener(placeholderListener)
+        LinearLayout(themedContext).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
         }
 
     private val rightPaddingSpace =
-        view(::View) {
-            setOnClickListener(placeholderListener)
+        LinearLayout(themedContext).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
         }
+
+    private val placeholderListener = OnClickListener { }
 
     private val bottomPaddingSpace =
         view(::View) {
@@ -235,35 +248,118 @@ class InputView(
         bottomPaddingSpace.updateLayoutParams {
             height = keyboardBottomPaddingPx
         }
-        val sidePadding = keyboardSidePaddingPx
-        val unset = LayoutParams.UNSET
-        if (sidePadding == 0) {
-            // hide side padding space views when unnecessary
-            leftPaddingSpace.visibility = View.GONE
-            rightPaddingSpace.visibility = View.GONE
-            windowManager.view.updateLayoutParams<LayoutParams> {
-                startToEnd = unset
-                endToStart = unset
-                startOfParent()
-                endOfParent()
-            }
+        val isHaoHaoTheme = ThemeManager.prefs.selectedTheme.getValue() == DEFAULT_THEME_ID
+        val landscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+        val viewport = if (isHaoHaoTheme) {
+            calculateHaoHaoKeyboardViewport(
+                availableWidth = resources.displayMetrics.widthPixels,
+                themePadding = keyboardSidePaddingPx,
+                railWidth = dp(HAOHAO_ONE_HAND_RAIL_WIDTH_DP),
+                mode = AppPrefs.defaultInstance().keyboard.oneHandMode.getValue(),
+                landscape = landscape,
+            )
         } else {
-            leftPaddingSpace.visibility = View.VISIBLE
-            rightPaddingSpace.visibility = View.VISIBLE
-            leftPaddingSpace.updateLayoutParams {
-                width = sidePadding
-            }
-            rightPaddingSpace.updateLayoutParams {
-                width = sidePadding
-            }
-            windowManager.view.updateLayoutParams<LayoutParams> {
+            calculateHaoHaoKeyboardViewport(
+                availableWidth = resources.displayMetrics.widthPixels,
+                themePadding = keyboardSidePaddingPx,
+                railWidth = 0,
+                mode = AppPrefs.Keyboard.OneHandMode.OFF,
+                landscape = landscape,
+            )
+        }
+        updateSideSpace(leftPaddingSpace, viewport.leftInset)
+        updateSideSpace(rightPaddingSpace, viewport.rightInset)
+        updateOneHandRail(isHaoHaoTheme, landscape)
+
+        val unset = LayoutParams.UNSET
+        windowManager.view.updateLayoutParams<LayoutParams> {
+            if (viewport.leftInset == 0) {
+                startToEnd = unset
+                startOfParent()
+            } else {
                 startToStart = unset
-                endToEnd = unset
                 startToEndOf(leftPaddingSpace)
+            }
+            if (viewport.rightInset == 0) {
+                endToStart = unset
+                endOfParent()
+            } else {
+                endToEnd = unset
                 endToStartOf(rightPaddingSpace)
             }
         }
-        inputBar.view.setPadding(sidePadding, 0, sidePadding, 0)
+        inputBar.view.setPadding(viewport.leftInset, 0, viewport.rightInset, 0)
+    }
+
+    private fun updateSideSpace(space: View, width: Int) {
+        space.visibility = if (width == 0) View.GONE else View.VISIBLE
+        space.updateLayoutParams { this.width = width }
+    }
+
+    private fun updateOneHandRail(isHaoHaoTheme: Boolean, landscape: Boolean) {
+        leftPaddingSpace.removeAllViews()
+        rightPaddingSpace.removeAllViews()
+        if (!isHaoHaoTheme || landscape) return
+
+        val prefs = AppPrefs.defaultInstance().keyboard
+        val mode = prefs.oneHandMode.getValue()
+        if (mode == AppPrefs.Keyboard.OneHandMode.OFF) return
+
+        val rail = if (mode == AppPrefs.Keyboard.OneHandMode.LEFT) rightPaddingSpace else leftPaddingSpace
+        val oppositeMode = if (mode == AppPrefs.Keyboard.OneHandMode.LEFT) {
+            AppPrefs.Keyboard.OneHandMode.RIGHT
+        } else {
+            AppPrefs.Keyboard.OneHandMode.LEFT
+        }
+        val switchIcon = if (mode == AppPrefs.Keyboard.OneHandMode.LEFT) {
+            R.drawable.ic_baseline_arrow_right_24
+        } else {
+            R.drawable.ic_baseline_arrow_left_24
+        }
+        rail.addView(
+            createOneHandButton(switchIcon, R.string.one_hand_switch_side) {
+                prefs.oneHandMode.setValue(oppositeMode)
+            },
+        )
+        rail.addView(
+            createOneHandButton(R.drawable.ic_baseline_keyboard_24, R.string.one_hand_exit) {
+                prefs.oneHandMode.setValue(AppPrefs.Keyboard.OneHandMode.OFF)
+            },
+        )
+    }
+
+    private fun createOneHandButton(
+        iconRes: Int,
+        descriptionRes: Int,
+        action: () -> Unit,
+    ): ImageView = ImageView(themedContext).apply {
+        val size = dp(48)
+        layoutParams = LinearLayout.LayoutParams(size, size).apply {
+            val margin = dp(2)
+            setMargins(margin, margin, margin, margin)
+        }
+        setPadding(dp(12), dp(12), dp(12), dp(12))
+        scaleType = ImageView.ScaleType.CENTER_INSIDE
+        imageDrawable = ContextCompat.getDrawable(context, iconRes)
+        imageTintList = ColorStateList.valueOf(ColorManager.getColor("off_key_text_color"))
+        background = RippleDrawable(
+            ColorStateList.valueOf(ColorManager.getColor("hilited_off_key_back_color")),
+            ColorManager.getDecorDrawable(
+                "off_key_back_color",
+                "key_border_color",
+                dp(theme.generalStyle.keyBorder),
+                dp(theme.generalStyle.roundCorner),
+            ),
+            null,
+        )
+        contentDescription = context.getString(descriptionRes)
+        isClickable = true
+        isFocusable = true
+        setOnClickListener {
+            InputFeedbackManager.keyPressSound()
+            InputFeedbackManager.keyPressVibrate(this)
+            action()
+        }
     }
 
     override fun onApplyWindowInsets(insets: WindowInsets): WindowInsets {
