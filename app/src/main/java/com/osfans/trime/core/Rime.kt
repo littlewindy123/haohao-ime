@@ -6,17 +6,19 @@
 package com.osfans.trime.core
 
 import com.osfans.trime.BuildConfig
+import com.osfans.trime.data.base.DEFAULT_SCHEMA_ID
 import com.osfans.trime.data.base.DataManager
 import com.osfans.trime.data.opencc.OpenCCDictManager
 import com.osfans.trime.data.prefs.AppPrefs
 import com.osfans.trime.ime.core.InlinePreeditMode
-import com.osfans.trime.util.appContext
-import com.osfans.trime.util.isStorageAvailable
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import timber.log.Timber
@@ -37,6 +39,13 @@ class Rime :
     override val isReady: Boolean
         get() = lifecycle.currentState == RimeLifecycle.State.READY
 
+    private val mutableRuntimeState = MutableStateFlow(RimeRuntimeState.PREPARING)
+    val runtimeState: StateFlow<RimeRuntimeState> = mutableRuntimeState.asStateFlow()
+
+    @Volatile
+    var lastFailure: String? = null
+        private set
+
     override var schemaCached = RimeSchema(".default")
         private set
 
@@ -56,8 +65,18 @@ class Rime :
         RimeDispatcher(
             object : RimeDispatcher.RimeController {
                 override fun nativeStartup() {
-                    startRime(false)
+                    startRime(startupFullCheck)
                     lifecycleRegistry.emitState(RimeLifecycle.State.READY)
+                    mutableRuntimeState.value = RimeRuntimeState.READY
+                    lastFailure = null
+                }
+
+                override fun nativeStartupFailed(error: Throwable) {
+                    runCatching(::exitRime)
+                    lastFailure = error.message ?: error.javaClass.simpleName
+                    lifecycleRegistry.emitStartupFailed()
+                    mutableRuntimeState.value = RimeRuntimeState.FAILED
+                    unregisterRimeMessageHandler(::handleRimeMessage)
                 }
 
                 override fun nativeFinalize() {
@@ -73,6 +92,9 @@ class Rime :
     private var isNullInputType = true
     private var lastAsciiTipsText = ""
     private var pagingMode = false
+
+    @Volatile
+    private var startupFullCheck = false
 
     init {
         if (lifecycle.currentState != RimeLifecycle.State.STOPPED) {
@@ -156,13 +178,21 @@ class Rime :
 
     override suspend fun enabledSchemata(): Array<SchemaItem> = withRimeContext { getSelectedRimeSchemaList() }
 
-    override suspend fun setEnabledSchemata(schemaIds: Array<String>) = withRimeContext { selectRimeSchemas(schemaIds) }
+    override suspend fun setEnabledSchemata(schemaIds: Array<String>) = withRimeContext {
+        val selected = selectRimeSchemas(arrayOf(DEFAULT_SCHEMA_ID))
+        enforceSimplifiedSchema()
+        selected
+    }
 
     override suspend fun selectedSchemata(): Array<SchemaItem> = withRimeContext { getRimeSchemaList() }
 
     override suspend fun selectedSchemaId(): String = withRimeContext { getCurrentRimeSchema() }
 
-    override suspend fun selectSchema(schemaId: String) = withRimeContext { selectRimeSchema(schemaId) }
+    override suspend fun selectSchema(schemaId: String) = withRimeContext {
+        val selected = selectRimeSchema(DEFAULT_SCHEMA_ID)
+        enforceSimplifiedSchema()
+        selected
+    }
 
     override suspend fun currentSchema(): RimeSchema = withRimeContext {
         RimeSchema(getCurrentRimeSchema())
@@ -183,7 +213,7 @@ class Rime :
         option: String,
         value: Boolean,
     ): Unit = withRimeContext {
-        setRimeOption(option, value)
+        setRimeOption(option, if (option == SIMPLIFIED_OPTION) true else value)
     }
 
     override suspend fun getRuntimeOption(option: String): Boolean = withRimeContext {
@@ -219,6 +249,21 @@ class Rime :
             """.trimIndent(),
         )
         startupRime(sharedDataDir, userDataDir, BuildConfig.BUILD_VERSION_NAME, fullCheck)
+        enforceSimplifiedSchema()
+    }
+
+    private fun enforceSimplifiedSchema() {
+        val currentSchema = getCurrentRimeSchema()
+        if (currentSchema != DEFAULT_SCHEMA_ID && !selectRimeSchema(DEFAULT_SCHEMA_ID)) {
+            error("Required simplified schema is unavailable: $DEFAULT_SCHEMA_ID")
+        }
+        setRimeOption(SIMPLIFIED_OPTION, true)
+        val status = getRimeStatus()
+        if (status.schemaId != DEFAULT_SCHEMA_ID || !getRimeOption(SIMPLIFIED_OPTION)) {
+            error("Failed to activate HaoHao simplified schema")
+        }
+        statusCached = status
+        schemaCached = RimeSchema(DEFAULT_SCHEMA_ID)
     }
 
     private fun processKeyInner(value: Int, modifiers: Int, isVirtual: Boolean): Boolean {
@@ -278,10 +323,19 @@ class Rime :
     private fun handleRimeMessage(it: RimeMessage<*>) {
         when (it) {
             is RimeMessage.SchemaMessage -> {
+                if (it.data.id != DEFAULT_SCHEMA_ID) {
+                    enforceSimplifiedSchema()
+                    return
+                }
                 statusCached = getRimeStatus()
                 schemaCached = RimeSchema(it.data.id)
             }
             is RimeMessage.OptionMessage -> {
+                if (it.data.option == SIMPLIFIED_OPTION && !it.data.value) {
+                    setRimeOption(SIMPLIFIED_OPTION, true)
+                    statusCached = getRimeStatus()
+                    return
+                }
                 // Option change won't trigger response update
                 val status = getRimeStatus()
                 statusCached = status
@@ -291,8 +345,20 @@ class Rime :
                 }
             }
             is RimeMessage.DeployMessage -> {
-                if (it.data == RimeMessage.DeployMessage.State.Start) {
-                    OpenCCDictManager.buildOpenCCDict()
+                when (it.data) {
+                    RimeMessage.DeployMessage.State.Start -> {
+                        mutableRuntimeState.value = RimeRuntimeState.PREPARING
+                        OpenCCDictManager.buildOpenCCDict()
+                    }
+                    RimeMessage.DeployMessage.State.Success -> {
+                        enforceSimplifiedSchema()
+                        mutableRuntimeState.value = RimeRuntimeState.READY
+                        lastFailure = null
+                    }
+                    RimeMessage.DeployMessage.State.Failure -> {
+                        lastFailure = "Rime deployment failed"
+                        mutableRuntimeState.value = RimeRuntimeState.FAILED
+                    }
                 }
             }
             is RimeMessage.CompositionMessage -> {
@@ -347,15 +413,14 @@ class Rime :
         }
     }
 
-    fun startup() {
-        if (!appContext.isStorageAvailable()) {
-            Timber.w("Skip starting rime: storage not available!")
-            return
-        }
+    fun startup(fullCheck: Boolean = false) {
         if (lifecycle.currentState != RimeLifecycle.State.STOPPED) {
             Timber.w("Skip starting rime: not at stopped state!")
             return
         }
+        startupFullCheck = fullCheck
+        lastFailure = null
+        mutableRuntimeState.value = RimeRuntimeState.PREPARING
         registerRimeMessageHandler(::handleRimeMessage)
         lifecycleRegistry.emitState(RimeLifecycle.State.STARTING)
         dispatcher.start()
@@ -377,7 +442,13 @@ class Rime :
         unregisterRimeMessageHandler(::handleRimeMessage)
     }
 
+    fun markFailed(error: Throwable) {
+        lastFailure = error.message ?: error.javaClass.simpleName
+        mutableRuntimeState.value = RimeRuntimeState.FAILED
+    }
+
     companion object {
+        private const val SIMPLIFIED_OPTION = "zh_simp"
         private val messageFlow_ =
             MutableSharedFlow<RimeMessage<*>>(
                 extraBufferCapacity = 15,

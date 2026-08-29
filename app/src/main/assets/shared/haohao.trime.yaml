@@ -73,7 +73,7 @@ tool_bar:
 
 preset_keys:
   BackSpace: {label: "⌫", preview: "", repeatable: true, slide_delete: true, functional: true, send: BackSpace}
-  Shift_L: {label: "⇧", preview: "", functional: true, send: Shift_L, shift_lock: ascii_long}
+  Shift_L: {label: "⇧", preview: "", functional: true, send: Shift_L, shift_lock: long}
   Mode_switch: {toggle: ascii_mode, preview: "", functional: true, send: SWITCH_CHARSET, states: [中, En]}
   HaoHaoNumber: {label: "123", preview: "", functional: true, send: Eisu_toggle, select: number}
   HaoHaoSymbols: {label: 符号, preview: "", functional: true, send: Eisu_toggle, select: symbols}
@@ -206,7 +206,7 @@ preset_keyboards:
       - {click: k}
       - {click: l}
       - {width: 5}
-      - {click: Shift_L, width: 15}
+      - {click: Shift_L, long_click: Shift_L, width: 15}
       - {click: z}
       - {click: x}
       - {click: c}

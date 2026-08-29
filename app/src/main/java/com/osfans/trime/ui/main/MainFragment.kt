@@ -5,6 +5,7 @@
 
 package com.osfans.trime.ui.main
 
+import android.content.ClipData
 import android.os.Bundle
 import android.view.View
 import android.widget.PopupMenu
@@ -25,6 +26,8 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
 import androidx.preference.PreferenceGroup
 import com.osfans.trime.R
+import com.osfans.trime.core.RimeRuntimeState
+import com.osfans.trime.daemon.RimeDaemon
 import com.osfans.trime.daemon.launchOnReady
 import com.osfans.trime.data.footprints.InputFootprints
 import com.osfans.trime.data.prefs.AppPrefs
@@ -36,9 +39,11 @@ import com.osfans.trime.ui.common.PaddingPreferenceFragment
 import com.osfans.trime.util.addCategory
 import com.osfans.trime.util.addPreference
 import com.osfans.trime.util.navigateWithAnim
+import com.osfans.trime.util.toast
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import splitties.systemservices.clipboardManager
 
 abstract class TopOptionsPreferenceFragment : PaddingPreferenceFragment() {
     private val viewModel: MainViewModel by activityViewModels()
@@ -114,6 +119,7 @@ class MainFragment : Fragment(R.layout.fragment_main) {
         viewBinding = FragmentMainBinding.bind(view)
         setupInsets()
         setupHeader()
+        setupEngineStatus()
         setupCandidateSettings()
         setupLearningSettings()
         setupErgonomicsSettings()
@@ -213,6 +219,45 @@ class MainFragment : Fragment(R.layout.fragment_main) {
                 binding.landscapeCount8 to 8,
             ),
         ) { prefs.candidates.compactCandidateCountLandscape.setValue(it) }
+    }
+
+    private fun setupEngineStatus() {
+        binding.repairEngineButton.setOnClickListener { RimeDaemon.repairRime() }
+        binding.copyDiagnosticsButton.setOnClickListener {
+            clipboardManager.setPrimaryClip(
+                ClipData.newPlainText(
+                    getString(R.string.rime_runtime_diagnostics_label),
+                    RimeDaemon.diagnosticText(),
+                ),
+            )
+            requireContext().toast(R.string.rime_runtime_diagnostics_copied)
+        }
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                RimeDaemon.runtimeState.collect(::renderEngineStatus)
+            }
+        }
+    }
+
+    private fun renderEngineStatus(state: RimeRuntimeState) {
+        if (viewBinding == null) return
+        when (state) {
+            RimeRuntimeState.PREPARING -> {
+                binding.engineStatusTitle.setText(R.string.rime_runtime_preparing)
+                binding.engineStatusSummary.setText(R.string.rime_runtime_preparing_summary)
+                binding.repairEngineButton.isVisible = false
+            }
+            RimeRuntimeState.READY -> {
+                binding.engineStatusTitle.setText(R.string.rime_runtime_ready)
+                binding.engineStatusSummary.setText(R.string.rime_runtime_ready_summary)
+                binding.repairEngineButton.isVisible = false
+            }
+            RimeRuntimeState.FAILED -> {
+                binding.engineStatusTitle.setText(R.string.rime_runtime_failed)
+                binding.engineStatusSummary.setText(R.string.rime_runtime_failed_summary)
+                binding.repairEngineButton.isVisible = true
+            }
+        }
     }
 
     private fun setupFeedbackSettings() {

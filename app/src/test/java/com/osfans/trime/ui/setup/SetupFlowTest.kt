@@ -9,16 +9,16 @@ import io.kotest.matchers.shouldBe
 
 class SetupFlowTest :
     StringSpec({
-        "progress follows the three real setup steps" {
+        "progress follows the two permission-free setup steps" {
+            SetupPage.entries.map { it.name } shouldBe listOf("Enable", "Select")
             SetupFlow.progressStep(0) shouldBe 1
             SetupFlow.progressStep(1) shouldBe 2
-            SetupFlow.progressStep(2) shouldBe 3
         }
 
         "first undone step resumes incomplete setup" {
-            SetupFlow.firstUndoneIndex(listOf(true, false, false)) shouldBe 1
-            SetupFlow.firstUndoneIndex(listOf(true, true, false)) shouldBe 2
-            SetupFlow.firstUndoneIndex(listOf(true, true, true)) shouldBe null
+            SetupFlow.firstUndoneIndex(listOf(false, false)) shouldBe 0
+            SetupFlow.firstUndoneIndex(listOf(true, false)) shouldBe 1
+            SetupFlow.firstUndoneIndex(listOf(true, true)) shouldBe null
         }
 
         "a newly completed step advances once" {
@@ -26,7 +26,7 @@ class SetupFlowTest :
                 currentIndex = 0,
                 wasDone = false,
                 isDone = true,
-                doneStates = listOf(true, false, false),
+                doneStates = listOf(true, false),
             ) shouldBe 1
         }
 
@@ -35,8 +35,8 @@ class SetupFlowTest :
                 currentIndex = 0,
                 wasDone = false,
                 isDone = true,
-                doneStates = listOf(true, true, false),
-            ) shouldBe 2
+                doneStates = listOf(true, true),
+            ) shouldBe 1
         }
 
         "unchanged completion state does not advance" {
@@ -44,22 +44,22 @@ class SetupFlowTest :
                 0,
                 wasDone = false,
                 isDone = false,
-                doneStates = listOf(false, false, false),
+                doneStates = listOf(false, false),
             ) shouldBe null
             SetupFlow.nextIndexAfterSync(
                 0,
                 wasDone = true,
                 isDone = true,
-                doneStates = listOf(true, false, false),
+                doneStates = listOf(true, false),
             ) shouldBe null
         }
 
         "the final step waits for start typing" {
             SetupFlow.nextIndexAfterSync(
-                currentIndex = 2,
+                currentIndex = 1,
                 wasDone = false,
                 isDone = true,
-                doneStates = listOf(true, true, true),
+                doneStates = listOf(true, true),
             ) shouldBe null
         }
     })

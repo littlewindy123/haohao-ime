@@ -8,11 +8,13 @@ package com.osfans.trime.ime.bar
 import android.content.Context
 import android.os.Build
 import android.util.Size
+import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InlineSuggestion
 import android.view.inputmethod.InlineSuggestionsResponse
+import android.widget.TextView
 import android.widget.ViewAnimator
 import android.widget.inline.InlineContentView
 import androidx.annotation.Keep
@@ -22,6 +24,8 @@ import androidx.lifecycle.lifecycleScope
 import com.osfans.trime.R
 import com.osfans.trime.core.Candidates
 import com.osfans.trime.core.RimeMessage
+import com.osfans.trime.core.RimeRuntimeState
+import com.osfans.trime.daemon.RimeDaemon
 import com.osfans.trime.daemon.RimeSession
 import com.osfans.trime.daemon.launchOnReady
 import com.osfans.trime.data.db.ClipboardHelper
@@ -100,6 +104,8 @@ class InputBarDelegate : InputBroadcastReceiver {
 
     private var clipboardTimeoutJob: Job? = null
     private var unrolledCandidatesVisible = false
+    private var requestedBarState = QuickBarStateMachine.State.Always
+    private var currentRuntimeState = RimeDaemon.runtimeState.value
 
     private var isClipboardFresh: Boolean = false
     private var isInlineSuggestionPresent: Boolean = false
@@ -208,6 +214,16 @@ class InputBarDelegate : InputBroadcastReceiver {
             switchUiByState(it)
         }
 
+    private val runtimeStatusView by lazy {
+        TextView(context).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(context.dp(16), 0, context.dp(16), 0)
+            setTextColor(ColorManager.getColor("candidate_text_color"))
+            textSize = theme.generalStyle.commentTextSize
+            isFocusable = true
+        }
+    }
+
     val unrollButtonStateMachine =
         UnrollButtonStateMachine.new {
             when (it) {
@@ -274,6 +290,11 @@ class InputBarDelegate : InputBroadcastReceiver {
     }
 
     private fun switchUiByState(state: QuickBarStateMachine.State) {
+        requestedBarState = state
+        if (currentRuntimeState != RimeRuntimeState.READY) {
+            showRuntimeState(currentRuntimeState)
+            return
+        }
         val index = state.ordinal
         if (view.displayedChild == index) return
         val new = view.getChildAt(index)
@@ -283,6 +304,32 @@ class InputBarDelegate : InputBroadcastReceiver {
             tabUi.removeExternal()
         }
         view.displayedChild = index
+    }
+
+    private fun showRuntimeState(state: RimeRuntimeState) {
+        currentRuntimeState = state
+        if (state == RimeRuntimeState.READY) {
+            switchUiByState(requestedBarState)
+            return
+        }
+        runtimeStatusView.apply {
+            when (state) {
+                RimeRuntimeState.PREPARING -> {
+                    setText(R.string.rime_runtime_preparing)
+                    contentDescription = context.getString(R.string.rime_runtime_preparing)
+                    isClickable = false
+                    setOnClickListener(null)
+                }
+                RimeRuntimeState.FAILED -> {
+                    setText(R.string.rime_runtime_failed_repair)
+                    contentDescription = context.getString(R.string.rime_runtime_failed_repair)
+                    isClickable = true
+                    setOnClickListener { RimeDaemon.repairRime() }
+                }
+                RimeRuntimeState.READY -> Unit
+            }
+        }
+        view.displayedChild = RUNTIME_STATUS_CHILD_INDEX
     }
 
     val view by lazy {
@@ -303,10 +350,14 @@ class InputBarDelegate : InputBroadcastReceiver {
             add(alwaysUi.root, lParams(matchParent, matchParent))
             add(candidateUi.root, lParams(matchParent, matchParent))
             add(tabUi.root, lParams(matchParent, matchParent))
+            add(runtimeStatusView, lParams(matchParent, matchParent))
 
             evalAlwaysUiState()
             ClipboardHelper.addOnUpdateListener(onClipboardUpdateListener)
             syncToolbarOptionStates()
+            service.lifecycleScope.launch {
+                RimeDaemon.runtimeState.collect(::showRuntimeState)
+            }
         }
     }
 
@@ -404,5 +455,9 @@ class InputBarDelegate : InputBroadcastReceiver {
 
     override fun onRimeOptionUpdated(value: RimeMessage.OptionMessage.Data) {
         alwaysUi.updateButtonsStyle(value.option, value.value)
+    }
+
+    private companion object {
+        const val RUNTIME_STATUS_CHILD_INDEX = 3
     }
 }

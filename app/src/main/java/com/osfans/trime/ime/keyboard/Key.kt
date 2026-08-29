@@ -238,6 +238,7 @@ class Key(
     fun getCode(behavior: KeyBehavior): Int = getAction(behavior)!!.code
 
     fun getLabel(): String = when {
+        code in KeyEvent.KEYCODE_SHIFT_LEFT..KeyEvent.KEYCODE_SHIFT_RIGHT && isOn -> "⇪"
         label.isNotEmpty() &&
             keyAction == click &&
             !keyActions.containsKey(KeyBehavior.ASCII) &&

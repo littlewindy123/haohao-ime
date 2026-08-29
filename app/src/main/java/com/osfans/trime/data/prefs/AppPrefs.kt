@@ -93,9 +93,11 @@ class AppPrefs(
     ) : PreferenceDelegateOwner(shared) {
         companion object {
             const val PID = "general__pid"
+            const val PRIVATE_RIME_DATA_MIGRATED = "internal_private_rime_data_migrated"
         }
 
         val pid = int(PID, 0)
+        val privateRimeDataMigrated = bool(PRIVATE_RIME_DATA_MIGRATED, false)
     }
 
     class General(

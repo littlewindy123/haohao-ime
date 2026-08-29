@@ -240,8 +240,16 @@ class KeyView(
         Timber.d("processKeyAction: label=${key.getLabel()}, code=${action.code}, type=$behavior")
 
         if (action.isModifierKey) {
+            val status = rime.run { statusCached }
+            if (action.modifierKeyOnMask == KeyEvent.META_SHIFT_ON &&
+                ThemeManager.prefs.selectedTheme.getValue() == DEFAULT_THEME_ID &&
+                status.isComposing
+            ) {
+                return
+            }
+            val requestedLock = action.isShiftLock xor (behavior == KeyBehavior.LONG_CLICK)
             keyboard.clickModifierKey(
-                action.isShiftLock xor (behavior == KeyBehavior.LONG_CLICK),
+                requestedLock && status.isAsciiMode,
                 action.modifierKeyOnMask,
             )
             keyboardView.invalidateAllKeys()

@@ -454,6 +454,8 @@ class Keyboard(
         return setModifier(KeyEvent.META_SHIFT_ON, shifted)
     }
 
+    fun clearTransientShift(): Boolean = if (mShiftKey?.isOn == true) false else setModifier(KeyEvent.META_SHIFT_ON, false)
+
     /**
      * 设置修饰键的状态
      *

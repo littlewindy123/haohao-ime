@@ -5,6 +5,10 @@
 
 package com.osfans.trime.ime.haohao
 
+import android.view.KeyEvent
+import com.osfans.trime.core.RimeLifecycle
+import com.osfans.trime.core.RimeLifecycleRegistry
+import com.osfans.trime.core.RimeRuntimeState
 import com.osfans.trime.data.prefs.AppPrefs
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
@@ -106,6 +110,29 @@ class HaoHaoTypingErgonomicsTest :
             controller.clear()
             controller.slide(1) shouldBe 0
             text shouldBe ""
+        }
+
+        "HaoHao shift commits one uppercase letter only outside composition" {
+            HaoHaoShiftPolicy.shouldCommitSingleUppercase(
+                asciiMode = false,
+                composing = false,
+                shifted = true,
+                keyCode = KeyEvent.KEYCODE_A,
+            ) shouldBe true
+            HaoHaoShiftPolicy.shouldCommitSingleUppercase(false, true, true, KeyEvent.KEYCODE_A) shouldBe false
+            HaoHaoShiftPolicy.shouldCommitSingleUppercase(true, false, true, KeyEvent.KEYCODE_A) shouldBe false
+            HaoHaoShiftPolicy.shouldCommitSingleUppercase(false, false, false, KeyEvent.KEYCODE_A) shouldBe false
+            HaoHaoShiftPolicy.shouldCommitSingleUppercase(false, false, true, KeyEvent.KEYCODE_SPACE) shouldBe false
+            HaoHaoShiftPolicy.uppercaseFor(KeyEvent.KEYCODE_Z) shouldBe "Z"
+        }
+
+        "Rime startup failure returns lifecycle to a retryable stopped state" {
+            val registry = RimeLifecycleRegistry()
+            registry.emitState(RimeLifecycle.State.STARTING)
+            registry.emitStartupFailed()
+
+            registry.currentState shouldBe RimeLifecycle.State.STOPPED
+            RimeRuntimeState.entries.map { it.name } shouldBe listOf("PREPARING", "READY", "FAILED")
         }
     })
 

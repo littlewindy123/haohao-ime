@@ -59,6 +59,20 @@ internal object HaoHaoGesturePolicy {
         selectionStart == selectionEnd
 }
 
+internal object HaoHaoShiftPolicy {
+    fun shouldCommitSingleUppercase(
+        asciiMode: Boolean,
+        composing: Boolean,
+        shifted: Boolean,
+        keyCode: Int,
+    ): Boolean = !asciiMode &&
+        !composing &&
+        shifted &&
+        keyCode in android.view.KeyEvent.KEYCODE_A..android.view.KeyEvent.KEYCODE_Z
+
+    fun uppercaseFor(keyCode: Int): String = ('A'.code + (keyCode - android.view.KeyEvent.KEYCODE_A)).toChar().toString()
+}
+
 internal class HaoHaoSlideDeleteController(
     private val readPreviousCodePoint: () -> String?,
     private val deletePreviousCodePoint: () -> Boolean,
