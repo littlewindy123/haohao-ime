@@ -13,6 +13,8 @@ import com.osfans.trime.data.base.managedSchemaDisplayName
 import com.osfans.trime.data.base.upgradeSimplifiedSchemaCustomPatch
 import com.osfans.trime.data.theme.model.KeyActionToken
 import com.osfans.trime.data.theme.model.TextKeyboard
+import com.osfans.trime.ime.haohao.HAOHAO_INPUT_FOOTPRINTS_ACTION
+import com.osfans.trime.ime.haohao.HAOHAO_INPUT_FOOTPRINTS_KEY
 import com.osfans.trime.ime.haohao.HaoHaoToolboxAction
 import com.osfans.trime.ime.keyboard.KeyBehavior
 import com.osfans.trime.util.yaml.Yaml
@@ -156,6 +158,10 @@ class HaoHaoDefaultsTest :
                 "VOICE_ASSIST",
                 "Settings",
             )
+            HAOHAO_INPUT_FOOTPRINTS_ACTION shouldBe "haohao_input_footprints"
+            val footprintKey = requireNotNull(presetKeys[HAOHAO_INPUT_FOOTPRINTS_KEY]?.mapping)
+            footprintKey["send"]?.string shouldBe "FUNCTION"
+            footprintKey["command"]?.string shouldBe HAOHAO_INPUT_FOOTPRINTS_ACTION
         }
 
         "main keyboard is a four-row 26-key layout without technical shortcuts" {

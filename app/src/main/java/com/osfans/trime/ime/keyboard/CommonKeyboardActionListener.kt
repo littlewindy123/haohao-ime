@@ -25,6 +25,7 @@ import com.osfans.trime.ime.clipboard.ClipboardWindow
 import com.osfans.trime.ime.core.TrimeInputMethodService
 import com.osfans.trime.ime.dependency.InputDependencyManager
 import com.osfans.trime.ime.dialog.EnabledSchemaPickerDialog
+import com.osfans.trime.ime.haohao.HAOHAO_INPUT_FOOTPRINTS_ACTION
 import com.osfans.trime.ime.haohao.HaoHaoToolboxWindow
 import com.osfans.trime.ime.switches.SwitchOptionWindow
 import com.osfans.trime.ime.symbol.LiquidData
@@ -180,6 +181,7 @@ class CommonKeyboardActionListener {
                     "liquid_keyboard" -> handleLiquidKeyboard(arg)
                     "menu_keyboard" -> windowManager.attachWindow(SwitchOptionWindow())
                     "haohao_toolbox" -> windowManager.attachWindow(HaoHaoToolboxWindow())
+                    HAOHAO_INPUT_FOOTPRINTS_ACTION -> AppUtils.launchMainToInputFootprints(service)
                     "clipboard_window" -> handleClipboardWindow(arg)
                     "set_color_scheme" -> handleColorScheme(arg)
                     "set_theme" -> handleTheme(arg)

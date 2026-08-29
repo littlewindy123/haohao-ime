@@ -19,14 +19,20 @@ import androidx.lifecycle.lifecycleScope
 import com.osfans.trime.R
 import com.osfans.trime.core.RimeMessage
 import com.osfans.trime.daemon.RimeSession
+import com.osfans.trime.data.footprints.InputFootprintPolicy
+import com.osfans.trime.data.footprints.InputFootprints
 import com.osfans.trime.data.prefs.AppPrefs
 import com.osfans.trime.data.theme.ColorManager
 import com.osfans.trime.data.theme.Theme
 import com.osfans.trime.data.theme.ThemeManager
 import com.osfans.trime.data.theme.ThemePrefs
+import com.osfans.trime.ime.candidates.bilingual.OfflineCandidateTranslationRepository
 import com.osfans.trime.ime.keyboard.InputFeedbackManager
+import com.osfans.trime.util.toast
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import splitties.dimensions.dp
 import splitties.views.dsl.core.withTheme
 import kotlin.math.max
@@ -77,10 +83,42 @@ abstract class BaseInputView(
         }
         service.lifecycleScope.launch {
             InputFeedbackManager.keyPressVibrate(view, longPress = true)
+            val editorInfo = service.currentInputEditorInfo
+            val canFavorite = editorInfo != null &&
+                InputFootprintPolicy.canRecord(editorInfo.inputType, editorInfo.imeOptions) &&
+                withContext(Dispatchers.IO) {
+                    OfflineCandidateTranslationRepository.lookup(text) != null
+                }
+            val isFavorite = canFavorite && withContext(Dispatchers.IO) {
+                InputFootprints.store.isFavorite(text)
+            }
             candidateActionMenu =
                 PopupMenu(themedContext, view).apply {
                     menu.add(title).apply {
                         isEnabled = false
+                    }
+                    if (canFavorite) {
+                        menu.add(
+                            if (isFavorite) {
+                                R.string.input_footprints_remove_favorite
+                            } else {
+                                R.string.input_footprints_add_favorite
+                            },
+                        ).setOnMenuItemClickListener {
+                            service.lifecycleScope.launch(Dispatchers.IO) {
+                                InputFootprints.store.setFavorite(text, !isFavorite, System.currentTimeMillis())
+                                withContext(Dispatchers.Main) {
+                                    service.toast(
+                                        if (isFavorite) {
+                                            R.string.input_footprints_removed_favorite
+                                        } else {
+                                            R.string.input_footprints_added_favorite
+                                        },
+                                    )
+                                }
+                            }
+                            true
+                        }
                     }
                     menu.add(R.string.forget_this_word).setOnMenuItemClickListener {
                         rime.runIfReady { deleteCandidate(idx, global) }

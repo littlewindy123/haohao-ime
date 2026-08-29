@@ -19,11 +19,14 @@ import androidx.core.view.updateLayoutParams
 import androidx.core.view.updatePadding
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
 import androidx.preference.PreferenceGroup
 import com.osfans.trime.R
 import com.osfans.trime.daemon.launchOnReady
+import com.osfans.trime.data.footprints.InputFootprints
 import com.osfans.trime.data.prefs.AppPrefs
 import com.osfans.trime.data.prefs.PreferenceDelegate
 import com.osfans.trime.data.theme.DEFAULT_THEME_ID
@@ -71,6 +74,9 @@ class MainFragment : Fragment(R.layout.fragment_main) {
     private val phoneticListener = PreferenceDelegate.OnChangeListener<Boolean> { _, _ ->
         renderCandidateSettings(reschedulePreview = true)
     }
+    private val learningHistoryListener = PreferenceDelegate.OnChangeListener<Boolean> { _, _ ->
+        renderLearningSetting()
+    }
     private val portraitCountListener = PreferenceDelegate.OnChangeListener<Int> { _, _ ->
         renderCandidateSettings(reschedulePreview = false)
     }
@@ -94,6 +100,7 @@ class MainFragment : Fragment(R.layout.fragment_main) {
         setupInsets()
         setupHeader()
         setupCandidateSettings()
+        setupLearningSettings()
         setupFeedbackSettings()
         setupDestinations()
         registerPreferenceListeners()
@@ -209,6 +216,26 @@ class MainFragment : Fragment(R.layout.fragment_main) {
         }
     }
 
+    private fun setupLearningSettings() {
+        binding.learningHistorySwitch.setOnCheckedChangeListener { _, checked ->
+            if (!updatingUi) prefs.candidates.learningHistoryEnabled.setValue(checked)
+        }
+        binding.inputFootprintsDestination.setOnClickListener {
+            findNavController().navigateWithAnim(NavigationRoute.InputFootprints)
+        }
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                InputFootprints.store.counts.collect { counts ->
+                    binding.inputFootprintsSummary.text = getString(
+                        R.string.input_footprints_summary,
+                        counts.recent,
+                        counts.favorites,
+                    )
+                }
+            }
+        }
+    }
+
     private fun setupDestinations() {
         binding.themeDestination.setOnClickListener {
             findNavController().navigateWithAnim(NavigationRoute.Theme)
@@ -222,6 +249,7 @@ class MainFragment : Fragment(R.layout.fragment_main) {
         prefs.candidates.bilingualTranslation.registerOnChangeListener(translationListener)
         prefs.candidates.bilingualTranslationDelay.registerOnChangeListener(delayListener)
         prefs.candidates.bilingualPhonetic.registerOnChangeListener(phoneticListener)
+        prefs.candidates.learningHistoryEnabled.registerOnChangeListener(learningHistoryListener)
         prefs.candidates.compactCandidateCount.registerOnChangeListener(portraitCountListener)
         prefs.candidates.compactCandidateCountLandscape.registerOnChangeListener(landscapeCountListener)
         prefs.keyboard.feedbackPreset.registerOnChangeListener(feedbackListener)
@@ -232,6 +260,7 @@ class MainFragment : Fragment(R.layout.fragment_main) {
         prefs.candidates.bilingualTranslation.unregisterOnChangeListener(translationListener)
         prefs.candidates.bilingualTranslationDelay.unregisterOnChangeListener(delayListener)
         prefs.candidates.bilingualPhonetic.unregisterOnChangeListener(phoneticListener)
+        prefs.candidates.learningHistoryEnabled.unregisterOnChangeListener(learningHistoryListener)
         prefs.candidates.compactCandidateCount.unregisterOnChangeListener(portraitCountListener)
         prefs.candidates.compactCandidateCountLandscape.unregisterOnChangeListener(landscapeCountListener)
         prefs.keyboard.feedbackPreset.unregisterOnChangeListener(feedbackListener)
@@ -241,6 +270,7 @@ class MainFragment : Fragment(R.layout.fragment_main) {
     private fun renderAllSettings(reschedulePreview: Boolean) {
         if (viewBinding == null) return
         renderCandidateSettings(reschedulePreview)
+        renderLearningSetting()
         renderFeedbackSetting()
         renderThemeSetting()
     }
@@ -294,6 +324,13 @@ class MainFragment : Fragment(R.layout.fragment_main) {
             preset,
         )
         binding.customFeedbackAction.isVisible = preset == AppPrefs.Keyboard.FeedbackPreset.CUSTOM
+    }
+
+    private fun renderLearningSetting() {
+        if (viewBinding == null) return
+        updatingUi = true
+        binding.learningHistorySwitch.isChecked = prefs.candidates.learningHistoryEnabled.getValue()
+        updatingUi = false
     }
 
     private fun renderThemeSetting() {

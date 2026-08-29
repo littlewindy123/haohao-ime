@@ -421,6 +421,7 @@ class AppPrefs(
             const val BILINGUAL_TRANSLATION = "bilingual_candidate_translation"
             const val BILINGUAL_TRANSLATION_DELAY = "bilingual_candidate_translation_delay_ms"
             const val BILINGUAL_PHONETIC = "bilingual_candidate_phonetic"
+            const val LEARNING_HISTORY_ENABLED = "learning_history_enabled"
             const val COMPACT_CANDIDATE_COUNT = "max_span_count"
             const val COMPACT_CANDIDATE_COUNT_LANDSCAPE = "max_span_count_landscape"
         }
@@ -447,6 +448,12 @@ class AppPrefs(
             false,
             R.string.bilingual_candidate_phonetic_summary,
             enableUiOn = { shared.getBoolean(BILINGUAL_TRANSLATION, true) },
+        )
+        val learningHistoryEnabled = switch(
+            R.string.learning_history_enabled,
+            LEARNING_HISTORY_ENABLED,
+            true,
+            R.string.learning_history_enabled_summary,
         )
         val compactCandidateCount = int(
             R.string.max_span_count,
