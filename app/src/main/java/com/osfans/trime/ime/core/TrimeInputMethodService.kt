@@ -97,6 +97,12 @@ open class TrimeInputMethodService : LifecycleInputMethodService() {
 
     private var cursorUpdateIndex = 0
 
+    internal var currentSelectionStart: Int = -1
+        private set
+
+    internal var currentSelectionEnd: Int = -1
+        private set
+
     private val recreateInputViewPrefs: Array<PreferenceDelegate<*>> = arrayOf(
         prefs.keyboard.expandKeypressArea,
         prefs.keyboard.hideKeySymbol,
@@ -431,6 +437,8 @@ open class TrimeInputMethodService : LifecycleInputMethodService() {
             candidatesEnd,
         )
         cursorUpdateIndex += 1
+        currentSelectionStart = newSelStart
+        currentSelectionEnd = newSelEnd
         handleCursorUpdate(newSelStart, newSelEnd, candidatesStart, candidatesEnd, cursorUpdateIndex)
         inputView?.updateSelection(newSelStart, newSelEnd)
     }
@@ -519,6 +527,8 @@ open class TrimeInputMethodService : LifecycleInputMethodService() {
         restarting: Boolean,
     ) {
         composingText = ""
+        currentSelectionStart = attribute.initialSelStart
+        currentSelectionEnd = attribute.initialSelEnd
         Timber.d("onStartInput: restarting=$restarting")
         val isNullType = attribute.inputType and InputType.TYPE_MASK_CLASS == InputType.TYPE_NULL
         postRimeJob {
@@ -681,39 +691,40 @@ open class TrimeInputMethodService : LifecycleInputMethodService() {
         metaState: Int = meta(),
     ): Boolean {
         val eventTime = SystemClock.uptimeMillis()
+        var success = true
         if (metaState and KeyEvent.META_ALT_ON != 0) {
-            sendDownKeyEvent(eventTime, KeyEvent.KEYCODE_ALT_LEFT)
+            success = sendDownKeyEvent(eventTime, KeyEvent.KEYCODE_ALT_LEFT) && success
         }
         if (metaState and KeyEvent.META_CTRL_ON != 0) {
-            sendDownKeyEvent(eventTime, KeyEvent.KEYCODE_CTRL_LEFT)
+            success = sendDownKeyEvent(eventTime, KeyEvent.KEYCODE_CTRL_LEFT) && success
         }
         if (metaState and KeyEvent.META_SHIFT_ON != 0) {
-            sendDownKeyEvent(eventTime, KeyEvent.KEYCODE_SHIFT_LEFT)
+            success = sendDownKeyEvent(eventTime, KeyEvent.KEYCODE_SHIFT_LEFT) && success
         }
         if (metaState and KeyEvent.META_META_ON != 0) {
-            sendDownKeyEvent(eventTime, KeyEvent.KEYCODE_META_LEFT)
+            success = sendDownKeyEvent(eventTime, KeyEvent.KEYCODE_META_LEFT) && success
         }
         if (metaState and KeyEvent.META_SYM_ON != 0) {
-            sendDownKeyEvent(eventTime, KeyEvent.KEYCODE_SYM)
+            success = sendDownKeyEvent(eventTime, KeyEvent.KEYCODE_SYM) && success
         }
-        sendDownKeyEvent(eventTime, keyEventCode, metaState)
-        sendUpKeyEvent(eventTime, keyEventCode, metaState)
+        success = sendDownKeyEvent(eventTime, keyEventCode, metaState) && success
+        success = sendUpKeyEvent(eventTime, keyEventCode, metaState) && success
         if (metaState and KeyEvent.META_SYM_ON != 0) {
-            sendUpKeyEvent(eventTime, KeyEvent.KEYCODE_SYM)
+            success = sendUpKeyEvent(eventTime, KeyEvent.KEYCODE_SYM) && success
         }
         if (metaState and KeyEvent.META_META_ON != 0) {
-            sendUpKeyEvent(eventTime, KeyEvent.KEYCODE_META_LEFT)
+            success = sendUpKeyEvent(eventTime, KeyEvent.KEYCODE_META_LEFT) && success
         }
         if (metaState and KeyEvent.META_SHIFT_ON != 0) {
-            sendUpKeyEvent(eventTime, KeyEvent.KEYCODE_SHIFT_LEFT)
+            success = sendUpKeyEvent(eventTime, KeyEvent.KEYCODE_SHIFT_LEFT) && success
         }
         if (metaState and KeyEvent.META_CTRL_ON != 0) {
-            sendUpKeyEvent(eventTime, KeyEvent.KEYCODE_CTRL_LEFT)
+            success = sendUpKeyEvent(eventTime, KeyEvent.KEYCODE_CTRL_LEFT) && success
         }
         if (metaState and KeyEvent.META_ALT_ON != 0) {
-            sendUpKeyEvent(eventTime, KeyEvent.KEYCODE_ALT_LEFT)
+            success = sendUpKeyEvent(eventTime, KeyEvent.KEYCODE_ALT_LEFT) && success
         }
-        return true
+        return success
     }
 
     private fun forwardKeyEvent(event: KeyEvent): Boolean {

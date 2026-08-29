@@ -270,10 +270,24 @@
     <string name="star_success">Star success</string>
     <string name="ignore_system_gesture_insets">Ignore system gesture insets</string>
     <string name="haohao_toolbox_title">Quick tools</string>
+    <string name="haohao_toolbox_editor">Text editor</string>
     <string name="haohao_toolbox_clipboard">Clipboard</string>
     <string name="haohao_toolbox_emoji">Emoji</string>
     <string name="haohao_toolbox_voice">Voice input</string>
     <string name="haohao_toolbox_settings">Common settings</string>
+    <string name="haohao_editor_title">Text editor</string>
+    <string name="haohao_editor_select">Select</string>
+    <string name="haohao_editor_selecting">Selecting</string>
+    <string name="haohao_editor_select_all">Select all</string>
+    <string name="haohao_editor_paste">Paste</string>
+    <string name="haohao_editor_cut">Cut</string>
+    <string name="haohao_editor_copy">Copy</string>
+    <string name="haohao_editor_undo">Undo</string>
+    <string name="haohao_editor_redo">Redo</string>
+    <string name="haohao_editor_backspace">Backspace</string>
+    <string name="haohao_editor_forward_delete">Forward delete</string>
+    <string name="haohao_editor_unsupported">This text field does not support this action</string>
+    <string name="haohao_editor_finish_composing">Choose a candidate or clear Pinyin first</string>
     <string name="learning_history_enabled">Record input footprints</string>
     <string name="learning_history_enabled_summary">Keep up to 100 translated Chinese candidates locally; passwords and private-learning-disabled fields are never recorded</string>
     <string name="input_footprints_title">Input footprints</string>
@@ -301,6 +315,7 @@
     <string name="input_footprints_tts_unavailable">American English speech data is unavailable. Install it in system text-to-speech settings.</string>
     <string name="input_footprints_home_summary">Review recent bilingual words and favorites</string>
     <string name="input_footprints_toolbox_summary">Recent %1$d words · %2$d favorites</string>
+    <string name="input_footprints_toolbox_summary_compact">Recent %1$d · Saved %2$d</string>
     <string name="input_footprints_added_favorite">Added to favorites</string>
     <string name="input_footprints_removed_favorite">Removed from favorites</string>
 </resources>

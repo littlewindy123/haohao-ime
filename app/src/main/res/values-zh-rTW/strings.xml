@@ -260,10 +260,24 @@
     <string name="star_success">收藏成功</string>
     <string name="ignore_system_gesture_insets">忽略系統手勢插邊</string>
     <string name="haohao_toolbox_title">快捷工具</string>
+    <string name="haohao_toolbox_editor">文字編輯</string>
     <string name="haohao_toolbox_clipboard">剪貼簿</string>
     <string name="haohao_toolbox_emoji">表情符號</string>
     <string name="haohao_toolbox_voice">語音輸入</string>
     <string name="haohao_toolbox_settings">常用設定</string>
+    <string name="haohao_editor_title">文字編輯</string>
+    <string name="haohao_editor_select">選取</string>
+    <string name="haohao_editor_selecting">選取中</string>
+    <string name="haohao_editor_select_all">全選</string>
+    <string name="haohao_editor_paste">貼上</string>
+    <string name="haohao_editor_cut">剪下</string>
+    <string name="haohao_editor_copy">複製</string>
+    <string name="haohao_editor_undo">復原</string>
+    <string name="haohao_editor_redo">重做</string>
+    <string name="haohao_editor_backspace">退格</string>
+    <string name="haohao_editor_forward_delete">向前刪除</string>
+    <string name="haohao_editor_unsupported">目前輸入框不支援此操作</string>
+    <string name="haohao_editor_finish_composing">請先選擇候選或清空拼音</string>
     <string name="learning_history_enabled">記錄輸入足跡</string>
     <string name="learning_history_enabled_summary">僅在本機保留最近 100 個有英文釋義的中文詞；密碼欄位和禁止個人化學習的輸入欄位不會記錄</string>
     <string name="input_footprints_title">輸入足跡</string>
@@ -291,6 +305,7 @@
     <string name="input_footprints_tts_unavailable">系統缺少美式英語語音資料，請在系統文字轉語音設定中安裝。</string>
     <string name="input_footprints_home_summary">回看最近輸入的雙語詞並管理收藏</string>
     <string name="input_footprints_toolbox_summary">最近 %1$d 詞 · 收藏 %2$d 詞</string>
+    <string name="input_footprints_toolbox_summary_compact">最近 %1$d · 收藏 %2$d</string>
     <string name="input_footprints_added_favorite">已加入收藏</string>
     <string name="input_footprints_removed_favorite">已取消收藏</string>
 </resources>

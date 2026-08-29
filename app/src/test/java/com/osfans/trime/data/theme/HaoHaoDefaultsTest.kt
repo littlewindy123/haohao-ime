@@ -13,6 +13,8 @@ import com.osfans.trime.data.base.managedSchemaDisplayName
 import com.osfans.trime.data.base.upgradeSimplifiedSchemaCustomPatch
 import com.osfans.trime.data.theme.model.KeyActionToken
 import com.osfans.trime.data.theme.model.TextKeyboard
+import com.osfans.trime.ime.haohao.HAOHAO_EDITOR_ACTION
+import com.osfans.trime.ime.haohao.HAOHAO_EDITOR_KEY
 import com.osfans.trime.ime.haohao.HAOHAO_INPUT_FOOTPRINTS_ACTION
 import com.osfans.trime.ime.haohao.HAOHAO_INPUT_FOOTPRINTS_KEY
 import com.osfans.trime.ime.haohao.HaoHaoToolboxAction
@@ -151,8 +153,10 @@ class HaoHaoDefaultsTest :
             toolboxKey["command"]?.string shouldBe "haohao_toolbox"
         }
 
-        "HaoHao toolbox keeps four explicit common actions" {
+        "HaoHao toolbox keeps six actions in the branded order" {
             HaoHaoToolboxAction.entries.map { it.actionToken } shouldContainExactly listOf(
+                HAOHAO_INPUT_FOOTPRINTS_KEY,
+                HAOHAO_EDITOR_KEY,
                 "clipboard_window",
                 "liquid_keyboard_emoji",
                 "VOICE_ASSIST",
@@ -162,6 +166,14 @@ class HaoHaoDefaultsTest :
             val footprintKey = requireNotNull(presetKeys[HAOHAO_INPUT_FOOTPRINTS_KEY]?.mapping)
             footprintKey["send"]?.string shouldBe "FUNCTION"
             footprintKey["command"]?.string shouldBe HAOHAO_INPUT_FOOTPRINTS_ACTION
+
+            HAOHAO_EDITOR_ACTION shouldBe "haohao_editor"
+            val editorKey = requireNotNull(presetKeys[HAOHAO_EDITOR_KEY]?.mapping)
+            editorKey["send"]?.string shouldBe "FUNCTION"
+            editorKey["command"]?.string shouldBe HAOHAO_EDITOR_ACTION
+            presetKeys.values.count { key ->
+                key.mapping?.get("command")?.string == HAOHAO_EDITOR_ACTION
+            } shouldBe 1
         }
 
         "main keyboard is a four-row 26-key layout without technical shortcuts" {
