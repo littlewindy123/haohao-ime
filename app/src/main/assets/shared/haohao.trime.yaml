@@ -81,6 +81,7 @@ preset_keys:
   HaoHaoSpace: {label: " ", preview: "", functional: false, send: space}
   HaoHaoReturn: {label: "↵", preview: "", functional: true, send: Return}
   HaoHaoToolbox: {label: "好", preview: "", functional: true, send: FUNCTION, command: haohao_toolbox}
+  HaoHaoInputFootprints: {label: 足迹, preview: "", functional: true, send: FUNCTION, command: haohao_input_footprints}
 
 preset_color_schemes:
   default:

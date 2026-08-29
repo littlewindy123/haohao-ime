@@ -10,6 +10,7 @@ import androidx.navigation.NavController
 import androidx.navigation.createGraph
 import androidx.navigation.fragment.fragment
 import com.osfans.trime.R
+import com.osfans.trime.ui.main.footprints.InputFootprintsFragment
 import com.osfans.trime.ui.main.settings.AdvancedSettingsFragment
 import com.osfans.trime.ui.main.settings.CandidatesSettingsFragment
 import com.osfans.trime.ui.main.settings.ClipboardSettingsFragment
@@ -67,6 +68,9 @@ sealed class NavigationRoute : Parcelable {
     @Serializable
     data object License : NavigationRoute()
 
+    @Serializable
+    data object InputFootprints : NavigationRoute()
+
     companion object {
         fun createGraph(controller: NavController) = controller.createGraph(Main) {
             val ctx = controller.context
@@ -114,6 +118,9 @@ sealed class NavigationRoute : Parcelable {
             }
             fragment<LicenseFragment, License> {
                 label = ctx.getString(R.string.license)
+            }
+            fragment<InputFootprintsFragment, InputFootprints> {
+                label = ctx.getString(R.string.input_footprints_title)
             }
         }
     }

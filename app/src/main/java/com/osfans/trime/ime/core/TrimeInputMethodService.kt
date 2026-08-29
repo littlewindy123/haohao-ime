@@ -41,6 +41,7 @@ import com.osfans.trime.core.RimeKeyMapping
 import com.osfans.trime.core.RimeMessage
 import com.osfans.trime.daemon.RimeDaemon
 import com.osfans.trime.daemon.RimeSession
+import com.osfans.trime.data.footprints.InputFootprintRecorder
 import com.osfans.trime.data.prefs.AppPrefs
 import com.osfans.trime.data.prefs.PreferenceDelegate
 import com.osfans.trime.data.prefs.PreferenceDelegateProvider
@@ -207,8 +208,9 @@ open class TrimeInputMethodService : LifecycleInputMethodService() {
     private fun handleRimeMessage(it: RimeMessage<*>) {
         when (it) {
             is RimeMessage.CommitTextMessage -> {
-                if (!it.data.text.isNullOrEmpty()) {
+                if (!it.data.text.isNullOrEmpty() && currentInputConnection != null) {
                     commitText(it.data.text)
+                    InputFootprintRecorder.record(it.data.text, currentInputEditorInfo)
                 }
             }
             is RimeMessage.InlinePreeditMessage -> {
