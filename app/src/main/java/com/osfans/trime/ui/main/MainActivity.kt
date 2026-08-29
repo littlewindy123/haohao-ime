@@ -37,6 +37,7 @@ import com.osfans.trime.data.prefs.AppPrefs
 import com.osfans.trime.data.soundeffect.SoundEffectManager
 import com.osfans.trime.databinding.ActivityMainBinding
 import com.osfans.trime.ui.setup.SetupActivity
+import com.osfans.trime.ui.setup.SetupLaunchPolicy
 import com.osfans.trime.util.item
 import com.osfans.trime.util.parcelable
 import com.osfans.trime.util.startActivity
@@ -138,8 +139,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
-        processIntent(intent)
-        checkNotificationPermission()
+        if (!processIntent(intent)) checkNotificationPermission()
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -147,23 +147,28 @@ class MainActivity : AppCompatActivity() {
         processIntent(intent)
     }
 
-    private fun processIntent(intent: Intent?) {
-        if (intent?.getBooleanExtra(EXTRA_SHOW_TEST_INPUT, false) == true) {
+    private fun processIntent(intent: Intent?): Boolean {
+        val showTestInput = intent?.getBooleanExtra(EXTRA_SHOW_TEST_INPUT, false) == true
+        val action = intent?.action
+        if (SetupLaunchPolicy.shouldOpenSetup(action, showTestInput, SetupActivity.shouldSetup())) {
+            startActivity<SetupActivity>()
+            return true
+        }
+        if (showTestInput) {
             intent.removeExtra(EXTRA_SHOW_TEST_INPUT)
             navController.popBackStack(NavigationRoute.Main, false)
             testInputPanel?.post(::showTestInputPanel)
-            return
+            return true
         }
-        val action = intent?.action ?: return
-        when (action) {
-            Intent.ACTION_MAIN -> if (SetupActivity.shouldSetup()) {
-                startActivity<SetupActivity>()
-            }
+        return when (action) {
             Intent.ACTION_RUN -> {
-                val route = intent.parcelable<NavigationRoute>(EXTRA_SETTINGS_ROUTE) ?: return
-                navController.popBackStack(NavigationRoute.Main, false)
-                navController.navigate(route)
+                intent.parcelable<NavigationRoute>(EXTRA_SETTINGS_ROUTE)?.let { route ->
+                    navController.popBackStack(NavigationRoute.Main, false)
+                    navController.navigate(route)
+                    true
+                } ?: false
             }
+            else -> false
         }
     }
 

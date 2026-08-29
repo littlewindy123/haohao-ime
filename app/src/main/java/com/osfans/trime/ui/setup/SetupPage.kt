@@ -5,6 +5,7 @@
 package com.osfans.trime.ui.setup
 
 import android.content.Context
+import android.content.Intent
 import androidx.annotation.DrawableRes
 import com.osfans.trime.R
 import com.osfans.trime.util.InputMethodUtils
@@ -81,4 +82,22 @@ internal object SetupFlow {
         return ((currentIndex + 1)..doneStates.lastIndex).firstOrNull { !doneStates[it] }
             ?: doneStates.lastIndex
     }
+
+    fun shouldAutoOpenPicker(
+        currentIndex: Int,
+        wasDone: Boolean,
+        isDone: Boolean,
+        doneStates: List<Boolean>,
+    ): Boolean = currentIndex == SetupPage.Enable.ordinal &&
+        !wasDone &&
+        isDone &&
+        doneStates.getOrNull(SetupPage.Select.ordinal) == false
+}
+
+internal object SetupLaunchPolicy {
+    fun shouldOpenSetup(
+        action: String?,
+        hasTestInputRequest: Boolean,
+        hasUndonePage: Boolean,
+    ): Boolean = hasUndonePage && !hasTestInputRequest && action != Intent.ACTION_RUN
 }

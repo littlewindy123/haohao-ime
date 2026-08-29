@@ -4,6 +4,7 @@
 
 package com.osfans.trime.ui.setup
 
+import android.content.Intent
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
 
@@ -13,6 +14,15 @@ class SetupFlowTest :
             SetupPage.entries.map { it.name } shouldBe listOf("Enable", "Select")
             SetupFlow.progressStep(0) shouldBe 1
             SetupFlow.progressStep(1) shouldBe 2
+        }
+
+        "ordinary launches always resume incomplete setup including Xiaomi installer intents" {
+            SetupLaunchPolicy.shouldOpenSetup(null, false, true) shouldBe true
+            SetupLaunchPolicy.shouldOpenSetup(Intent.ACTION_MAIN, false, true) shouldBe true
+            SetupLaunchPolicy.shouldOpenSetup("vendor.installer.OPEN", false, true) shouldBe true
+            SetupLaunchPolicy.shouldOpenSetup(Intent.ACTION_RUN, false, true) shouldBe false
+            SetupLaunchPolicy.shouldOpenSetup(null, true, true) shouldBe false
+            SetupLaunchPolicy.shouldOpenSetup(null, false, false) shouldBe false
         }
 
         "first undone step resumes incomplete setup" {
@@ -61,5 +71,18 @@ class SetupFlowTest :
                 isDone = true,
                 doneStates = listOf(true, true),
             ) shouldBe null
+        }
+
+        "enabling the IME offers the system picker exactly on the new transition" {
+            SetupFlow.shouldAutoOpenPicker(
+                currentIndex = 0,
+                wasDone = false,
+                isDone = true,
+                doneStates = listOf(true, false),
+            ) shouldBe true
+            SetupFlow.shouldAutoOpenPicker(0, true, true, listOf(true, false)) shouldBe false
+            SetupFlow.shouldAutoOpenPicker(0, false, false, listOf(false, false)) shouldBe false
+            SetupFlow.shouldAutoOpenPicker(0, false, true, listOf(true, true)) shouldBe false
+            SetupFlow.shouldAutoOpenPicker(1, false, true, listOf(true, true)) shouldBe false
         }
     })
