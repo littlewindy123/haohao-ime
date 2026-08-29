@@ -93,7 +93,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 - 仅在用户提交带离线英文释义的 Rime 中文候选时记录词头、最近输入时间和累计次数；不监听剪贴板、英文按键、标点、整句上下文、所在 App 或输入框内容。
 - 密码类输入框和带 `IME_FLAG_NO_PERSONALIZED_LEARNING` 标记的输入框始终不记录。用户可关闭“记录输入足迹”，关闭后保留已有数据。
-- 足迹使用独立的 `haohao_vocabulary.db`；最近输入最多保留 100 个去重词，收藏不会被最近列表淘汰。英文和 IPA 不写入数据库，展示时始终读取当前离线词典。
+- 足迹使用独立的 `haohao_vocabulary.db`，并存放在 Android 排除自动备份和设备迁移的应用目录中；最近输入最多保留 100 个去重词，收藏不会被最近列表淘汰。英文和 IPA 不写入数据库，展示时始终读取当前离线词典。
 - 清空最近输入会保留收藏，清空全部足迹与收藏需要二次确认。英文发音复用 Android `TextToSpeech` 的 `Locale.US` 语音，不打包音频，也不自动下载缺失的语音数据。
 
 ## 开发与测试约定
@@ -103,7 +103,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - 新增常用设置入口时必须复用现有 Preference 键，并保留通往完整设置页的兼容入口，禁止复制或迁移同一项用户配置。
 - 现代词库或热词改动还需执行 `:app:connectedRegressionAndroidTest`；该测试会连续启动两次 Rime，验证 100 词排名稳定且第二次不重复编译组合词典。
 - 翻译词典或人工覆盖改动必须执行 `:app:verifyTranslationQuality`；报告位于 `app/build/reports/translation-quality/`，不得通过降低既有覆盖基线或放宽硬错误上限来掩盖回归。
-- 输入足迹只能从 Rime 候选提交事件写入，必须继续执行敏感 `EditorInfo` 过滤；英文、IPA、剪贴板、应用名和整句内容不得持久化到足迹数据库。
+- 输入足迹只能从 Rime 候选提交事件写入，必须继续执行敏感 `EditorInfo` 过滤；英文、IPA、剪贴板、应用名和整句内容不得持久化到足迹数据库，数据库必须保存在 `noBackupFilesDir` 中以排除 Android 自动备份和设备迁移。
 - 键盘与双语候选至少在 360dp、411dp 两种模拟器宽度回归，检查按键、候选和点击区域是否重叠或错位。
 - CI 同时构建 `arm64-v8a` 与 `x86_64`，为未来 Android 真机测试保留 ARM64 产物。
 - 在真实设备条件具备前，模拟器测试作为阶段验收依据；稳定版本发布前仍必须补充真机测试。

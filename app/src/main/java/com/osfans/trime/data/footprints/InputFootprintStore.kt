@@ -10,6 +10,7 @@ import androidx.room.Room
 import androidx.room.withTransaction
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import java.io.File
 
 internal data class InputFootprintCounts(
     val recent: Int,
@@ -83,17 +84,20 @@ internal class InputFootprintStore(
 }
 
 internal object InputFootprints {
+    private const val DATABASE_NAME = "haohao_vocabulary.db"
     private lateinit var storeInstance: InputFootprintStore
 
     val store: InputFootprintStore
         get() = storeInstance
+
+    internal fun databaseFile(context: Context): File = context.noBackupFilesDir.resolve(DATABASE_NAME)
 
     fun init(context: Context) {
         val database =
             Room.databaseBuilder(
                 context.applicationContext,
                 InputFootprintDatabase::class.java,
-                "haohao_vocabulary.db",
+                databaseFile(context).absolutePath,
             ).build()
         storeInstance = InputFootprintStore(database)
     }

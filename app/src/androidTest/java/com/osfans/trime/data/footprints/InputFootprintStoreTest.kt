@@ -42,6 +42,15 @@ class InputFootprintStoreTest {
     }
 
     @Test
+    fun persistentDatabaseIsExcludedFromAndroidBackups() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val databaseFile = InputFootprints.databaseFile(context)
+
+        assertEquals(context.noBackupFilesDir, databaseFile.parentFile)
+        assertEquals("haohao_vocabulary.db", databaseFile.name)
+    }
+
+    @Test
     fun duplicateCommitMovesToFrontAndIncrementsCount() = runBlocking {
         store.record("你好", 100L)
         store.record("中国", 200L)
