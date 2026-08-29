@@ -73,16 +73,9 @@ class SetupFlowTest :
             ) shouldBe null
         }
 
-        "enabling the IME offers the system picker exactly on the new transition" {
-            SetupFlow.shouldAutoOpenPicker(
-                currentIndex = 0,
-                wasDone = false,
-                isDone = true,
-                doneStates = listOf(true, false),
-            ) shouldBe true
-            SetupFlow.shouldAutoOpenPicker(0, true, true, listOf(true, false)) shouldBe false
-            SetupFlow.shouldAutoOpenPicker(0, false, false, listOf(false, false)) shouldBe false
-            SetupFlow.shouldAutoOpenPicker(0, false, true, listOf(true, true)) shouldBe false
-            SetupFlow.shouldAutoOpenPicker(1, false, true, listOf(true, true)) shouldBe false
+        "default picker is available only after the IME is enabled" {
+            SetupFlow.canOpenDefaultPicker(listOf(true, false)) shouldBe true
+            SetupFlow.canOpenDefaultPicker(listOf(true, true)) shouldBe true
+            SetupFlow.canOpenDefaultPicker(listOf(false, false)) shouldBe false
         }
     })

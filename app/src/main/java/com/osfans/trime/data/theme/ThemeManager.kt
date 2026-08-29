@@ -29,6 +29,12 @@ object ThemeManager {
 
     private lateinit var _activeTheme: Theme
 
+    val activeThemeOrNull: Theme?
+        get() = if (::_activeTheme.isInitialized) _activeTheme else null
+
+    val isInitialized: Boolean
+        get() = ::_activeTheme.isInitialized
+
     var activeTheme: Theme
         get() = _activeTheme
         private set(value) {
@@ -48,7 +54,9 @@ object ThemeManager {
     }
 
     private fun fireChange() {
-        onChangeListeners.forEach { it.onThemeChange(_activeTheme) }
+        activeThemeOrNull?.let { theme ->
+            onChangeListeners.forEach { it.onThemeChange(theme) }
+        }
     }
 
     val prefs = AppPrefs.defaultInstance().registerProvider(::ThemePrefs)

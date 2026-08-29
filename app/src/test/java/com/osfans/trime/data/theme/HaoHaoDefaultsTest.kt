@@ -10,8 +10,11 @@ import com.osfans.trime.data.base.DEFAULT_SCHEMA_ID
 import com.osfans.trime.data.base.DataManager
 import com.osfans.trime.data.base.LEGACY_SIMPLIFIED_SCHEMA_CUSTOM_PATCH
 import com.osfans.trime.data.base.SIMPLIFIED_SCHEMA_CUSTOM_PATCH
+import com.osfans.trime.data.base.alignManagedRimeSourceTimestamps
+import com.osfans.trime.data.base.invalidatePrebuiltRimeData
 import com.osfans.trime.data.base.managedSchemaDisplayName
 import com.osfans.trime.data.base.migrateLegacyRimeData
+import com.osfans.trime.data.base.repairManagedPrebuiltAssets
 import com.osfans.trime.data.base.repairManagedRimeData
 import com.osfans.trime.data.base.upgradeSimplifiedSchemaCustomPatch
 import com.osfans.trime.data.theme.model.KeyActionToken
@@ -32,8 +35,10 @@ import com.osfans.trime.util.yaml.string
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import java.io.File
 import java.nio.file.Files
+import java.security.MessageDigest
 import java.util.Properties
 
 class HaoHaoDefaultsTest :
@@ -92,8 +97,8 @@ class HaoHaoDefaultsTest :
         }
 
         "HaoHao Pinyin combines pinned Wanxiang data with hotword and translation overrides" {
-            val composite = File("src/main/assets/shared/haohao_pinyin.dict.yaml").readText()
-            val hotwords = File("src/main/assets/shared/haohao_hotwords.dict.yaml").readText()
+            val composite = File("dictionary/rime-prebuilt/compile-shared/haohao_pinyin.dict.yaml").readText()
+            val hotwords = File("dictionary/rime-prebuilt/compile-shared/haohao_hotwords.dict.yaml").readText()
             val translations = File("dictionary/cc-cedict/common_overrides_zh_en.tsv").readText()
 
             (composite.indexOf("  - haohao_hotwords") < composite.indexOf("  - haohao_wanxiang_core")) shouldBe true
@@ -278,6 +283,87 @@ class HaoHaoDefaultsTest :
             root.resolve("luna_pinyin_simp.custom.yaml").readText() shouldBe SIMPLIFIED_SCHEMA_CUSTOM_PATCH.trimIndent()
             root.resolve("build").exists() shouldBe false
             root.resolve("luna_pinyin.userdb/value").readText() shouldBe "learned"
+            root.deleteRecursively()
+        }
+
+        "managed repair invalidates prebuilt data without touching user data" {
+            val root = Files.createTempDirectory("haohao-prebuilt-repair").toFile()
+            val prebuilt = root.resolve("shared/build").apply {
+                mkdirs()
+                resolve("haohao_pinyin.table.bin").writeText("broken")
+            }
+            val checksums = root.resolve("checksums.json").apply { writeText("stale") }
+            val learned = root.resolve("user/luna_pinyin.userdb/value").apply {
+                parentFile.mkdirs()
+                writeText("learned")
+            }
+
+            invalidatePrebuiltRimeData(prebuilt, checksums)
+
+            prebuilt.exists() shouldBe false
+            checksums.exists() shouldBe false
+            learned.readText() shouldBe "learned"
+            root.deleteRecursively()
+        }
+
+        "managed prebuilt verification restores missing or corrupted files" {
+            val root = Files.createTempDirectory("haohao-prebuilt-verification").toFile()
+            val shared = root.resolve("shared").apply { mkdirs() }
+            val validContent = "valid prebuilt"
+            val expectedSha256 = MessageDigest.getInstance("SHA-256")
+                .digest(validContent.toByteArray())
+                .joinToString("") { "%02x".format(it) }
+            val checksums = com.osfans.trime.data.base.DataChecksums(
+                sha256 = "manifest",
+                files = mapOf(
+                    "shared/build/valid.bin" to expectedSha256,
+                    "shared/build/missing.bin" to expectedSha256,
+                    "shared/build/corrupted.bin" to expectedSha256,
+                    "shared/default.yaml" to expectedSha256,
+                ),
+            )
+            shared.resolve("build/valid.bin").apply {
+                parentFile.mkdirs()
+                writeText(validContent)
+            }
+            shared.resolve("build/corrupted.bin").writeText("corrupted")
+            val copied = mutableListOf<String>()
+
+            repairManagedPrebuiltAssets(shared, checksums) { path, destination ->
+                copied += path
+                destination.parentFile?.mkdirs()
+                destination.writeText(validContent)
+            } shouldBe 2
+
+            copied.sorted() shouldContainExactly listOf(
+                "shared/build/corrupted.bin",
+                "shared/build/missing.bin",
+            )
+            shared.resolve("build/valid.bin").readText() shouldBe validContent
+            shared.resolve("build/missing.bin").readText() shouldBe validContent
+            root.deleteRecursively()
+        }
+
+        "managed Rime sources use the precompiled timestamp without changing custom user files" {
+            val root = Files.createTempDirectory("haohao-prebuilt-timestamps").toFile()
+            val shared = root.resolve("shared").apply { mkdirs() }
+            val user = root.resolve("user").apply { mkdirs() }
+            val source = shared.resolve("default.yaml").apply { writeText("source") }
+            val prebuilt = shared.resolve("build/haohao_pinyin.table.bin").apply {
+                parentFile.mkdirs()
+                writeText("prebuilt")
+            }
+            val managed = user.resolve("default.custom.yaml").apply {
+                writeText(DataManager.SCHEMA_LIST_CUSTOM_PATCH.trimIndent())
+            }
+            val custom = user.resolve("luna_pinyin_simp.custom.yaml").apply { writeText("user custom") }
+
+            alignManagedRimeSourceTimestamps(shared, user, 1_700_000_000L) shouldBe 2
+
+            source.lastModified() / 1000L shouldBe 1_700_000_000L
+            managed.lastModified() / 1000L shouldBe 1_700_000_000L
+            prebuilt.lastModified() / 1000L shouldNotBe 1_700_000_000L
+            custom.lastModified() / 1000L shouldNotBe 1_700_000_000L
             root.deleteRecursively()
         }
 

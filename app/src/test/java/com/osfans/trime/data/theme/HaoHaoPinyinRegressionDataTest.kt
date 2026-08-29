@@ -55,7 +55,7 @@ class HaoHaoPinyinRegressionDataTest :
         "every shipped hotword is covered by a regression case" {
             val cases = readCases(corpusFile).map { it.pinyin to it.text }.toSet()
             val hotwords =
-                File("src/main/assets/shared/haohao_hotwords.dict.yaml")
+                File("dictionary/rime-prebuilt/compile-shared/haohao_hotwords.dict.yaml")
                     .readLines()
                     .dropWhile { it != "..." }
                     .drop(1)

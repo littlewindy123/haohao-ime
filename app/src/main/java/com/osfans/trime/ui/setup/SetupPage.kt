@@ -42,10 +42,15 @@ enum class SetupPage {
         Select -> R.drawable.ic_input_box
     }
 
-    fun getButtonAction(context: Context) {
-        when (this) {
-            Enable -> InputMethodUtils.showImeEnablerActivity(context)
-            Select -> InputMethodUtils.showImePicker()
+    fun getButtonAction(context: Context): Boolean = when (this) {
+        Enable -> {
+            InputMethodUtils.showImeEnablerActivity(context)
+            true
+        }
+        Select -> if (SetupFlow.canOpenDefaultPicker(entries.map { it.isDone() })) {
+            InputMethodUtils.showImePicker()
+        } else {
+            false
         }
     }
 
@@ -83,15 +88,7 @@ internal object SetupFlow {
             ?: doneStates.lastIndex
     }
 
-    fun shouldAutoOpenPicker(
-        currentIndex: Int,
-        wasDone: Boolean,
-        isDone: Boolean,
-        doneStates: List<Boolean>,
-    ): Boolean = currentIndex == SetupPage.Enable.ordinal &&
-        !wasDone &&
-        isDone &&
-        doneStates.getOrNull(SetupPage.Select.ordinal) == false
+    fun canOpenDefaultPicker(doneStates: List<Boolean>): Boolean = doneStates.getOrNull(SetupPage.Enable.ordinal) == true
 }
 
 internal object SetupLaunchPolicy {

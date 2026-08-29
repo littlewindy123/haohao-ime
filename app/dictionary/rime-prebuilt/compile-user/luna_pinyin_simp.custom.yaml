@@ -1,0 +1,7 @@
+patch:
+  schema/name: 好好拼音
+  translator/dictionary: haohao_pinyin
+  translator/user_dict: luna_pinyin
+  translator/enable_charset_filter: true
+  engine/filters/+:
+    - charset_filter

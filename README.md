@@ -44,8 +44,9 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 - “好好拼音”保留 `luna_pinyin_simp` 方案 ID、原有用户词典和学习数据，在其上组合好好热词、万象现代词库与原版 Luna 词典。
 - 现代词库固定使用万象拼音 `v17.7.1` 的完整 `jichu.dict.yaml`，共生成 `1,418,352` 条带权词条；来源、哈希、许可与唯一已知排除项记录在 `app/dictionary/wanxiang/`。
-- 构建时离线校验固定 gzip，确定性移除拼音声调并生成 Rime 资产；构建过程不联网，也不会把生成文件写回源码目录。
-- APK 首次部署大型词库会明显慢于后续启动。词库升级随新版 APK 发布，不增加网络权限、后台下载或热词上报。
+- 发布维护时离线校验固定 gzip，确定性移除拼音声调，并用与 Android 端一致的 librime 版本生成固态词典；普通 Gradle 构建只校验并打包固定的预编译产物。
+- APK 不再携带展开后的 40.3MB 万象 YAML，也不会在用户首次打开键盘时现场编译 142 万词。预编译文件缺失或损坏时会从 APK 自动恢复，版本不匹配则进入明确的引擎故障状态。
+- 词库升级仍随新版 APK 发布，不增加网络权限、后台下载或热词上报。预编译产物的版本、输入哈希、文件哈希与维护流程见 `app/dictionary/rime-prebuilt/`。
 
 ### 中文输入回归
 
@@ -112,6 +113,8 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - 翻译词典或人工覆盖改动必须执行 `:app:verifyTranslationQuality`；报告位于 `app/build/reports/translation-quality/`，不得通过降低既有覆盖基线或放宽硬错误上限来掩盖回归。
 - 输入足迹只能从 Rime 候选提交事件写入，必须继续执行敏感 `EditorInfo` 过滤；英文、IPA、剪贴板、应用名和整句内容不得持久化到足迹数据库，数据库必须保存在 `noBackupFilesDir` 中以排除 Android 自动备份和设备迁移。
 - 好好主题的滑动步长必须按屏幕密度把设置中的 `dp` 换算为像素；不能改变其他 Trime 主题沿用的手势计算方式。组合拼音、密码框和选区保护需要同时覆盖单元测试与真实输入框交互。
+- 输入法视图可能早于 Rime 部署完成被系统请求；任何主题读取都必须先确认 `RimeRuntimeState.READY` 且 `ThemeManager.isInitialized`。准备或失败期间只能显示不依赖 Rime/主题的轻量状态页，禁止直接读取 `ThemeManager.activeTheme`。
+- 正常首启必须复用 `shared/build` 中与当前 librime 精确匹配的预编译词典。普通构建和启动不得展开或现场编译完整万象词库；预编译输入、版本或 SHA-256 变化时必须先重新生成固定产物。
 - 键盘与双语候选至少在 360dp、411dp 两种模拟器宽度回归，检查按键、候选和点击区域是否重叠或错位。
 - CI 同时构建 `arm64-v8a` 与 `x86_64`，为未来 Android 真机测试保留 ARM64 产物。
 - 在真实设备条件具备前，模拟器测试作为阶段验收依据；稳定版本发布前仍必须补充真机测试。

@@ -178,7 +178,7 @@ object RimeDaemon {
             lock.withLock {
                 realRime.finalize()
                 runCatching { DataManager.repairManagedData() }
-                    .onSuccess { realRime.startup(fullCheck = true) }
+                    .onSuccess { realRime.startup(fullCheck = false) }
                     .onFailure(realRime::markFailed)
             }
         }

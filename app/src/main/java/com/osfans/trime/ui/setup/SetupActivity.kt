@@ -25,22 +25,30 @@ import com.osfans.trime.databinding.ActivitySetupBinding
 import com.osfans.trime.ui.main.MainActivity
 import com.osfans.trime.util.appContext
 import com.osfans.trime.util.createNotificationChannel
+import com.osfans.trime.util.toast
 import splitties.systemservices.notificationManager
 
 class SetupActivity : FragmentActivity() {
     private lateinit var binding: ActivitySetupBinding
     private lateinit var viewPager: ViewPager2
     private var lastKnownDone = BooleanArray(SetupPage.entries.size)
-    private val autoPickerRunnable = Runnable {
-        if (::binding.isInitialized && !isFinishing && hasWindowFocus() && !SetupPage.Select.isDone()) {
-            SetupPage.Select.getButtonAction(this)
+    private var statePollAttempts = 0
+    private val statePollRunnable = object : Runnable {
+        override fun run() {
+            if (!::binding.isInitialized || isFinishing) return
+            syncCurrentStepAndAdvance()
+            statePollAttempts += 1
+            if (SetupPage.hasUndonePage() && statePollAttempts < STATE_POLL_MAX_ATTEMPTS) {
+                binding.root.postDelayed(this, STATE_POLL_INTERVAL_MILLIS)
+            }
         }
     }
 
     companion object {
         private const val CHANNEL_ID = "setup"
         private const val NOTIFY_ID = 87463
-        private const val AUTO_PICKER_DELAY_MILLIS = 300L
+        private const val STATE_POLL_INTERVAL_MILLIS = 200L
+        private const val STATE_POLL_MAX_ATTEMPTS = 15
 
         fun shouldSetup() = SetupPage.hasUndonePage()
     }
@@ -99,7 +107,7 @@ class SetupActivity : FragmentActivity() {
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
         if (hasFocus && ::binding.isInitialized) {
-            binding.root.post(::syncCurrentStepAndAdvance)
+            scheduleStateSync()
         }
     }
 
@@ -129,7 +137,7 @@ class SetupActivity : FragmentActivity() {
         super.onResume()
         notificationManager.cancel(NOTIFY_ID)
         if (::binding.isInitialized) {
-            binding.root.post(::syncCurrentStepAndAdvance)
+            scheduleStateSync()
         }
     }
 
@@ -140,6 +148,11 @@ class SetupActivity : FragmentActivity() {
                 .putExtra(MainActivity.EXTRA_SHOW_TEST_INPUT, true),
         )
         finish()
+    }
+
+    internal fun showEnableStep() {
+        viewPager.setCurrentItem(SetupPage.Enable.ordinal, true)
+        toast(R.string.setup__enable_before_select)
     }
 
     private fun setupSkipAction() {
@@ -189,25 +202,20 @@ class SetupActivity : FragmentActivity() {
                 isDone = isDone,
                 doneStates = doneStates,
             )
-        val shouldAutoOpenPicker =
-            SetupFlow.shouldAutoOpenPicker(
-                currentIndex = position,
-                wasDone = wasDone,
-                isDone = isDone,
-                doneStates = doneStates,
-            )
         lastKnownDone = doneStates.toBooleanArray()
         if (nextIndex != null && nextIndex != position) {
             viewPager.setCurrentItem(nextIndex, true)
         }
-        if (shouldAutoOpenPicker) {
-            binding.root.removeCallbacks(autoPickerRunnable)
-            binding.root.postDelayed(autoPickerRunnable, AUTO_PICKER_DELAY_MILLIS)
-        }
+    }
+
+    private fun scheduleStateSync() {
+        binding.root.removeCallbacks(statePollRunnable)
+        statePollAttempts = 0
+        binding.root.post(statePollRunnable)
     }
 
     override fun onDestroy() {
-        if (::binding.isInitialized) binding.root.removeCallbacks(autoPickerRunnable)
+        if (::binding.isInitialized) binding.root.removeCallbacks(statePollRunnable)
         super.onDestroy()
     }
 

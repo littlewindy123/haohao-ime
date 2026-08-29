@@ -92,6 +92,7 @@
     <string name="rime_runtime_copy_diagnostics">复制诊断信息</string>
     <string name="rime_runtime_diagnostics_label">好好输入法诊断信息</string>
     <string name="rime_runtime_diagnostics_copied">诊断信息已复制</string>
+    <string name="setup__enable_before_select">请先在系统设置中启用好好输入法</string>
     <string name="periodic_background_sync">后台定时同步</string>
     <string name="periodic_background_sync_status">上次同步时间（状态）：%1$s（%2$s）</string>
     <string name="effects">效果</string>

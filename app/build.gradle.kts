@@ -12,6 +12,7 @@ plugins {
     id("com.osfans.trime.opencc-data")
     id("com.osfans.trime.cedict-dictionary")
     id("com.osfans.trime.wanxiang-dictionary")
+    id("com.osfans.trime.rime-prebuilt-data")
     alias(libs.plugins.aboutlibraries)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.kotlin.parcelize)

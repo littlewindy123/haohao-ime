@@ -99,6 +99,7 @@
     <string name="rime_runtime_copy_diagnostics">Copy diagnostics</string>
     <string name="rime_runtime_diagnostics_label">HaoHao IME diagnostics</string>
     <string name="rime_runtime_diagnostics_copied">Diagnostics copied</string>
+    <string name="setup__enable_before_select">Enable HaoHao IME in system settings first</string>
     <string name="periodic_background_sync">Periodic background sync</string>
     <string name="periodic_background_sync_status">Last: %1$s (%2$s)</string>
     <string name="effects">Effects</string>

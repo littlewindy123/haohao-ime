@@ -40,6 +40,10 @@ gradlePlugin {
             id = "com.osfans.trime.wanxiang-dictionary"
             implementationClass = "WanxiangDictionaryPlugin"
         }
+        register("rimePrebuiltData") {
+            id = "com.osfans.trime.rime-prebuilt-data"
+            implementationClass = "RimePrebuiltDataPlugin"
+        }
         register("nativeAppConvention") {
             id = "com.osfans.trime.native-app-convention"
             implementationClass = "NativeAppConventionPlugin"

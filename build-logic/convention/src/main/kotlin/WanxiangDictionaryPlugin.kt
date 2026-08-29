@@ -2,7 +2,6 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-import com.android.build.api.variant.ApplicationAndroidComponentsExtension
 import org.gradle.api.DefaultTask
 import org.gradle.api.Plugin
 import org.gradle.api.Project
@@ -14,8 +13,6 @@ import org.gradle.api.tasks.OutputDirectory
 import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
 import org.gradle.api.tasks.TaskAction
-import org.gradle.kotlin.dsl.configure
-import org.gradle.kotlin.dsl.named
 import org.gradle.kotlin.dsl.register
 import java.io.InputStream
 import java.security.MessageDigest
@@ -31,20 +28,10 @@ class WanxiangDictionaryPlugin : Plugin<Project> {
                 outputDirectory.set(target.layout.buildDirectory.dir("generated/assets/wanxiang"))
             }
 
-        target.extensions.configure<ApplicationAndroidComponentsExtension> {
-            onVariants(selector().all()) { variant ->
-                variant.sources.assets?.addGeneratedSourceDirectory(
-                    generateTask,
-                    GenerateWanxiangDictionaryTask::outputDirectory,
-                )
-            }
-        }
-
-        target.pluginManager.withPlugin("com.osfans.trime.data-checksums") {
-            target.tasks.named<DataChecksumsPlugin.DataChecksumsTask>(DataChecksumsPlugin.TASK) {
-                dependsOn(generateTask)
-                generatedInputDirs.from(generateTask.flatMap(GenerateWanxiangDictionaryTask::outputDirectory))
-            }
+        target.tasks.register("prepareWanxiangDictionary") {
+            group = "haohao dictionary"
+            description = "Generate the pinned Wanxiang YAML for release maintenance."
+            dependsOn(generateTask)
         }
     }
 

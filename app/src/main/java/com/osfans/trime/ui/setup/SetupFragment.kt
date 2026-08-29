@@ -61,8 +61,8 @@ class SetupFragment : Fragment() {
             actionButton.setOnClickListener {
                 if (isFinalSuccess) {
                     (requireActivity() as SetupActivity).startTyping()
-                } else {
-                    page.getButtonAction(requireContext())
+                } else if (!page.getButtonAction(requireContext())) {
+                    (requireActivity() as SetupActivity).showEnableStep()
                 }
             }
         }

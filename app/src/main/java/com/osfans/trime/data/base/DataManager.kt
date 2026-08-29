@@ -14,9 +14,11 @@ import com.osfans.trime.util.appContext
 import kotlinx.serialization.json.Json
 import timber.log.Timber
 import java.io.File
+import java.security.MessageDigest
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.Properties
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
@@ -106,6 +108,87 @@ internal data class ManagedRimeRepairResult(
     val defaultPatch: String,
 )
 
+internal fun invalidatePrebuiltRimeData(
+    prebuiltDataDir: File,
+    checksumsFile: File,
+) {
+    if (prebuiltDataDir.exists() && !prebuiltDataDir.deleteRecursively()) {
+        error("Failed to remove prebuilt Rime data: $prebuiltDataDir")
+    }
+    if (checksumsFile.exists() && !checksumsFile.delete()) {
+        error("Failed to invalidate managed Rime checksums: $checksumsFile")
+    }
+}
+
+internal fun repairManagedPrebuiltAssets(
+    sharedDataDir: File,
+    checksums: DataChecksums,
+    copyAsset: (String, File) -> Unit,
+): Int {
+    val dataRoot = requireNotNull(sharedDataDir.parentFile).canonicalFile
+    var repairedFiles = 0
+    checksums.files
+        .filterKeys { it.startsWith("shared/build/") }
+        .filterValues { it.isNotBlank() }
+        .forEach { (assetPath, expectedSha256) ->
+            val destination = dataRoot.resolve(assetPath).canonicalFile
+            check(destination.path.startsWith(dataRoot.path + File.separator)) {
+                "Managed Rime asset escaped data directory: $assetPath"
+            }
+            if (!destination.isFile || destination.sha256() != expectedSha256) {
+                copyAsset(assetPath, destination)
+                check(destination.isFile && destination.sha256() == expectedSha256) {
+                    "Unable to restore managed Rime asset: $assetPath"
+                }
+                repairedFiles += 1
+            }
+        }
+    return repairedFiles
+}
+
+private fun File.sha256(): String {
+    val digest = MessageDigest.getInstance("SHA-256")
+    inputStream().buffered().use { input ->
+        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+        while (true) {
+            val count = input.read(buffer)
+            if (count < 0) break
+            digest.update(buffer, 0, count)
+        }
+    }
+    return digest.digest().joinToString("") { "%02x".format(it) }
+}
+
+internal fun alignManagedRimeSourceTimestamps(
+    sharedDataDir: File,
+    userDataDir: File,
+    epochSeconds: Long,
+): Int {
+    require(epochSeconds > 0) { "Invalid Rime source timestamp: $epochSeconds" }
+    val timestampMillis = Math.multiplyExact(epochSeconds, 1000L)
+    val files = mutableListOf<File>()
+    sharedDataDir.walkTopDown().forEach { file ->
+        if (!file.isFile) return@forEach
+        val topLevel = file.relativeTo(sharedDataDir).invariantSeparatorsPath.substringBefore('/')
+        if (topLevel != "build") files += file
+    }
+    listOf(
+        DataManager.DEFAULT_CUSTOM_FILE_NAME to DataManager.SCHEMA_LIST_CUSTOM_PATCH,
+        DataManager.SIMPLIFIED_SCHEMA_CUSTOM_FILE_NAME to SIMPLIFIED_SCHEMA_CUSTOM_PATCH,
+    ).forEach { (name, managedContent) ->
+        userDataDir.resolve(name).takeIf { file ->
+            file.isFile && file.readText().trim().replace("\r\n", "\n") == managedContent.trimIndent().trim()
+        }?.let(files::add)
+    }
+    files.forEach { file ->
+        if (file.lastModified() / 1000L != epochSeconds) {
+            check(file.setLastModified(timestampMillis)) { "Failed to align Rime source timestamp: $file" }
+        }
+        check(file.lastModified() / 1000L == epochSeconds) { "Rime source timestamp mismatch: $file" }
+    }
+    return files.size
+}
+
 internal fun repairManagedRimeData(
     userDataDir: File,
     backupName: String,
@@ -145,6 +228,7 @@ object DataManager {
     internal const val SIMPLIFIED_SCHEMA_CUSTOM_FILE_NAME = "luna_pinyin_simp.custom.yaml"
 
     private const val DATA_CHECKSUMS_NAME = "checksums.json"
+    private const val PREBUILT_METADATA_FILE_NAME = "haohao_prebuilt.properties"
 
     internal const val SCHEMA_LIST_CUSTOM_PATCH = """
       patch:
@@ -216,7 +300,9 @@ object DataManager {
 
     internal fun repairManagedData(): ManagedRimeRepairResult = lock.withLock {
         val backupName = SimpleDateFormat("yyyyMMdd-HHmmss-SSS", Locale.US).format(Date())
-        repairManagedRimeData(userDataDir, backupName)
+        repairManagedRimeData(userDataDir, backupName).also {
+            invalidatePrebuiltRimeData(prebuiltDataDir, dataDir.resolve(DATA_CHECKSUMS_NAME))
+        }
     }
 
     /**
@@ -253,7 +339,7 @@ object DataManager {
                 is DataDiff.UpdateFile,
                 -> {
                     val destPath = sharedDataDir.resolveSibling(it.path).absolutePath
-                    ResourceUtils.copyFile(it.path, destPath)
+                    ResourceUtils.copyFile(it.path, destPath).getOrThrow()
                 }
                 is DataDiff.DeleteDir,
                 is DataDiff.DeleteFile,
@@ -261,7 +347,14 @@ object DataManager {
             }
         }
 
-        ResourceUtils.copyFile(DATA_CHECKSUMS_NAME, dataDir.resolve(DATA_CHECKSUMS_NAME).absolutePath)
+        val repairedPrebuiltFiles = repairManagedPrebuiltAssets(sharedDataDir, newChecksums) { assetPath, destination ->
+            ResourceUtils.copyFile(assetPath, destination.absolutePath).getOrThrow()
+        }
+        if (repairedPrebuiltFiles > 0) {
+            Timber.i("Restored %d missing or corrupted Rime prebuilt files", repairedPrebuiltFiles)
+        }
+
+        ResourceUtils.copyFile(DATA_CHECKSUMS_NAME, dataDir.resolve(DATA_CHECKSUMS_NAME).absolutePath).getOrThrow()
 
         listOf(
             DEFAULT_CUSTOM_FILE_NAME to SCHEMA_LIST_CUSTOM_PATCH,
@@ -276,6 +369,14 @@ object DataManager {
             }
             content?.let(custom::writeText)
         }
+
+        val prebuiltMetadataFile = prebuiltDataDir.resolve(PREBUILT_METADATA_FILE_NAME)
+        check(prebuiltMetadataFile.isFile) { "Missing Rime prebuilt metadata: $prebuiltMetadataFile" }
+        val prebuiltMetadata = Properties().apply { prebuiltMetadataFile.inputStream().use(::load) }
+        val sourceTimestamp =
+            prebuiltMetadata.getProperty("sourceTimestampEpochSeconds")?.trim()?.toLongOrNull()
+                ?: error("Invalid Rime prebuilt source timestamp")
+        alignManagedRimeSourceTimestamps(sharedDataDir, userDataDir, sourceTimestamp)
 
         Timber.d("Synced!")
     }
