@@ -65,10 +65,9 @@ class Rime :
         RimeDispatcher(
             object : RimeDispatcher.RimeController {
                 override fun nativeStartup() {
-                    startRime(startupFullCheck)
+                    val maintenanceStarted = startRime(startupFullCheck)
                     lifecycleRegistry.emitState(RimeLifecycle.State.READY)
-                    mutableRuntimeState.value = RimeRuntimeState.READY
-                    lastFailure = null
+                    if (!maintenanceStarted) markRuntimeReady()
                 }
 
                 override fun nativeStartupFailed(error: Throwable) {
@@ -111,13 +110,15 @@ class Rime :
     }
 
     override suspend fun deploy() = withRimeContext {
+        mutableRuntimeState.value = RimeRuntimeState.PREPARING
         exitRime()
-        startRime(true)
+        if (!startRime(true)) markRuntimeReady()
     }
 
     override suspend fun updateConfig() = withRimeContext {
+        mutableRuntimeState.value = RimeRuntimeState.PREPARING
         exitRime()
-        startRime(false)
+        if (!startRime(false)) markRuntimeReady()
     }
 
     override suspend fun syncUserData(): Boolean = withRimeContext {
@@ -236,7 +237,12 @@ class Rime :
         emitResponse()
     }
 
-    private fun startRime(fullCheck: Boolean) {
+    /**
+     * Starts librime and returns whether an asynchronous maintenance deployment was started.
+     * A session cannot be created until that deployment completes, so schema activation must be
+     * deferred to the deployment-success callback in that case.
+     */
+    private fun startRime(fullCheck: Boolean): Boolean {
         DataManager.sync()
         val sharedDataDir = DataManager.sharedDataDir.absolutePath
         val userDataDir = DataManager.userDataDir.absolutePath
@@ -248,8 +254,14 @@ class Rime :
             fullCheck: $fullCheck
             """.trimIndent(),
         )
-        startupRime(sharedDataDir, userDataDir, BuildConfig.BUILD_VERSION_NAME, fullCheck)
-        enforceSimplifiedSchema()
+        val maintenanceStarted = startupRime(sharedDataDir, userDataDir, BuildConfig.BUILD_VERSION_NAME, fullCheck)
+        if (!maintenanceStarted) enforceSimplifiedSchema()
+        return maintenanceStarted
+    }
+
+    private fun markRuntimeReady() {
+        mutableRuntimeState.value = RimeRuntimeState.READY
+        lastFailure = null
     }
 
     private fun enforceSimplifiedSchema() {
@@ -351,9 +363,7 @@ class Rime :
                         OpenCCDictManager.buildOpenCCDict()
                     }
                     RimeMessage.DeployMessage.State.Success -> {
-                        enforceSimplifiedSchema()
-                        mutableRuntimeState.value = RimeRuntimeState.READY
-                        lastFailure = null
+                        completeDeploymentOnRimeThread()
                     }
                     RimeMessage.DeployMessage.State.Failure -> {
                         lastFailure = "Rime deployment failed"
@@ -378,6 +388,25 @@ class Rime :
                 updateSchemaCached(it.data)
             }
             else -> {}
+        }
+    }
+
+    /**
+     * Deployment notifications arrive on a native librime callback thread. Calling back into
+     * librime from that thread can deadlock while librime is still unwinding the notification.
+     * Complete schema activation on the serialized Rime dispatcher instead.
+     */
+    private fun completeDeploymentOnRimeThread() {
+        lifecycleScope.launch {
+            runCatching {
+                withRimeContext { enforceSimplifiedSchema() }
+            }.onSuccess {
+                markRuntimeReady()
+            }.onFailure { error ->
+                lastFailure = error.message ?: error.javaClass.simpleName
+                mutableRuntimeState.value = RimeRuntimeState.FAILED
+                Timber.e(error, "Failed to activate the simplified schema after deployment")
+            }
         }
     }
 
@@ -468,7 +497,7 @@ class Rime :
             userDir: String,
             versionName: String,
             fullCheck: Boolean,
-        )
+        ): Boolean
 
         @JvmStatic
         external fun exitRime()

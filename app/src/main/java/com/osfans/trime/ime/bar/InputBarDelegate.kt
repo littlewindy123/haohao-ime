@@ -355,8 +355,13 @@ class InputBarDelegate : InputBroadcastReceiver {
             evalAlwaysUiState()
             ClipboardHelper.addOnUpdateListener(onClipboardUpdateListener)
             syncToolbarOptionStates()
-            service.lifecycleScope.launch {
-                RimeDaemon.runtimeState.collect(::showRuntimeState)
+            // StateFlow emits its current value as soon as collection starts. Defer the
+            // collector until this lazy initializer has returned, otherwise showRuntimeState()
+            // re-enters `view` and tries to attach the same child views a second time.
+            post {
+                service.lifecycleScope.launch {
+                    RimeDaemon.runtimeState.collect(::showRuntimeState)
+                }
             }
         }
     }
