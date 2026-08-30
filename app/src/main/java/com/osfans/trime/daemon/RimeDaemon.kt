@@ -191,6 +191,13 @@ object RimeDaemon {
         appendLine("ABI: ${Build.SUPPORTED_ABIS.joinToString()}")
         appendLine("Engine: ${runtimeState.value}")
         appendLine("Schema: ${realRime.schemaCached.schemaId}")
+        realRime.lastDataSyncStats?.let { stats ->
+            appendLine(
+                "Data preparation: ${realRime.lastDataPreparationMillis} ms " +
+                    "(copied=${stats.copiedFiles}, bytes=${stats.copiedBytes}, reused=${stats.reusedPrebuilt})",
+            )
+        } ?: appendLine("Data preparation: not run")
+        appendLine("Native startup: ${realRime.lastNativeStartupMillis.takeIf { it >= 0 }?.let { "$it ms" } ?: "not run"}")
         append("Last failure: ${lastFailure ?: "none"}")
     }
 

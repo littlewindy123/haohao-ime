@@ -10,11 +10,11 @@ import android.os.Environment
 import com.osfans.trime.data.prefs.AppPrefs
 import com.osfans.trime.util.FileUtils
 import com.osfans.trime.util.ResourceUtils
+import com.osfans.trime.util.VerifiedAssetCopy
 import com.osfans.trime.util.appContext
 import kotlinx.serialization.json.Json
 import timber.log.Timber
 import java.io.File
-import java.security.MessageDigest
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -120,44 +120,58 @@ internal fun invalidatePrebuiltRimeData(
     }
 }
 
-internal fun repairManagedPrebuiltAssets(
+internal data class ManagedPrebuiltSyncResult(
+    val copiedFiles: Int,
+    val copiedBytes: Long,
+    val reusedPrebuilt: Boolean,
+)
+
+internal data class DataSyncStats(
+    val copiedFiles: Int,
+    val copiedBytes: Long,
+    val reusedPrebuilt: Boolean,
+)
+
+internal fun prepareManagedPrebuiltAssets(
     sharedDataDir: File,
     checksums: DataChecksums,
-    copyAsset: (String, File) -> Unit,
-): Int {
+    expectedSizes: Map<String, Long>,
+    changedPaths: Set<String>,
+    copyAsset: (String, File, String) -> VerifiedAssetCopy,
+): ManagedPrebuiltSyncResult {
     val dataRoot = requireNotNull(sharedDataDir.parentFile).canonicalFile
-    var repairedFiles = 0
-    checksums.files
-        .filterKeys { it.startsWith("shared/build/") }
-        .filterValues { it.isNotBlank() }
+    val managedFiles =
+        checksums.files
+            .filterKeys { it.startsWith("shared/build/") }
+            .filterValues { it.isNotBlank() }
+    check(managedFiles.keys == expectedSizes.keys) { "Rime prebuilt metadata does not match checksums" }
+    var copiedFiles = 0
+    var copiedBytes = 0L
+    managedFiles
+        .toSortedMap()
         .forEach { (assetPath, expectedSha256) ->
             val destination = dataRoot.resolve(assetPath).canonicalFile
             check(destination.path.startsWith(dataRoot.path + File.separator)) {
                 "Managed Rime asset escaped data directory: $assetPath"
             }
-            if (!destination.isFile || destination.sha256() != expectedSha256) {
-                copyAsset(assetPath, destination)
-                check(destination.isFile && destination.sha256() == expectedSha256) {
-                    "Unable to restore managed Rime asset: $assetPath"
+            val expectedBytes = expectedSizes.getValue(assetPath)
+            if (assetPath in changedPaths || !destination.isFile || destination.length() != expectedBytes) {
+                val copied = copyAsset(assetPath, destination, expectedSha256)
+                check(copied.bytes == expectedBytes && copied.sha256 == expectedSha256) {
+                    "Unable to verify managed Rime asset: $assetPath"
                 }
-                repairedFiles += 1
+                copiedFiles += 1
+                copiedBytes += copied.bytes
             }
         }
-    return repairedFiles
+    return ManagedPrebuiltSyncResult(copiedFiles, copiedBytes, copiedFiles == 0)
 }
 
-private fun File.sha256(): String {
-    val digest = MessageDigest.getInstance("SHA-256")
-    inputStream().buffered().use { input ->
-        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-        while (true) {
-            val count = input.read(buffer)
-            if (count < 0) break
-            digest.update(buffer, 0, count)
-        }
-    }
-    return digest.digest().joinToString("") { "%02x".format(it) }
-}
+internal fun shouldUpdateManagedChecksums(
+    old: DataChecksums,
+    new: DataChecksums,
+    repairedPrebuiltFiles: Int,
+): Boolean = old.sha256 != new.sha256 || repairedPrebuiltFiles > 0
 
 internal fun alignManagedRimeSourceTimestamps(
     sharedDataDir: File,
@@ -229,6 +243,7 @@ object DataManager {
 
     private const val DATA_CHECKSUMS_NAME = "checksums.json"
     private const val PREBUILT_METADATA_FILE_NAME = "haohao_prebuilt.properties"
+    private const val PREBUILT_ASSET_PREFIX = "shared/build/"
 
     internal const val SCHEMA_LIST_CUSTOM_PATCH = """
       patch:
@@ -256,6 +271,21 @@ object DataManager {
         .bufferedReader()
         .use { it.readText() }
         .let { deserializeDataChecksums(it) }
+
+    private fun AssetManager.prebuiltExpectedSizes(): Map<String, Long> {
+        val metadataPath = "$PREBUILT_ASSET_PREFIX$PREBUILT_METADATA_FILE_NAME"
+        val metadataBytes = open(metadataPath).use { it.readBytes() }
+        val properties = Properties().apply { metadataBytes.inputStream().use(::load) }
+        val result = mutableMapOf(metadataPath to metadataBytes.size.toLong())
+        repeat(properties.getProperty("fileCount")?.toIntOrNull() ?: error("Invalid Rime prebuilt file count")) { index ->
+            val name = properties.getProperty("file.$index.name")?.trim()?.takeIf(String::isNotEmpty)
+                ?: error("Missing Rime prebuilt file name: $index")
+            val bytes = properties.getProperty("file.$name.bytes")?.toLongOrNull()
+                ?: error("Missing Rime prebuilt file size: $name")
+            result["$PREBUILT_ASSET_PREFIX$name"] = bytes
+        }
+        return result
+    }
 
     private val prefs by lazy { AppPrefs.defaultInstance() }
 
@@ -322,7 +352,7 @@ object DataManager {
         return defaultPath.absolutePath
     }
 
-    fun sync() = lock.withLock {
+    internal fun sync(): DataSyncStats = lock.withLock {
         migrateLegacyDataIfNeeded()
         val oldChecksumsFile = File(dataDir, DATA_CHECKSUMS_NAME)
         val oldChecksums =
@@ -331,15 +361,31 @@ object DataManager {
                 .getOrElse { DataChecksums("", emptyMap()) }
 
         val newChecksums = appContext.assets.dataChecksums()
+        val expectedPrebuiltSizes = appContext.assets.prebuiltExpectedSizes()
+        val diffs = DataDiff.diff(oldChecksums, newChecksums).sortedByDescending { it.ordinal }
+        val changedPrebuiltPaths =
+            diffs.mapNotNull { diff ->
+                when (diff) {
+                    is DataDiff.CreateFile,
+                    is DataDiff.UpdateFile,
+                    -> diff.path.takeIf { it.startsWith(PREBUILT_ASSET_PREFIX) }
+                    else -> null
+                }
+            }.toSet()
+        var copiedFiles = 0
+        var copiedBytes = 0L
 
-        DataDiff.diff(oldChecksums, newChecksums).sortedByDescending { it.ordinal }.forEach {
+        diffs.forEach {
             Timber.d("Diff: $it")
             when (it) {
                 is DataDiff.CreateFile,
                 is DataDiff.UpdateFile,
                 -> {
-                    val destPath = sharedDataDir.resolveSibling(it.path).absolutePath
-                    ResourceUtils.copyFile(it.path, destPath).getOrThrow()
+                    if (!it.path.startsWith(PREBUILT_ASSET_PREFIX)) {
+                        val destPath = sharedDataDir.resolveSibling(it.path).absolutePath
+                        copiedBytes += ResourceUtils.copyFile(it.path, destPath).getOrThrow()
+                        copiedFiles += 1
+                    }
                 }
                 is DataDiff.DeleteDir,
                 is DataDiff.DeleteFile,
@@ -347,14 +393,23 @@ object DataManager {
             }
         }
 
-        val repairedPrebuiltFiles = repairManagedPrebuiltAssets(sharedDataDir, newChecksums) { assetPath, destination ->
-            ResourceUtils.copyFile(assetPath, destination.absolutePath).getOrThrow()
+        val prebuilt = prepareManagedPrebuiltAssets(
+            sharedDataDir,
+            newChecksums,
+            expectedPrebuiltSizes,
+            changedPrebuiltPaths,
+        ) { assetPath, destination, expectedSha256 ->
+            ResourceUtils.copyVerifiedFile(assetPath, destination, expectedSha256).getOrThrow()
         }
-        if (repairedPrebuiltFiles > 0) {
-            Timber.i("Restored %d missing or corrupted Rime prebuilt files", repairedPrebuiltFiles)
+        copiedFiles += prebuilt.copiedFiles
+        copiedBytes += prebuilt.copiedBytes
+        if (prebuilt.copiedFiles > 0) {
+            Timber.i("Prepared %d Rime prebuilt files (%d bytes)", prebuilt.copiedFiles, prebuilt.copiedBytes)
         }
 
-        ResourceUtils.copyFile(DATA_CHECKSUMS_NAME, dataDir.resolve(DATA_CHECKSUMS_NAME).absolutePath).getOrThrow()
+        if (shouldUpdateManagedChecksums(oldChecksums, newChecksums, prebuilt.copiedFiles)) {
+            ResourceUtils.copyFile(DATA_CHECKSUMS_NAME, dataDir.resolve(DATA_CHECKSUMS_NAME).absolutePath).getOrThrow()
+        }
 
         listOf(
             DEFAULT_CUSTOM_FILE_NAME to SCHEMA_LIST_CUSTOM_PATCH,
@@ -379,5 +434,6 @@ object DataManager {
         alignManagedRimeSourceTimestamps(sharedDataDir, userDataDir, sourceTimestamp)
 
         Timber.d("Synced!")
+        DataSyncStats(copiedFiles, copiedBytes, prebuilt.reusedPrebuilt)
     }
 }

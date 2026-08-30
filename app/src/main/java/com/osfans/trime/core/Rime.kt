@@ -5,9 +5,11 @@
 
 package com.osfans.trime.core
 
+import android.os.SystemClock
 import com.osfans.trime.BuildConfig
 import com.osfans.trime.data.base.DEFAULT_SCHEMA_ID
 import com.osfans.trime.data.base.DataManager
+import com.osfans.trime.data.base.DataSyncStats
 import com.osfans.trime.data.opencc.OpenCCDictManager
 import com.osfans.trime.data.prefs.AppPrefs
 import com.osfans.trime.ime.core.InlinePreeditMode
@@ -44,6 +46,18 @@ class Rime :
 
     @Volatile
     var lastFailure: String? = null
+        private set
+
+    @Volatile
+    internal var lastDataPreparationMillis: Long = -1L
+        private set
+
+    @Volatile
+    internal var lastNativeStartupMillis: Long = -1L
+        private set
+
+    @Volatile
+    internal var lastDataSyncStats: DataSyncStats? = null
         private set
 
     override var schemaCached = RimeSchema(".default")
@@ -237,7 +251,21 @@ class Rime :
     }
 
     private fun startRime(fullCheck: Boolean) {
-        DataManager.sync()
+        val dataStartedAt = SystemClock.elapsedRealtime()
+        lastDataSyncStats = null
+        val syncStats = try {
+            DataManager.sync()
+        } finally {
+            lastDataPreparationMillis = SystemClock.elapsedRealtime() - dataStartedAt
+        }
+        lastDataSyncStats = syncStats
+        Timber.i(
+            "Rime data prepared in %d ms: copied=%d, bytes=%d, reused=%s",
+            lastDataPreparationMillis,
+            syncStats.copiedFiles,
+            syncStats.copiedBytes,
+            syncStats.reusedPrebuilt,
+        )
         val sharedDataDir = DataManager.sharedDataDir.absolutePath
         val userDataDir = DataManager.userDataDir.absolutePath
         Timber.d(
@@ -248,8 +276,14 @@ class Rime :
             fullCheck: $fullCheck
             """.trimIndent(),
         )
-        startupRime(sharedDataDir, userDataDir, BuildConfig.BUILD_VERSION_NAME, fullCheck)
-        enforceSimplifiedSchema()
+        val nativeStartedAt = SystemClock.elapsedRealtime()
+        try {
+            startupRime(sharedDataDir, userDataDir, BuildConfig.BUILD_VERSION_NAME, fullCheck)
+            enforceSimplifiedSchema()
+        } finally {
+            lastNativeStartupMillis = SystemClock.elapsedRealtime() - nativeStartedAt
+            Timber.i("Rime native startup finished in %d ms", lastNativeStartupMillis)
+        }
     }
 
     private fun enforceSimplifiedSchema() {

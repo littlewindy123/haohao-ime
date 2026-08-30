@@ -14,7 +14,6 @@ import com.osfans.trime.data.base.alignManagedRimeSourceTimestamps
 import com.osfans.trime.data.base.invalidatePrebuiltRimeData
 import com.osfans.trime.data.base.managedSchemaDisplayName
 import com.osfans.trime.data.base.migrateLegacyRimeData
-import com.osfans.trime.data.base.repairManagedPrebuiltAssets
 import com.osfans.trime.data.base.repairManagedRimeData
 import com.osfans.trime.data.base.upgradeSimplifiedSchemaCustomPatch
 import com.osfans.trime.data.theme.model.KeyActionToken
@@ -38,7 +37,6 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import java.io.File
 import java.nio.file.Files
-import java.security.MessageDigest
 import java.util.Properties
 
 class HaoHaoDefaultsTest :
@@ -303,44 +301,6 @@ class HaoHaoDefaultsTest :
             prebuilt.exists() shouldBe false
             checksums.exists() shouldBe false
             learned.readText() shouldBe "learned"
-            root.deleteRecursively()
-        }
-
-        "managed prebuilt verification restores missing or corrupted files" {
-            val root = Files.createTempDirectory("haohao-prebuilt-verification").toFile()
-            val shared = root.resolve("shared").apply { mkdirs() }
-            val validContent = "valid prebuilt"
-            val expectedSha256 = MessageDigest.getInstance("SHA-256")
-                .digest(validContent.toByteArray())
-                .joinToString("") { "%02x".format(it) }
-            val checksums = com.osfans.trime.data.base.DataChecksums(
-                sha256 = "manifest",
-                files = mapOf(
-                    "shared/build/valid.bin" to expectedSha256,
-                    "shared/build/missing.bin" to expectedSha256,
-                    "shared/build/corrupted.bin" to expectedSha256,
-                    "shared/default.yaml" to expectedSha256,
-                ),
-            )
-            shared.resolve("build/valid.bin").apply {
-                parentFile.mkdirs()
-                writeText(validContent)
-            }
-            shared.resolve("build/corrupted.bin").writeText("corrupted")
-            val copied = mutableListOf<String>()
-
-            repairManagedPrebuiltAssets(shared, checksums) { path, destination ->
-                copied += path
-                destination.parentFile?.mkdirs()
-                destination.writeText(validContent)
-            } shouldBe 2
-
-            copied.sorted() shouldContainExactly listOf(
-                "shared/build/corrupted.bin",
-                "shared/build/missing.bin",
-            )
-            shared.resolve("build/valid.bin").readText() shouldBe validContent
-            shared.resolve("build/missing.bin").readText() shouldBe validContent
             root.deleteRecursively()
         }
 

@@ -18,19 +18,24 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentActivity
+import androidx.lifecycle.lifecycleScope
 import androidx.viewpager2.adapter.FragmentStateAdapter
 import androidx.viewpager2.widget.ViewPager2
 import com.osfans.trime.R
+import com.osfans.trime.core.RimeRuntimeState
+import com.osfans.trime.daemon.RimeDaemon
 import com.osfans.trime.databinding.ActivitySetupBinding
 import com.osfans.trime.ui.main.MainActivity
 import com.osfans.trime.util.appContext
 import com.osfans.trime.util.createNotificationChannel
 import com.osfans.trime.util.toast
+import kotlinx.coroutines.launch
 import splitties.systemservices.notificationManager
 
 class SetupActivity : FragmentActivity() {
     private lateinit var binding: ActivitySetupBinding
     private lateinit var viewPager: ViewPager2
+    private lateinit var prewarmSessionName: String
     private var lastKnownDone = BooleanArray(SetupPage.entries.size)
     private var statePollAttempts = 0
     private val statePollRunnable = object : Runnable {
@@ -55,6 +60,8 @@ class SetupActivity : FragmentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        prewarmSessionName = "${javaClass.name}@${System.identityHashCode(this)}"
+        RimeDaemon.createSession(prewarmSessionName)
         enableEdgeToEdge()
         binding = ActivitySetupBinding.inflate(layoutInflater)
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, windowInsets ->
@@ -68,6 +75,9 @@ class SetupActivity : FragmentActivity() {
             windowInsets
         }
         setContentView(binding.root)
+        lifecycleScope.launch {
+            RimeDaemon.runtimeState.collect(::renderRuntimeState)
+        }
         setupSystemBars()
         setupSkipAction()
 
@@ -187,6 +197,21 @@ class SetupActivity : FragmentActivity() {
         }
     }
 
+    private fun renderRuntimeState(state: RimeRuntimeState) {
+        binding.engineStatusText.setText(
+            when (state) {
+                RimeRuntimeState.PREPARING -> R.string.rime_runtime_preparing
+                RimeRuntimeState.READY -> R.string.rime_runtime_ready
+                RimeRuntimeState.FAILED -> R.string.rime_runtime_failed_repair
+            },
+        )
+        binding.engineStatusText.contentDescription = binding.engineStatusText.text
+        val failed = state == RimeRuntimeState.FAILED
+        binding.engineStatusText.isClickable = failed
+        binding.engineStatusText.isFocusable = failed
+        binding.engineStatusText.setOnClickListener(if (failed) android.view.View.OnClickListener { RimeDaemon.repairRime() } else null)
+    }
+
     private fun readDoneStates() = SetupPage.entries.map { it.isDone() }
 
     private fun syncCurrentStepAndAdvance() {
@@ -216,6 +241,7 @@ class SetupActivity : FragmentActivity() {
 
     override fun onDestroy() {
         if (::binding.isInitialized) binding.root.removeCallbacks(statePollRunnable)
+        if (::prewarmSessionName.isInitialized) RimeDaemon.destroySession(prewarmSessionName)
         super.onDestroy()
     }
 

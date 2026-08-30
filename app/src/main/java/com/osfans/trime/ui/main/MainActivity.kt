@@ -62,6 +62,7 @@ class MainActivity : AppCompatActivity() {
             }
         AppCompatDelegate.setDefaultNightMode(uiMode)
         super.onCreate(savedInstanceState)
+        viewModel.rime // Start preparing offline data before inflating the settings UI.
         enableEdgeToEdge()
         defaultNavigationBarColor = window.navigationBarColor
         val binding = ActivityMainBinding.inflate(layoutInflater)
