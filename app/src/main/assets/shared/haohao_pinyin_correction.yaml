@@ -1,0 +1,109 @@
+# HaoHao Pinyin optional correction rules.
+
+fuzzy_s_sh:
+  __append:
+    - derive/^sh/s/
+    - derive/^s([^h])/sh$1/
+
+fuzzy_c_ch:
+  __append:
+    - derive/^ch/c/
+    - derive/^c([^h])/ch$1/
+
+fuzzy_z_zh:
+  __append:
+    - derive/^zh/z/
+    - derive/^z([^h])/zh$1/
+
+fuzzy_l_n:
+  __append:
+    - derive/^l/n/
+    - derive/^n/l/
+
+fuzzy_f_h:
+  __append:
+    - derive/^f/h/
+    - derive/^h/f/
+
+fuzzy_r_l:
+  __append:
+    - derive/^r/l/
+    - derive/^l/r/
+
+fuzzy_an_ang:
+  __append:
+    - "derive/^((?:[bpmfdtnlgkhjqxrzcsyw]|zh|ch|sh)?)an$/$1ang/"
+    - "derive/^((?:[bpmfdtnlgkhjqxrzcsyw]|zh|ch|sh)?)ang$/$1an/"
+
+fuzzy_en_eng:
+  __append:
+    - "derive/^((?:[bpmfdtnlgkhjqxrzcsyw]|zh|ch|sh)?)en$/$1eng/"
+    - "derive/^((?:[bpmfdtnlgkhjqxrzcsyw]|zh|ch|sh)?)eng$/$1en/"
+
+fuzzy_in_ing:
+  __append:
+    - "derive/^((?:[bpmfdtnlgkhjqxrzcsyw]|zh|ch|sh)?)in$/$1ing/"
+    - "derive/^((?:[bpmfdtnlgkhjqxrzcsyw]|zh|ch|sh)?)ing$/$1in/"
+
+fuzzy_ian_iang:
+  __append:
+    - derive/ian$/iang/
+    - derive/iang$/ian/
+
+fuzzy_uan_uang:
+  __append:
+    - derive/uan$/uang/
+    - derive/uang$/uan/
+
+# Each rule accepts one neighboring QWERTY key in place of one dictionary-code
+# letter. The uppercase Q marker prevents a derived spelling from being fed into
+# later rules, so one typo never expands into a chain of additional typos.
+adjacent_key_correction:
+  __append:
+    - derive/^([a-z]*)q([a-z]*)$/Q$1w$2/
+    - derive/^([a-z]*)w([a-z]*)$/Q$1q$2/
+    - derive/^([a-z]*)w([a-z]*)$/Q$1e$2/
+    - derive/^([a-z]*)e([a-z]*)$/Q$1w$2/
+    - derive/^([a-z]*)e([a-z]*)$/Q$1r$2/
+    - derive/^([a-z]*)r([a-z]*)$/Q$1e$2/
+    - derive/^([a-z]*)r([a-z]*)$/Q$1t$2/
+    - derive/^([a-z]*)t([a-z]*)$/Q$1r$2/
+    - derive/^([a-z]*)t([a-z]*)$/Q$1y$2/
+    - derive/^([a-z]*)y([a-z]*)$/Q$1t$2/
+    - derive/^([a-z]*)y([a-z]*)$/Q$1u$2/
+    - derive/^([a-z]*)u([a-z]*)$/Q$1y$2/
+    - derive/^([a-z]*)u([a-z]*)$/Q$1i$2/
+    - derive/^([a-z]*)i([a-z]*)$/Q$1u$2/
+    - derive/^([a-z]*)i([a-z]*)$/Q$1o$2/
+    - derive/^([a-z]*)o([a-z]*)$/Q$1i$2/
+    - derive/^([a-z]*)o([a-z]*)$/Q$1p$2/
+    - derive/^([a-z]*)p([a-z]*)$/Q$1o$2/
+    - derive/^([a-z]*)a([a-z]*)$/Q$1s$2/
+    - derive/^([a-z]*)s([a-z]*)$/Q$1a$2/
+    - derive/^([a-z]*)s([a-z]*)$/Q$1d$2/
+    - derive/^([a-z]*)d([a-z]*)$/Q$1s$2/
+    - derive/^([a-z]*)d([a-z]*)$/Q$1f$2/
+    - derive/^([a-z]*)f([a-z]*)$/Q$1d$2/
+    - derive/^([a-z]*)f([a-z]*)$/Q$1g$2/
+    - derive/^([a-z]*)g([a-z]*)$/Q$1f$2/
+    - derive/^([a-z]*)g([a-z]*)$/Q$1h$2/
+    - derive/^([a-z]*)h([a-z]*)$/Q$1g$2/
+    - derive/^([a-z]*)h([a-z]*)$/Q$1j$2/
+    - derive/^([a-z]*)j([a-z]*)$/Q$1h$2/
+    - derive/^([a-z]*)j([a-z]*)$/Q$1k$2/
+    - derive/^([a-z]*)k([a-z]*)$/Q$1j$2/
+    - derive/^([a-z]*)k([a-z]*)$/Q$1l$2/
+    - derive/^([a-z]*)l([a-z]*)$/Q$1k$2/
+    - derive/^([a-z]*)z([a-z]*)$/Q$1x$2/
+    - derive/^([a-z]*)x([a-z]*)$/Q$1z$2/
+    - derive/^([a-z]*)x([a-z]*)$/Q$1c$2/
+    - derive/^([a-z]*)c([a-z]*)$/Q$1x$2/
+    - derive/^([a-z]*)c([a-z]*)$/Q$1v$2/
+    - derive/^([a-z]*)v([a-z]*)$/Q$1c$2/
+    - derive/^([a-z]*)v([a-z]*)$/Q$1b$2/
+    - derive/^([a-z]*)b([a-z]*)$/Q$1v$2/
+    - derive/^([a-z]*)b([a-z]*)$/Q$1n$2/
+    - derive/^([a-z]*)n([a-z]*)$/Q$1b$2/
+    - derive/^([a-z]*)n([a-z]*)$/Q$1m$2/
+    - derive/^([a-z]*)m([a-z]*)$/Q$1n$2/
+    - xform/^Q//

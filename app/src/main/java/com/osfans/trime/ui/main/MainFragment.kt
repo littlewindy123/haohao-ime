@@ -29,6 +29,9 @@ import com.osfans.trime.R
 import com.osfans.trime.core.RimeRuntimeState
 import com.osfans.trime.daemon.RimeDaemon
 import com.osfans.trime.daemon.launchOnReady
+import com.osfans.trime.data.base.DataManager
+import com.osfans.trime.data.base.PinyinCorrectionSettings
+import com.osfans.trime.data.base.isManagedPinyinCorrectionConfig
 import com.osfans.trime.data.footprints.InputFootprints
 import com.osfans.trime.data.prefs.AppPrefs
 import com.osfans.trime.data.prefs.PreferenceDelegate
@@ -69,6 +72,8 @@ class MainFragment : Fragment(R.layout.fragment_main) {
 
     private var updatingUi = false
     private var previewJob: Job? = null
+    private var pinyinSettingsApplying = false
+    private var pendingPinyinSettings: PinyinCorrectionSettings? = null
 
     private val translationListener = PreferenceDelegate.OnChangeListener<Boolean> { _, _ ->
         renderCandidateSettings(reschedulePreview = true)
@@ -120,6 +125,7 @@ class MainFragment : Fragment(R.layout.fragment_main) {
         setupInsets()
         setupHeader()
         setupEngineStatus()
+        setupPinyinSettings()
         setupCandidateSettings()
         setupLearningSettings()
         setupErgonomicsSettings()
@@ -219,6 +225,40 @@ class MainFragment : Fragment(R.layout.fragment_main) {
                 binding.landscapeCount8 to 8,
             ),
         ) { prefs.candidates.compactCandidateCountLandscape.setValue(it) }
+    }
+
+    private fun setupPinyinSettings() {
+        binding.smartCorrectionSwitch.setOnCheckedChangeListener { _, checked ->
+            if (!updatingUi) {
+                applyPinyinSettings(prefs.pinyin.settings().copy(smartCorrection = checked))
+            }
+        }
+        binding.adjacentKeyCorrectionSwitch.setOnCheckedChangeListener { _, checked ->
+            if (!updatingUi) {
+                applyPinyinSettings(prefs.pinyin.settings().copy(adjacentKeyCorrection = checked))
+            }
+        }
+        binding.fuzzySettingsDestination.setOnClickListener {
+            findNavController().navigateWithAnim(NavigationRoute.PinyinFuzzy)
+        }
+    }
+
+    private fun applyPinyinSettings(settings: PinyinCorrectionSettings) {
+        if (pinyinSettingsApplying || !currentPinyinConfigIsManaged()) return
+        pinyinSettingsApplying = true
+        pendingPinyinSettings = settings
+        renderPinyinSettings()
+        requireActivity().lifecycleScope.launch {
+            try {
+                applyPinyinCorrectionSettings(prefs, viewModel.rime, settings)
+                    .onSuccess { context?.toast(R.string.pinyin_correction_apply_success) }
+                    .onFailure { context?.toast(R.string.pinyin_correction_apply_failed) }
+            } finally {
+                pinyinSettingsApplying = false
+                pendingPinyinSettings = null
+                if (viewBinding != null) renderPinyinSettings()
+            }
+        }
     }
 
     private fun setupEngineStatus() {
@@ -361,12 +401,48 @@ class MainFragment : Fragment(R.layout.fragment_main) {
 
     private fun renderAllSettings(reschedulePreview: Boolean) {
         if (viewBinding == null) return
+        renderPinyinSettings()
         renderCandidateSettings(reschedulePreview)
         renderLearningSetting()
         renderErgonomicsSettings()
         renderFeedbackSetting()
         renderThemeSetting()
     }
+
+    private fun renderPinyinSettings() {
+        if (viewBinding == null) return
+        val settings = pendingPinyinSettings ?: prefs.pinyin.settings()
+        val managed = currentPinyinConfigIsManaged()
+        val applying = pinyinSettingsApplying
+        updatingUi = true
+        binding.smartCorrectionSwitch.isChecked = settings.smartCorrection
+        binding.adjacentKeyCorrectionSwitch.isChecked = settings.adjacentKeyCorrection
+        binding.fuzzySettingsSummary.text = if (!settings.fuzzyEnabled) {
+            getString(R.string.pinyin_fuzzy_disabled)
+        } else {
+            getString(R.string.pinyin_fuzzy_enabled_count, settings.fuzzyPairs.size)
+        }
+        listOf(
+            binding.smartCorrectionSwitch,
+            binding.adjacentKeyCorrectionSwitch,
+            binding.fuzzySettingsDestination,
+        ).forEach { it.isEnabled = managed && !applying }
+        binding.pinyinOptions.alpha = if (managed) ENABLED_ALPHA else DISABLED_ALPHA
+        binding.pinyinSettingsStatus.isVisible = applying || !managed
+        binding.pinyinSettingsStatus.setText(
+            if (applying) {
+                R.string.pinyin_correction_applying
+            } else {
+                R.string.pinyin_correction_custom_config
+            },
+        )
+        updatingUi = false
+    }
+
+    private fun currentPinyinConfigIsManaged(): Boolean = isManagedPinyinCorrectionConfig(
+        DataManager.userDataDir.resolve(DataManager.SIMPLIFIED_SCHEMA_CUSTOM_FILE_NAME),
+        prefs.internal.pinyinCorrectionConfigHash.getValue(),
+    )
 
     private fun renderCandidateSettings(reschedulePreview: Boolean) {
         if (viewBinding == null) return

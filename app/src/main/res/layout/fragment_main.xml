@@ -240,6 +240,153 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="28dp"
                 android:layout_marginBottom="8dp"
+                android:text="@string/pinyin_input_settings"
+                android:textAppearance="@style/TextAppearance.HaoHao.SectionTitle" />
+
+            <LinearLayout
+                android:id="@+id/pinyin_options"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="72dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/pinyin_smart_correction"
+                            android:textAppearance="@style/TextAppearance.HaoHao.SettingTitle" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="3dp"
+                            android:text="@string/pinyin_smart_correction_summary"
+                            android:textColor="@color/haohao_cocoa_secondary"
+                            android:textSize="14sp" />
+                    </LinearLayout>
+
+                    <androidx.appcompat.widget.SwitchCompat
+                        android:id="@+id/smart_correction_switch"
+                        android:layout_width="wrap_content"
+                        android:layout_height="48dp"
+                        android:gravity="center"
+                        android:minWidth="48dp"
+                        app:thumbTint="@color/haohao_switch_thumb"
+                        app:trackTint="@color/haohao_switch_track" />
+                </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:background="@color/haohao_divider" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="72dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/pinyin_adjacent_key_correction"
+                            android:textAppearance="@style/TextAppearance.HaoHao.SettingTitle" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="3dp"
+                            android:text="@string/pinyin_adjacent_key_correction_summary"
+                            android:textColor="@color/haohao_cocoa_secondary"
+                            android:textSize="14sp" />
+                    </LinearLayout>
+
+                    <androidx.appcompat.widget.SwitchCompat
+                        android:id="@+id/adjacent_key_correction_switch"
+                        android:layout_width="wrap_content"
+                        android:layout_height="48dp"
+                        android:gravity="center"
+                        android:minWidth="48dp"
+                        app:thumbTint="@color/haohao_switch_thumb"
+                        app:trackTint="@color/haohao_switch_track" />
+                </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:background="@color/haohao_divider" />
+
+                <LinearLayout
+                    android:id="@+id/fuzzy_settings_destination"
+                    android:layout_width="match_parent"
+                    android:layout_height="64dp"
+                    android:background="?attr/selectableItemBackground"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/pinyin_fuzzy_settings"
+                        android:textAppearance="@style/TextAppearance.HaoHao.SettingTitle" />
+
+                    <TextView
+                        android:id="@+id/fuzzy_settings_summary"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textColor="@color/haohao_cocoa_secondary"
+                        android:textSize="14sp" />
+
+                    <TextView
+                        android:layout_width="32dp"
+                        android:layout_height="48dp"
+                        android:gravity="center"
+                        android:text="›"
+                        android:textColor="@color/haohao_cocoa_secondary"
+                        android:textSize="28sp" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/pinyin_settings_status"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:paddingTop="8dp"
+                    android:paddingBottom="8dp"
+                    android:textColor="@color/haohao_cocoa_secondary"
+                    android:textSize="14sp"
+                    android:visibility="gone" />
+            </LinearLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="@color/haohao_divider" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="28dp"
+                android:layout_marginBottom="8dp"
                 android:text="@string/quick_settings_bilingual"
                 android:textAppearance="@style/TextAppearance.HaoHao.SectionTitle" />
 
