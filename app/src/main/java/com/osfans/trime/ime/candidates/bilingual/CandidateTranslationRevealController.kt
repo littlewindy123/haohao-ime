@@ -94,6 +94,10 @@ internal class CandidateTranslationRevealController(
         listeners -= listener
     }
 
+    fun notifyContentChanged() {
+        listeners.forEach { it.onRevealStateChanged(state) }
+    }
+
     override fun onStartInput(info: EditorInfo) {
         hasCandidates = false
         restartReveal()

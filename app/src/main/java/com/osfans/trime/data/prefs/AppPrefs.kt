@@ -12,6 +12,7 @@ import com.osfans.trime.R
 import com.osfans.trime.data.base.DataManager
 import com.osfans.trime.data.base.PinyinCorrectionSettings
 import com.osfans.trime.data.base.PinyinFuzzyPair
+import com.osfans.trime.data.translation.CloudTranslationProviderType
 import com.osfans.trime.ime.candidates.bilingual.BILINGUAL_TRANSLATION_DELAY_DEFAULT_MS
 import com.osfans.trime.ime.candidates.bilingual.BILINGUAL_TRANSLATION_DELAY_MAX_MS
 import com.osfans.trime.ime.candidates.bilingual.BILINGUAL_TRANSLATION_DELAY_MIN_MS
@@ -60,6 +61,7 @@ class AppPrefs(
     val profile = Profile(shared).register()
     val keyboard = Keyboard(shared).register()
     val candidates = Candidates(shared).register()
+    val cloudTranslation = CloudTranslation(shared).register()
     val clipboard = Clipboard(shared).register()
     val advanced = Advanced(shared).register()
 
@@ -584,6 +586,22 @@ class AppPrefs(
                 if (storedValue != normalizedValue) compactCandidateCountLandscape.setValue(normalizedValue)
             }
         }
+    }
+
+    class CloudTranslation(
+        shared: SharedPreferences,
+    ) : PreferenceDelegateOwner(shared) {
+        companion object {
+            const val PROVIDER = "cloud_translation_provider"
+            const val CANDIDATE_FALLBACK = "cloud_candidate_translation_fallback"
+            const val CONSENT_GRANTED = "cloud_translation_consent_granted"
+            const val CUSTOM_ENDPOINT = "cloud_translation_custom_endpoint"
+        }
+
+        val provider = enum(PROVIDER, CloudTranslationProviderType.HAOHAO)
+        val candidateFallback = bool(CANDIDATE_FALLBACK, false)
+        val consentGranted = bool(CONSENT_GRANTED, false)
+        val customEndpoint = string(CUSTOM_ENDPOINT, "")
     }
 
     /**

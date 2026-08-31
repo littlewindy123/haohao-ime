@@ -45,6 +45,10 @@ import com.osfans.trime.ime.candidates.compact.CompactCandidateDelegate
 import com.osfans.trime.ime.candidates.unrolled.window.FlexboxUnrolledCandidateWindow
 import com.osfans.trime.ime.core.TrimeInputMethodService
 import com.osfans.trime.ime.dependency.InputDependencyManager
+import com.osfans.trime.ime.haohao.HAOHAO_TRANSLATION_BAR_HEIGHT_DP
+import com.osfans.trime.ime.haohao.HaoHaoTranslationController
+import com.osfans.trime.ime.haohao.HaoHaoTranslationStateListener
+import com.osfans.trime.ime.haohao.HaoHaoTranslationWindow
 import com.osfans.trime.ime.keyboard.CommonKeyboardActionListener
 import com.osfans.trime.ime.keyboard.KeyBehavior
 import com.osfans.trime.ime.keyboard.KeyboardWindow
@@ -77,6 +81,7 @@ class InputBarDelegate : InputBroadcastReceiver {
     private val commonKeyboardActionListener: CommonKeyboardActionListener by di.instance()
     private val candidate: CompactCandidateDelegate by di.instance()
     private val rime: RimeSession by di.instance()
+    private val translationController: HaoHaoTranslationController by di.instance()
 
     private val minimumToolBarHeight = theme.toolBar.primaryButton?.size?.getOrNull(1) ?: 0
     val themedHeight = theme.generalStyle.run { max(candidateViewHeight + commentHeight, minimumToolBarHeight) }
@@ -106,6 +111,7 @@ class InputBarDelegate : InputBroadcastReceiver {
     private var unrolledCandidatesVisible = false
     private var requestedBarState = QuickBarStateMachine.State.Always
     private var currentRuntimeState = RimeDaemon.runtimeState.value
+    private var candidateContentHeight = themedHeight
 
     private var isClipboardFresh: Boolean = false
     private var isInlineSuggestionPresent: Boolean = false
@@ -224,6 +230,14 @@ class InputBarDelegate : InputBroadcastReceiver {
         }
     }
 
+    private val translationWindow by lazy {
+        HaoHaoTranslationWindow(context, translationController)
+    }
+
+    private val translationStateListener = HaoHaoTranslationStateListener {
+        switchUiByState(requestedBarState)
+    }
+
     val unrollButtonStateMachine =
         UnrollButtonStateMachine.new {
             when (it) {
@@ -280,13 +294,8 @@ class InputBarDelegate : InputBroadcastReceiver {
             reserveTranslationLine -> bilingualThemedHeight
             else -> themedHeight
         }
-        view.layoutParams?.let { params ->
-            val targetHeightPx = context.dp(targetHeight)
-            if (params.height != targetHeightPx) {
-                params.height = targetHeightPx
-                view.layoutParams = params
-            }
-        }
+        candidateContentHeight = targetHeight
+        updateDisplayedHeight()
     }
 
     private fun switchUiByState(state: QuickBarStateMachine.State) {
@@ -295,7 +304,13 @@ class InputBarDelegate : InputBroadcastReceiver {
             showRuntimeState(currentRuntimeState)
             return
         }
-        val index = state.ordinal
+        val index = if (
+            state == QuickBarStateMachine.State.Always && translationController.isActive
+        ) {
+            TRANSLATION_CHILD_INDEX
+        } else {
+            state.ordinal
+        }
         if (view.displayedChild == index) return
         val new = view.getChildAt(index)
         if (new != tabUi.root) {
@@ -304,6 +319,7 @@ class InputBarDelegate : InputBroadcastReceiver {
             tabUi.removeExternal()
         }
         view.displayedChild = index
+        updateDisplayedHeight()
     }
 
     private fun showRuntimeState(state: RimeRuntimeState) {
@@ -330,6 +346,24 @@ class InputBarDelegate : InputBroadcastReceiver {
             }
         }
         view.displayedChild = RUNTIME_STATUS_CHILD_INDEX
+        updateDisplayedHeight()
+    }
+
+    private fun updateDisplayedHeight() {
+        val targetHeight = when {
+            currentRuntimeState != RimeRuntimeState.READY -> themedHeight
+            translationController.isActive && requestedBarState == QuickBarStateMachine.State.Always ->
+                HAOHAO_TRANSLATION_BAR_HEIGHT_DP
+            requestedBarState == QuickBarStateMachine.State.Candidate -> candidateContentHeight
+            else -> themedHeight
+        }
+        view.layoutParams?.let { params ->
+            val targetHeightPx = context.dp(targetHeight)
+            if (params.height != targetHeightPx) {
+                params.height = targetHeightPx
+                view.layoutParams = params
+            }
+        }
     }
 
     val view by lazy {
@@ -351,6 +385,19 @@ class InputBarDelegate : InputBroadcastReceiver {
             add(candidateUi.root, lParams(matchParent, matchParent))
             add(tabUi.root, lParams(matchParent, matchParent))
             add(runtimeStatusView, lParams(matchParent, matchParent))
+            add(translationWindow.root, lParams(matchParent, matchParent))
+
+            addOnAttachStateChangeListener(
+                object : View.OnAttachStateChangeListener {
+                    override fun onViewAttachedToWindow(view: View) {
+                        translationController.addListener(translationStateListener)
+                    }
+
+                    override fun onViewDetachedFromWindow(view: View) {
+                        translationController.removeListener(translationStateListener)
+                    }
+                },
+            )
 
             evalAlwaysUiState()
             ClipboardHelper.addOnUpdateListener(onClipboardUpdateListener)
@@ -461,5 +508,6 @@ class InputBarDelegate : InputBroadcastReceiver {
 
     private companion object {
         const val RUNTIME_STATUS_CHILD_INDEX = 3
+        const val TRANSLATION_CHILD_INDEX = 4
     }
 }

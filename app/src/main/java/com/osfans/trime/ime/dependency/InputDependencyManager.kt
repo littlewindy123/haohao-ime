@@ -9,6 +9,7 @@ import android.content.Context
 import androidx.lifecycle.lifecycleScope
 import com.osfans.trime.daemon.RimeSession
 import com.osfans.trime.data.theme.Theme
+import com.osfans.trime.data.translation.CloudCandidateTranslationController
 import com.osfans.trime.ime.bar.InputBarDelegate
 import com.osfans.trime.ime.broadcast.EnterKeyDisplayDelegate
 import com.osfans.trime.ime.broadcast.InputBroadcastReceiver
@@ -20,6 +21,7 @@ import com.osfans.trime.ime.candidates.compact.CompactCandidateDelegate
 import com.osfans.trime.ime.composition.PreeditDelegate
 import com.osfans.trime.ime.core.InputView
 import com.osfans.trime.ime.core.TrimeInputMethodService
+import com.osfans.trime.ime.haohao.HaoHaoTranslationController
 import com.osfans.trime.ime.keyboard.CommonKeyboardActionListener
 import com.osfans.trime.ime.keyboard.KeyboardWindow
 import com.osfans.trime.ime.popup.PopupDelegate
@@ -53,6 +55,8 @@ class InputDependencyManager(
         bindSingleton { BoardWindowManager() }
         bindSingleton { InputBarDelegate() }
         bindSingleton { CompactCandidateDelegate() }
+        bindSingleton { CloudCandidateTranslationController() }
+        bindSingleton { HaoHaoTranslationController() }
         bindSingleton {
             CandidateTranslationRevealController(
                 scheduler =
@@ -75,9 +79,12 @@ class InputDependencyManager(
 
     private val broadcaster: InputBroadcaster by di.instance()
     private val translationRevealController: CandidateTranslationRevealController by di.instance()
+    private val cloudCandidateTranslationController: CloudCandidateTranslationController by di.instance()
+    private val haoHaoTranslationController: HaoHaoTranslationController by di.instance()
 
     fun start() {
         translationRevealController.start()
+        cloudCandidateTranslationController.start()
         broadcaster.addReceiver(translationRevealController)
         val receivers: List<InputBroadcastReceiver> by di.allInstances()
         receivers.forEach { broadcaster.addReceiver(it) }
@@ -85,6 +92,8 @@ class InputDependencyManager(
 
     fun stop() {
         translationRevealController.stop()
+        cloudCandidateTranslationController.stop()
+        haoHaoTranslationController.stop()
         broadcaster.clear()
     }
 

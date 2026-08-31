@@ -38,6 +38,7 @@ import com.osfans.trime.ime.candidates.popup.PopupCandidatesMode
 import com.osfans.trime.ime.composition.PreeditDelegate
 import com.osfans.trime.ime.dependency.InputDependencyManager
 import com.osfans.trime.ime.haohao.HAOHAO_ONE_HAND_RAIL_WIDTH_DP
+import com.osfans.trime.ime.haohao.HaoHaoTranslationController
 import com.osfans.trime.ime.haohao.calculateHaoHaoKeyboardViewport
 import com.osfans.trime.ime.keyboard.InputFeedbackManager
 import com.osfans.trime.ime.keyboard.KeyboardPrefs.isLandscapeMode
@@ -112,6 +113,7 @@ class InputView(
     private val inputBar: InputBarDelegate by di.instance()
     private val keyboardWindow: KeyboardWindow by di.instance()
     private val liquidWindow: LiquidWindow by di.instance()
+    private val translationController: HaoHaoTranslationController by di.instance()
 
     private val candidatesMode by AppPrefs.defaultInstance().candidates.mode
 
@@ -378,6 +380,12 @@ class InputView(
         if (!restarting) {
             windowManager.attachWindow(KeyboardWindow)
         }
+    }
+
+    fun captureCloudTranslationText(text: String): Boolean = translationController.captureCommittedText(text)
+
+    fun deactivateCloudTranslation() {
+        translationController.deactivate()
     }
 
     fun updateEnterKeyLabel(info: EditorInfo) {

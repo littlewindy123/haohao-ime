@@ -77,8 +77,8 @@ tool_bar:
       foreground: {style: "ic@keyboard_close", font_size: 26, padding: 10}
       action: Hide
     - size: [48, 48]
-      foreground: {style: "ic@keyboard_settings_outline", font_size: 26, padding: 10}
-      action: HaoHaoTheme
+      foreground: {style: "ic@translate", font_size: 26, padding: 10}
+      action: HaoHaoTranslation
     - size: [48, 48]
       foreground: {style: "ic@emoticon_outline", font_size: 26, padding: 10}
       action: liquid_keyboard_emoji
@@ -105,7 +105,7 @@ preset_keys:
   HaoHaoSpace: {label: " ", preview: "", slide_cursor: true, functional: false, send: space}
   HaoHaoReturn: {label: "↵", preview: "", functional: true, send: Return}
   HaoHaoToolbox: {label: "好", preview: "", functional: true, send: FUNCTION, command: haohao_toolbox}
-  HaoHaoTheme: {label: 主题, preview: "", functional: true, send: SETTINGS, option: theme}
+  HaoHaoTranslation: {label: 翻译, preview: "", functional: true, send: FUNCTION, command: haohao_translation}
   HaoHaoInputFootprints: {label: 足迹, preview: "", functional: true, send: FUNCTION, command: haohao_input_footprints}
   HaoHaoEditor: {label: 编辑, preview: "", functional: true, send: FUNCTION, command: haohao_editor}
 

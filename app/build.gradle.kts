@@ -38,6 +38,8 @@ android {
         buildConfigField("String", "BUILD_COMMIT_HASH", "\"${project.buildCommitHash}\"")
         buildConfigField("String", "BUILD_GIT_REPO", "\"${project.buildGitRepo}\"")
         buildConfigField("String", "BUILD_VERSION_NAME", "\"${project.buildVersionName}\"")
+        val translationBaseUrl = providers.gradleProperty("haohaoTranslationBaseUrl").orElse("").get()
+        buildConfigField("String", "HAOHAO_TRANSLATION_BASE_URL", "\"$translationBaseUrl\"")
     }
 
     base {

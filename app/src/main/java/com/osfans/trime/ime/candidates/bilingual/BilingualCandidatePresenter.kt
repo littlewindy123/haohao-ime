@@ -7,6 +7,7 @@ package com.osfans.trime.ime.candidates.bilingual
 
 import com.osfans.trime.core.CandidateProto
 import com.osfans.trime.data.prefs.AppPrefs
+import com.osfans.trime.data.translation.OfflineFirstCandidateTranslationRepository
 import com.osfans.trime.ime.dependency.InputDependencyManager
 import org.kodein.di.instance
 import kotlin.math.ceil
@@ -84,7 +85,7 @@ private fun currentTranslationRevealState(): CandidateTranslationRevealState {
 
 internal val defaultBilingualCandidatePresenter by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
     BilingualCandidatePresenter(
-        repository = OfflineCandidateTranslationRepository,
+        repository = OfflineFirstCandidateTranslationRepository,
         isEnabled = { AppPrefs.defaultInstance().candidates.bilingualTranslation.getValue() },
         isPhoneticEnabled = { AppPrefs.defaultInstance().candidates.bilingualPhonetic.getValue() },
         revealState = ::currentTranslationRevealState,

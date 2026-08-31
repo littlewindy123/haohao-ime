@@ -245,8 +245,9 @@ open class TrimeInputMethodService : LifecycleInputMethodService() {
         when (it) {
             is RimeMessage.CommitTextMessage -> {
                 if (!it.data.text.isNullOrEmpty() && currentInputConnection != null) {
-                    commitText(it.data.text)
-                    InputFootprintRecorder.record(it.data.text, currentInputEditorInfo)
+                    if (commitText(it.data.text)) {
+                        InputFootprintRecorder.record(it.data.text, currentInputEditorInfo)
+                    }
                 }
             }
             is RimeMessage.InlinePreeditMessage -> {
@@ -653,6 +654,7 @@ open class TrimeInputMethodService : LifecycleInputMethodService() {
     override fun onFinishInputView(finishingInput: Boolean) {
         Timber.d("onFinishInputView: finishingInput=$finishingInput")
         decorLocationUpdated = false
+        inputView?.deactivateCloudTranslation()
         inputDeviceManager.onFinishInputView()
         currentInputConnection?.apply {
             finishComposingText()
@@ -665,7 +667,13 @@ open class TrimeInputMethodService : LifecycleInputMethodService() {
         InputFeedbackManager.finishInput()
     }
 
-    fun commitText(text: String) {
+    fun commitText(text: String): Boolean {
+        if (inputView?.captureCloudTranslationText(text) == true) return false
+        commitTextDirect(text)
+        return true
+    }
+
+    internal fun commitTextDirect(text: String) {
         val ic = currentInputConnection ?: return
 
         // when composing text equals commit content, finish composing text as-is

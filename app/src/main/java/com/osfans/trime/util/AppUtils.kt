@@ -66,6 +66,8 @@ object AppUtils {
 
     fun launchMainToInputFootprints(context: Context) = launchMainToDest(context, NavigationRoute.InputFootprints)
 
+    fun launchMainToCloudTranslation(context: Context) = launchMainToDest(context, NavigationRoute.CloudTranslation)
+
     fun launchLogActivity(context: Context) {
         context.startActivity<LogActivity>()
     }

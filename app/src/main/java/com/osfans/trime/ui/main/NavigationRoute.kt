@@ -74,6 +74,9 @@ sealed class NavigationRoute : Parcelable {
     @Serializable
     data object PinyinFuzzy : NavigationRoute()
 
+    @Serializable
+    data object CloudTranslation : NavigationRoute()
+
     companion object {
         fun createGraph(controller: NavController) = controller.createGraph(Main) {
             val ctx = controller.context
@@ -127,6 +130,9 @@ sealed class NavigationRoute : Parcelable {
             }
             fragment<PinyinFuzzyFragment, PinyinFuzzy> {
                 label = ctx.getString(R.string.pinyin_fuzzy_settings)
+            }
+            fragment<CloudTranslationSettingsFragment, CloudTranslation> {
+                label = ctx.getString(R.string.cloud_translation_title)
             }
         }
     }

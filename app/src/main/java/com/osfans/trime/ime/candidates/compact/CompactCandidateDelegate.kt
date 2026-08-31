@@ -27,10 +27,12 @@ import com.osfans.trime.data.prefs.PreferenceDelegate
 import com.osfans.trime.data.theme.FontManager
 import com.osfans.trime.data.theme.Theme
 import com.osfans.trime.data.theme.model.GeneralStyle
+import com.osfans.trime.data.translation.CloudCandidateTranslationController
+import com.osfans.trime.data.translation.CloudCandidateTranslationRepository
+import com.osfans.trime.data.translation.OfflineFirstCandidateTranslationRepository
 import com.osfans.trime.ime.bar.InputBarDelegate
 import com.osfans.trime.ime.bar.UnrollButtonStateMachine
 import com.osfans.trime.ime.broadcast.InputBroadcastReceiver
-import com.osfans.trime.ime.candidates.bilingual.OfflineCandidateTranslationRepository
 import com.osfans.trime.ime.candidates.bilingual.bilingualTranslationTextSize
 import com.osfans.trime.ime.candidates.unrolled.UnrolledCandidateItem
 import com.osfans.trime.ime.candidates.unrolled.toDisplayableUnrolledCandidates
@@ -242,6 +244,7 @@ class CompactCandidateDelegate : InputBroadcastReceiver {
     private val inputView: InputView by di.instance()
     val bar: InputBarDelegate by di.instance()
     private val candidatePreferences: AppPrefs.Candidates = AppPrefs.defaultInstance().candidates
+    private val cloudCandidateController: CloudCandidateTranslationController by di.instance()
 
     private var latestCandidates: Candidates.Bulk? = null
     private var currentPreedit: String? = null
@@ -257,6 +260,10 @@ class CompactCandidateDelegate : InputBroadcastReceiver {
         PreferenceDelegate.OnChangeListener<Boolean> { _, _ ->
             view.width.takeIf { it > 0 }?.let(::renderCandidates)
         }
+
+    private val cloudTranslationListener: () -> Unit = {
+        view.width.takeIf { it > 0 }?.let(::renderCandidates)
+    }
 
     private val isLandscape =
         context.resources.configuration.orientation != Configuration.ORIENTATION_PORTRAIT
@@ -361,7 +368,7 @@ class CompactCandidateDelegate : InputBroadcastReceiver {
         mode: CompactTranslationMode,
     ): CompactTranslationHint? {
         if (!candidatePreferences.bilingualTranslation.getValue()) return null
-        val translation = OfflineCandidateTranslationRepository.lookup(item.candidate.text)?.translation
+        val translation = OfflineFirstCandidateTranslationRepository.lookup(item.candidate.text)?.translation
         val requiredWidth = translation?.let {
             translationTextPaint.measureText(it).roundToInt() +
                 context.dp(theme.generalStyle.candidatePadding * 2) +
@@ -406,6 +413,7 @@ class CompactCandidateDelegate : InputBroadcastReceiver {
         }
 
         adapter.updateCandidates(cells, data.total, data.highlighted)
+        cloudCandidateController.requestVisible(cells.map { it.item.candidate.text })
         if (cells.isEmpty()) refreshUnrolled(0)
     }
 
@@ -479,6 +487,7 @@ class CompactCandidateDelegate : InputBroadcastReceiver {
                             .registerOnChangeListener(translationEnabledListener)
                         candidatePreferences.compactTranslationMode
                             .registerOnChangeListener(translationModeListener)
+                        CloudCandidateTranslationRepository.addListener(cloudTranslationListener)
                     }
 
                     override fun onViewDetachedFromWindow(view: View) {
@@ -486,6 +495,7 @@ class CompactCandidateDelegate : InputBroadcastReceiver {
                             .unregisterOnChangeListener(translationEnabledListener)
                         candidatePreferences.compactTranslationMode
                             .unregisterOnChangeListener(translationModeListener)
+                        CloudCandidateTranslationRepository.removeListener(cloudTranslationListener)
                     }
                 },
             )

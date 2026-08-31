@@ -372,6 +372,9 @@ class MainFragment : Fragment(R.layout.fragment_main) {
     }
 
     private fun setupDestinations() {
+        binding.cloudTranslationDestination.setOnClickListener {
+            findNavController().navigateWithAnim(NavigationRoute.CloudTranslation)
+        }
         binding.themeDestination.setOnClickListener {
             findNavController().navigateWithAnim(NavigationRoute.Theme)
         }

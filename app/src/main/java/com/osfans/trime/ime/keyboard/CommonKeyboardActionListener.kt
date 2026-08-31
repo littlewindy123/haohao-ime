@@ -10,6 +10,7 @@ import android.content.Context
 import android.content.Intent
 import android.view.KeyEvent
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.lifecycle.lifecycleScope
 import com.osfans.trime.R
 import com.osfans.trime.core.KeyModifiers
@@ -22,15 +23,19 @@ import com.osfans.trime.data.theme.ColorManager
 import com.osfans.trime.data.theme.DEFAULT_THEME_ID
 import com.osfans.trime.data.theme.KeyActionManager
 import com.osfans.trime.data.theme.ThemeManager
+import com.osfans.trime.data.translation.CloudTranslationResult
+import com.osfans.trime.data.translation.CloudTranslationRuntime
 import com.osfans.trime.ime.clipboard.ClipboardWindow
 import com.osfans.trime.ime.core.TrimeInputMethodService
 import com.osfans.trime.ime.dependency.InputDependencyManager
 import com.osfans.trime.ime.dialog.EnabledSchemaPickerDialog
 import com.osfans.trime.ime.haohao.HAOHAO_EDITOR_ACTION
 import com.osfans.trime.ime.haohao.HAOHAO_INPUT_FOOTPRINTS_ACTION
+import com.osfans.trime.ime.haohao.HAOHAO_TRANSLATION_ACTION
 import com.osfans.trime.ime.haohao.HaoHaoEditorWindow
 import com.osfans.trime.ime.haohao.HaoHaoShiftPolicy
 import com.osfans.trime.ime.haohao.HaoHaoToolboxWindow
+import com.osfans.trime.ime.haohao.HaoHaoTranslationController
 import com.osfans.trime.ime.switches.SwitchOptionWindow
 import com.osfans.trime.ime.symbol.LiquidData
 import com.osfans.trime.ime.symbol.LiquidWindow
@@ -60,6 +65,7 @@ class CommonKeyboardActionListener {
     private val windowManager: BoardWindowManager by di.instance()
     private val keyboardWindow: KeyboardWindow by di.instance()
     private val liquidWindow: LiquidWindow by di.instance()
+    private val translationController: HaoHaoTranslationController by di.instance()
 
     private val prefs = AppPrefs.defaultInstance()
 
@@ -124,6 +130,7 @@ class CommonKeyboardActionListener {
             }
 
             override fun onAction(action: KeyAction) {
+                if (handleHaoHaoTranslationEditing(action)) return
                 if (handleHaoHaoSingleUppercase(action)) return
                 val text = action.getText(KeyboardSwitcher.currentKeyboard)
                 val shouldHandle = when {
@@ -150,6 +157,19 @@ class CommonKeyboardActionListener {
                         KeyEvent.KEYCODE_VOICE_ASSIST -> switchToVoiceInputMethod()
                         else -> handleDefaultKeyAction(action)
                     }
+                }
+            }
+
+            private fun handleHaoHaoTranslationEditing(action: KeyAction): Boolean {
+                if (!translationController.isActive) return false
+                return when (action.code) {
+                    KeyEvent.KEYCODE_DEL -> translationController.deleteLastCodePoint()
+                    KeyEvent.KEYCODE_ENTER -> translationController.translateNow()
+                    KeyEvent.KEYCODE_BACK, KeyEvent.KEYCODE_ESCAPE -> {
+                        translationController.deactivate()
+                        true
+                    }
+                    else -> false
                 }
             }
 
@@ -205,6 +225,7 @@ class CommonKeyboardActionListener {
                     "haohao_toolbox" -> windowManager.attachWindow(HaoHaoToolboxWindow())
                     HAOHAO_EDITOR_ACTION -> openHaoHaoEditor()
                     HAOHAO_INPUT_FOOTPRINTS_ACTION -> AppUtils.launchMainToInputFootprints(service)
+                    HAOHAO_TRANSLATION_ACTION -> openHaoHaoTranslation()
                     "clipboard_window" -> handleClipboardWindow(arg)
                     "set_color_scheme" -> handleColorScheme(arg)
                     "set_theme" -> handleTheme(arg)
@@ -231,6 +252,52 @@ class CommonKeyboardActionListener {
                             windowManager.attachWindow(HaoHaoEditorWindow())
                         }
                     }
+                }
+            }
+
+            private fun openHaoHaoTranslation() {
+                rime.launchOnReady { api ->
+                    service.lifecycleScope.launch {
+                        if (api.statusCached.isComposing) {
+                            service.toast(R.string.haohao_editor_finish_composing)
+                            return@launch
+                        }
+                        when (val failure = CloudTranslationRuntime.manager.status()) {
+                            null -> activateHaoHaoTranslation()
+                            is CloudTranslationResult.Failure -> when (failure.kind) {
+                                CloudTranslationResult.Failure.Kind.CONSENT_REQUIRED -> showCloudTranslationConsent()
+                                CloudTranslationResult.Failure.Kind.NOT_CONFIGURED -> {
+                                    service.toast(R.string.haohao_translation_not_configured)
+                                    AppUtils.launchMainToCloudTranslation(service)
+                                }
+                                CloudTranslationResult.Failure.Kind.INVALID_REQUEST ->
+                                    service.toast(R.string.haohao_translation_sensitive_disabled)
+                                else -> service.toast(R.string.cloud_translation_error_network)
+                            }
+                        }
+                    }
+                }
+            }
+
+            private fun showCloudTranslationConsent() {
+                val dialog = AlertDialog.Builder(context)
+                    .setTitle(R.string.cloud_translation_consent_title)
+                    .setMessage(R.string.cloud_translation_consent_message)
+                    .setPositiveButton(R.string.cloud_translation_consent_confirm) { _, _ ->
+                        prefs.cloudTranslation.consentGranted.setValue(true)
+                        openHaoHaoTranslation()
+                    }
+                    .setNegativeButton(android.R.string.cancel, null)
+                    .create()
+                service.showDialog(dialog)
+            }
+
+            private fun activateHaoHaoTranslation() {
+                val failure = translationController.activate() ?: return
+                if (failure.kind == CloudTranslationResult.Failure.Kind.INVALID_REQUEST) {
+                    service.toast(R.string.haohao_translation_sensitive_disabled)
+                } else {
+                    service.toast(R.string.haohao_translation_not_configured)
                 }
             }
 
