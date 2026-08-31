@@ -10,6 +10,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.suspendCancellableCoroutine
+import timber.log.Timber
 import java.util.concurrent.ConcurrentLinkedQueue
 import kotlin.coroutines.Continuation
 import kotlin.coroutines.CoroutineContext
@@ -54,14 +55,21 @@ class RimeLifecycleRegistry : RimeLifecycle {
                 internalState = RimeLifecycle.State.STOPPED
             }
         }
-        observers.forEach { it.onChanged(state) }
+        notifyObservers(state)
     }
 
     @Synchronized
     fun emitStartupFailed() {
         checkAtState(RimeLifecycle.State.STARTING)
         internalState = RimeLifecycle.State.STOPPED
-        observers.forEach { it.onChanged(RimeLifecycle.State.STOPPED) }
+        notifyObservers(RimeLifecycle.State.STOPPED)
+    }
+
+    private fun notifyObservers(state: RimeLifecycle.State) {
+        observers.forEach { observer ->
+            runCatching { observer.onChanged(state) }
+                .onFailure { Timber.e(it, "Rime lifecycle observer failed at %s", state) }
+        }
     }
 
     private fun checkAtState(state: RimeLifecycle.State) = takeIf { (internalState == state) }

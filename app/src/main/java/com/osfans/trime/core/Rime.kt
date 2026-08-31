@@ -81,15 +81,15 @@ class Rime :
                 override fun nativeStartup() {
                     startRime(startupFullCheck)
                     lifecycleRegistry.emitState(RimeLifecycle.State.READY)
-                    mutableRuntimeState.value = RimeRuntimeState.READY
-                    lastFailure = null
+                    markRuntimeReady()
                 }
 
                 override fun nativeStartupFailed(error: Throwable) {
                     runCatching(::exitRime)
                     lastFailure = error.message ?: error.javaClass.simpleName
-                    lifecycleRegistry.emitStartupFailed()
                     mutableRuntimeState.value = RimeRuntimeState.FAILED
+                    runCatching(lifecycleRegistry::emitStartupFailed)
+                        .onFailure { Timber.e(it, "Unable to reset Rime lifecycle after startup failure") }
                     unregisterRimeMessageHandler(::handleRimeMessage)
                 }
 
@@ -110,6 +110,9 @@ class Rime :
     @Volatile
     private var startupFullCheck = false
 
+    @Volatile
+    private var deploymentFailure: String? = null
+
     init {
         if (lifecycle.currentState != RimeLifecycle.State.STOPPED) {
             throw IllegalStateException("Rime has already been created!")
@@ -127,11 +130,13 @@ class Rime :
     override suspend fun deploy() = withRimeContext {
         exitRime()
         startRime(true)
+        markRuntimeReady()
     }
 
     override suspend fun updateConfig() = withRimeContext {
         exitRime()
         startRime(false)
+        markRuntimeReady()
     }
 
     override suspend fun syncUserData(): Boolean = withRimeContext {
@@ -278,7 +283,9 @@ class Rime :
         )
         val nativeStartedAt = SystemClock.elapsedRealtime()
         try {
+            deploymentFailure = null
             startupRime(sharedDataDir, userDataDir, BuildConfig.BUILD_VERSION_NAME, fullCheck)
+            deploymentFailure?.let(::error)
             enforceSimplifiedSchema()
         } finally {
             lastNativeStartupMillis = SystemClock.elapsedRealtime() - nativeStartedAt
@@ -298,6 +305,11 @@ class Rime :
         }
         statusCached = status
         schemaCached = RimeSchema(DEFAULT_SCHEMA_ID)
+    }
+
+    private fun markRuntimeReady() {
+        mutableRuntimeState.value = RimeRuntimeState.READY
+        lastFailure = null
     }
 
     private fun processKeyInner(value: Int, modifiers: Int, isVirtual: Boolean): Boolean {
@@ -385,12 +397,11 @@ class Rime :
                         OpenCCDictManager.buildOpenCCDict()
                     }
                     RimeMessage.DeployMessage.State.Success -> {
-                        enforceSimplifiedSchema()
-                        mutableRuntimeState.value = RimeRuntimeState.READY
-                        lastFailure = null
+                        deploymentFailure = null
                     }
                     RimeMessage.DeployMessage.State.Failure -> {
-                        lastFailure = "Rime deployment failed"
+                        deploymentFailure = "Rime deployment failed"
+                        lastFailure = deploymentFailure
                         mutableRuntimeState.value = RimeRuntimeState.FAILED
                     }
                 }

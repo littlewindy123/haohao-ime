@@ -55,7 +55,9 @@ class Rime {
     rime->setup(&trime_traits);
     rime->initialize(&trime_traits);
     rime->set_notification_handler(notificationHandler, GlobalRef->jvm);
-    rime->start_maintenance(fullCheck);
+    if (rime->start_maintenance(fullCheck)) {
+      rime->join_maintenance_thread();
+    }
   }
 
   bool deploySchema(std::string_view schemaFile) {

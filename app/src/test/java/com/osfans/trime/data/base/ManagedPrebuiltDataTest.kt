@@ -118,6 +118,23 @@ class ManagedPrebuiltDataTest :
             shouldUpdateManagedChecksums(current, current, repairedPrebuiltFiles = 1) shouldBe true
             shouldUpdateManagedChecksums(current, DataChecksums("next", emptyMap()), repairedPrebuiltFiles = 0) shouldBe true
         }
+
+        "upgraded prebuilt data invalidates only stale compiled user data" {
+            val root = Files.createTempDirectory("haohao-stale-user-build").toFile()
+            val userData = root.resolve("user").apply { mkdirs() }
+            val userDictionary = userData.resolve("luna_pinyin.userdb").apply { writeText("learned words") }
+            val staleBuild = userData.resolve("build").apply {
+                mkdirs()
+                resolve("haohao_pinyin.table.bin").writeText("stale")
+            }
+
+            invalidateStaleCompiledUserData(userData, prebuiltUpdated = true) shouldBe true
+
+            staleBuild.exists() shouldBe false
+            userDictionary.readText() shouldBe "learned words"
+            invalidateStaleCompiledUserData(userData, prebuiltUpdated = false) shouldBe false
+            root.deleteRecursively()
+        }
     })
 
 private fun sha256(bytes: ByteArray): String = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }

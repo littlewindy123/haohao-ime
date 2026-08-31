@@ -120,6 +120,21 @@ internal fun invalidatePrebuiltRimeData(
     }
 }
 
+internal fun invalidateStaleCompiledUserData(
+    userDataDir: File,
+    prebuiltUpdated: Boolean,
+): Boolean {
+    if (!prebuiltUpdated) return false
+    val userRoot = userDataDir.canonicalFile
+    val buildDir = userRoot.resolve("build").canonicalFile
+    check(buildDir.path.startsWith(userRoot.path + File.separator)) {
+        "Compiled Rime data escaped user directory: $buildDir"
+    }
+    if (!buildDir.exists()) return false
+    check(buildDir.deleteRecursively()) { "Failed to remove stale compiled Rime data: $buildDir" }
+    return true
+}
+
 internal data class ManagedPrebuiltSyncResult(
     val copiedFiles: Int,
     val copiedBytes: Long,
@@ -405,6 +420,9 @@ object DataManager {
         copiedBytes += prebuilt.copiedBytes
         if (prebuilt.copiedFiles > 0) {
             Timber.i("Prepared %d Rime prebuilt files (%d bytes)", prebuilt.copiedFiles, prebuilt.copiedBytes)
+        }
+        if (invalidateStaleCompiledUserData(userDataDir, prebuilt.copiedFiles > 0)) {
+            Timber.i("Removed stale compiled user data after updating Rime prebuilt files")
         }
 
         if (shouldUpdateManagedChecksums(oldChecksums, newChecksums, prebuilt.copiedFiles)) {
