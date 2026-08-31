@@ -1,0 +1,25 @@
+# haohao-managed-pinyin-correction-v1
+patch:
+  schema/name: 好好拼音
+  translator/dictionary: haohao_pinyin
+  translator/user_dict: luna_pinyin
+  translator/enable_charset_filter: true
+  engine/filters/+:
+    - charset_filter
+  speller/algebra:
+    __patch:
+      - pinyin:/abbreviation
+      - pinyin:/spelling_correction
+      - pinyin:/key_correction
+      - haohao_pinyin_correction:/adjacent_key_correction
+      - haohao_pinyin_correction:/fuzzy_s_sh
+      - haohao_pinyin_correction:/fuzzy_c_ch
+      - haohao_pinyin_correction:/fuzzy_z_zh
+      - haohao_pinyin_correction:/fuzzy_l_n
+      - haohao_pinyin_correction:/fuzzy_f_h
+      - haohao_pinyin_correction:/fuzzy_r_l
+      - haohao_pinyin_correction:/fuzzy_an_ang
+      - haohao_pinyin_correction:/fuzzy_en_eng
+      - haohao_pinyin_correction:/fuzzy_in_ing
+      - haohao_pinyin_correction:/fuzzy_ian_iang
+      - haohao_pinyin_correction:/fuzzy_uan_uang

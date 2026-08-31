@@ -10,6 +10,8 @@ import android.content.SharedPreferences
 import androidx.annotation.Keep
 import com.osfans.trime.R
 import com.osfans.trime.data.base.DataManager
+import com.osfans.trime.data.base.PinyinCorrectionSettings
+import com.osfans.trime.data.base.PinyinFuzzyPair
 import com.osfans.trime.ime.candidates.bilingual.BILINGUAL_TRANSLATION_DELAY_DEFAULT_MS
 import com.osfans.trime.ime.candidates.bilingual.BILINGUAL_TRANSLATION_DELAY_MAX_MS
 import com.osfans.trime.ime.candidates.bilingual.BILINGUAL_TRANSLATION_DELAY_MIN_MS
@@ -52,6 +54,7 @@ class AppPrefs(
 
     val internal = Internal(shared)
     val general = General(shared).register()
+    val pinyin = Pinyin(shared).register()
     val profile = Profile(shared).register()
     val keyboard = Keyboard(shared).register()
     val candidates = Candidates(shared).register()
@@ -94,10 +97,46 @@ class AppPrefs(
         companion object {
             const val PID = "general__pid"
             const val PRIVATE_RIME_DATA_MIGRATED = "internal_private_rime_data_migrated"
+            const val PINYIN_CORRECTION_CONFIG_HASH = "internal_pinyin_correction_config_hash"
         }
 
         val pid = int(PID, 0)
         val privateRimeDataMigrated = bool(PRIVATE_RIME_DATA_MIGRATED, false)
+        val pinyinCorrectionConfigHash = string(PINYIN_CORRECTION_CONFIG_HASH, "")
+    }
+
+    class Pinyin(
+        shared: SharedPreferences,
+    ) : PreferenceDelegateOwner(shared) {
+        companion object {
+            const val SMART_CORRECTION = "pinyin_smart_correction"
+            const val ADJACENT_KEY_CORRECTION = "pinyin_adjacent_key_correction"
+            const val FUZZY_ENABLED = "pinyin_fuzzy_enabled"
+            const val FUZZY_PREFIX = "pinyin_fuzzy_"
+        }
+
+        val smartCorrection = bool(SMART_CORRECTION, true)
+        val adjacentKeyCorrection = bool(ADJACENT_KEY_CORRECTION, false)
+        val fuzzyEnabled = bool(FUZZY_ENABLED, false)
+        private val fuzzyPairs = PinyinFuzzyPair.entries.associateWith { pair ->
+            bool(FUZZY_PREFIX + pair.configKey, false)
+        }
+
+        internal fun fuzzyPair(pair: PinyinFuzzyPair): PreferenceDelegate<Boolean> = fuzzyPairs.getValue(pair)
+
+        internal fun settings(): PinyinCorrectionSettings = PinyinCorrectionSettings(
+            smartCorrection = smartCorrection.getValue(),
+            adjacentKeyCorrection = adjacentKeyCorrection.getValue(),
+            fuzzyEnabled = fuzzyEnabled.getValue(),
+            fuzzyPairs = PinyinFuzzyPair.entries.filterTo(linkedSetOf()) { fuzzyPair(it).getValue() },
+        )
+
+        internal fun save(settings: PinyinCorrectionSettings) {
+            smartCorrection.setValue(settings.smartCorrection)
+            adjacentKeyCorrection.setValue(settings.adjacentKeyCorrection)
+            fuzzyEnabled.setValue(settings.fuzzyEnabled)
+            PinyinFuzzyPair.entries.forEach { fuzzyPair(it).setValue(it in settings.fuzzyPairs) }
+        }
     }
 
     class General(

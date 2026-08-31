@@ -71,6 +71,9 @@ sealed class NavigationRoute : Parcelable {
     @Serializable
     data object InputFootprints : NavigationRoute()
 
+    @Serializable
+    data object PinyinFuzzy : NavigationRoute()
+
     companion object {
         fun createGraph(controller: NavController) = controller.createGraph(Main) {
             val ctx = controller.context
@@ -121,6 +124,9 @@ sealed class NavigationRoute : Parcelable {
             }
             fragment<InputFootprintsFragment, InputFootprints> {
                 label = ctx.getString(R.string.input_footprints_title)
+            }
+            fragment<PinyinFuzzyFragment, PinyinFuzzy> {
+                label = ctx.getString(R.string.pinyin_fuzzy_settings)
             }
         }
     }
