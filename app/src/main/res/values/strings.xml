@@ -33,9 +33,15 @@
     <string name="quick_settings_preview_chinese" translatable="false">你好</string>
     <string name="quick_settings_preview_english" translatable="false">hello</string>
     <string name="quick_settings_preview_ipa" translatable="false">/həˈloʊ/</string>
+    <string name="quick_settings_preview_adaptive_pinyin" translatable="false">mei guan xi</string>
+    <string name="quick_settings_preview_adaptive_chinese" translatable="false">没关系</string>
+    <string name="quick_settings_preview_adaptive_english" translatable="false">no problem</string>
+    <string name="quick_settings_preview_adaptive_ipa" translatable="false">/noʊ ˈprɑːbləm/</string>
     <string name="quick_settings_delay_value">%1$d ms</string>
     <string name="quick_settings_portrait_candidate_count">Portrait target candidates</string>
     <string name="quick_settings_landscape_candidate_count">Landscape target candidates</string>
+    <string name="quick_settings_portrait_candidate_limit">Portrait candidate limit</string>
+    <string name="quick_settings_landscape_candidate_limit">Landscape candidate limit</string>
     <string name="quick_settings_adjust_custom_feedback">Adjust custom feedback parameters</string>
     <string name="quick_settings_theme_current">Current: %1$s</string>
     <string name="quick_settings_theme_haohao">HaoHao</string>
@@ -224,6 +230,9 @@
     <string name="bilingual_candidate_translation">Show English translations</string>
     <string name="bilingual_candidate_translation_summary">Display an English translation below supported Chinese candidates</string>
     <string name="bilingual_candidate_translation_delay">English translation delay</string>
+    <string name="compact_translation_mode">Top English mode</string>
+    <string name="compact_translation_mode_word">Words</string>
+    <string name="compact_translation_mode_adaptive">Adaptive</string>
     <string name="bilingual_candidate_phonetic">Show American English IPA</string>
     <string name="bilingual_candidate_phonetic_summary">Display an optional pronunciation line below English translations</string>
     <string name="show_candidates_window">Show candidates window</string>

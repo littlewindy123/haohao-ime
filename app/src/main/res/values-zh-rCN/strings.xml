@@ -31,6 +31,8 @@
     <string name="quick_settings_delay_value">%1$d ms</string>
     <string name="quick_settings_portrait_candidate_count">竖屏目标候选数</string>
     <string name="quick_settings_landscape_candidate_count">横屏目标候选数</string>
+    <string name="quick_settings_portrait_candidate_limit">竖屏候选数上限</string>
+    <string name="quick_settings_landscape_candidate_limit">横屏候选数上限</string>
     <string name="quick_settings_adjust_custom_feedback">调整自定义反馈参数</string>
     <string name="quick_settings_theme_current">当前：%1$s</string>
     <string name="quick_settings_theme_haohao">好好主题</string>
@@ -219,6 +221,9 @@
     <string name="bilingual_candidate_translation">显示英文翻译</string>
     <string name="bilingual_candidate_translation_summary">在已收录的中文候选词下方显示英文翻译</string>
     <string name="bilingual_candidate_translation_delay">英文翻译显示延迟</string>
+    <string name="compact_translation_mode">顶部英文模式</string>
+    <string name="compact_translation_mode_word">单词</string>
+    <string name="compact_translation_mode_adaptive">自适应</string>
     <string name="bilingual_candidate_phonetic">显示美式英语音标</string>
     <string name="bilingual_candidate_phonetic_summary">在英文翻译下方显示可选的美式 IPA 音标</string>
     <string name="show_candidates_window">显示候选词窗口</string>

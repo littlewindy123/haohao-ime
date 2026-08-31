@@ -10,6 +10,8 @@ import android.content.res.Configuration
 import android.graphics.Paint
 import android.text.TextPaint
 import android.util.TypedValue
+import android.view.View
+import androidx.annotation.Keep
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.flexbox.FlexWrap
 import com.google.android.flexbox.FlexboxLayoutManager
@@ -21,12 +23,14 @@ import com.osfans.trime.core.CompositionProto
 import com.osfans.trime.daemon.RimeSession
 import com.osfans.trime.daemon.launchOnReady
 import com.osfans.trime.data.prefs.AppPrefs
+import com.osfans.trime.data.prefs.PreferenceDelegate
 import com.osfans.trime.data.theme.FontManager
 import com.osfans.trime.data.theme.Theme
 import com.osfans.trime.data.theme.model.GeneralStyle
 import com.osfans.trime.ime.bar.InputBarDelegate
 import com.osfans.trime.ime.bar.UnrollButtonStateMachine
 import com.osfans.trime.ime.broadcast.InputBroadcastReceiver
+import com.osfans.trime.ime.candidates.bilingual.OfflineCandidateTranslationRepository
 import com.osfans.trime.ime.candidates.bilingual.bilingualTranslationTextSize
 import com.osfans.trime.ime.candidates.unrolled.UnrolledCandidateItem
 import com.osfans.trime.ime.candidates.unrolled.toDisplayableUnrolledCandidates
@@ -55,6 +59,7 @@ internal const val COMPACT_CANDIDATE_TRAILING_CONTROL_WIDTH_DP = 40
 private const val COMPACT_PRIMARY_TRANSLATION_MIN_LETTERS = 8
 private const val COMPACT_PRIMARY_TRANSLATION_MAX_LETTERS = 10
 private const val COMPACT_SECONDARY_TRANSLATION_MAX_LETTERS = 8
+private const val COMPACT_TRANSLATION_WIDTH_SAFETY_DP = 2
 
 private val PINYIN_SYLLABLE = Regex("[a-züv]+", RegexOption.IGNORE_CASE)
 private val PINYIN_SEPARATOR = Regex("[\\s']+")
@@ -121,12 +126,25 @@ internal fun compactCandidateCellWidth(
 internal data class CompactCandidateCell(
     val item: UnrolledCandidateItem,
     val width: Int,
+    val compactTranslation: String? = null,
 )
 
 internal data class CompactCandidateWidthBounds(
     val minimum: Int,
     val preferred: Int,
 )
+
+internal fun CompactCandidateWidthBounds.withCompactTranslationWidth(
+    mode: CompactTranslationMode,
+    hint: CompactTranslationHint?,
+): CompactCandidateWidthBounds {
+    if (mode != CompactTranslationMode.ADAPTIVE || hint == null) return this
+    val required = hint.requiredWidth
+    return CompactCandidateWidthBounds(
+        minimum = max(minimum, required),
+        preferred = max(preferred, required),
+    )
+}
 
 internal data class CompactTranslationWidthLimits(
     val primaryMinimum: Int,
@@ -223,10 +241,22 @@ class CompactCandidateDelegate : InputBroadcastReceiver {
     val theme: Theme by di.instance()
     private val inputView: InputView by di.instance()
     val bar: InputBarDelegate by di.instance()
-    private val candidatePreferences = AppPrefs.defaultInstance().candidates
+    private val candidatePreferences: AppPrefs.Candidates = AppPrefs.defaultInstance().candidates
 
     private var latestCandidates: Candidates.Bulk? = null
     private var currentPreedit: String? = null
+
+    @Keep
+    private val translationModeListener =
+        PreferenceDelegate.OnChangeListener<CompactTranslationMode> { _, _ ->
+            view.width.takeIf { it > 0 }?.let(::renderCandidates)
+        }
+
+    @Keep
+    private val translationEnabledListener =
+        PreferenceDelegate.OnChangeListener<Boolean> { _, _ ->
+            view.width.takeIf { it > 0 }?.let(::renderCandidates)
+        }
 
     private val isLandscape =
         context.resources.configuration.orientation != Configuration.ORIENTATION_PORTRAIT
@@ -277,7 +307,11 @@ class CompactCandidateDelegate : InputBroadcastReceiver {
             context.dp(theme.generalStyle.candidatePadding * 2)
     }
 
-    private fun measureCandidateWidth(item: UnrolledCandidateItem): CompactCandidateWidthBounds {
+    private fun measureCandidateWidth(
+        item: UnrolledCandidateItem,
+        mode: CompactTranslationMode,
+        translationHint: CompactTranslationHint?,
+    ): CompactCandidateWidthBounds {
         val candidate = item.candidate
         val textWidth = candidateTextPaint.measureText(candidate.text).roundToInt()
         val commentWidth = commentTextPaint.measureText(candidate.comment).roundToInt()
@@ -301,10 +335,16 @@ class CompactCandidateDelegate : InputBroadcastReceiver {
             maxWidth = context.dp(COMPACT_CANDIDATE_MAX_WIDTH_DP),
         )
         return CompactCandidateWidthBounds(minimum, preferred)
+            .withCompactTranslationWidth(mode, translationHint)
     }
 
-    private fun translationWidthLimits(): CompactTranslationWidthLimits? {
-        if (!candidatePreferences.bilingualTranslation.getValue()) return null
+    private fun translationWidthLimits(mode: CompactTranslationMode): CompactTranslationWidthLimits? {
+        if (
+            !candidatePreferences.bilingualTranslation.getValue() ||
+            mode != CompactTranslationMode.WORD
+        ) {
+            return null
+        }
         val maximumWidth = context.dp(COMPACT_CANDIDATE_MAX_WIDTH_DP)
         return CompactTranslationWidthLimits(
             primaryMinimum = translationReservedWidth(COMPACT_PRIMARY_TRANSLATION_MIN_LETTERS)
@@ -313,6 +353,25 @@ class CompactCandidateDelegate : InputBroadcastReceiver {
                 .coerceAtMost(maximumWidth),
             secondaryMaximum = translationReservedWidth(COMPACT_SECONDARY_TRANSLATION_MAX_LETTERS)
                 .coerceAtMost(maximumWidth),
+        )
+    }
+
+    private fun translationHintFor(
+        item: UnrolledCandidateItem,
+        mode: CompactTranslationMode,
+    ): CompactTranslationHint? {
+        if (!candidatePreferences.bilingualTranslation.getValue()) return null
+        val translation = OfflineCandidateTranslationRepository.lookup(item.candidate.text)?.translation
+        val requiredWidth = translation?.let {
+            translationTextPaint.measureText(it).roundToInt() +
+                context.dp(theme.generalStyle.candidatePadding * 2) +
+                context.dp(COMPACT_TRANSLATION_WIDTH_SAFETY_DP)
+        } ?: 0
+        return compactTranslationHint(
+            mode = mode,
+            translation = translation,
+            requiredWidth = requiredWidth,
+            adaptiveMaximumWidth = context.dp(COMPACT_ADAPTIVE_TRANSLATION_MAX_WIDTH_DP),
         )
     }
 
@@ -327,13 +386,24 @@ class CompactCandidateDelegate : InputBroadcastReceiver {
         val data = latestCandidates ?: return
         val targetCount = targetCandidateCount()
         val candidates = data.candidates.toCompactCandidateItems(targetCount, prioritizedPreedit())
+        val translationMode = candidatePreferences.compactTranslationMode.getValue()
+        val translationHints = candidates.associateWith { translationHintFor(it, translationMode) }
         val cells = fitCompactCandidateRow(
             candidates = candidates,
             targetCount = targetCount,
             availableWidth = availableWidth,
-            translationLimits = translationWidthLimits(),
-            widthOf = ::measureCandidateWidth,
-        )
+            translationLimits = translationWidthLimits(translationMode),
+            widthOf = { item ->
+                measureCandidateWidth(item, translationMode, translationHints[item])
+            },
+        ).map { cell ->
+            cell.copy(
+                compactTranslation = compactTranslationTextForCell(
+                    translationHints[cell.item],
+                    cell.width,
+                ),
+            )
+        }
 
         adapter.updateCandidates(cells, data.total, data.highlighted)
         if (cells.isEmpty()) refreshUnrolled(0)
@@ -393,7 +463,7 @@ class CompactCandidateDelegate : InputBroadcastReceiver {
         }
     }
 
-    val view by lazy {
+    val view: RecyclerView by lazy {
         context.recyclerView(R.id.candidate_view) {
             itemAnimator = null
             adapter = this@CompactCandidateDelegate.adapter
@@ -402,6 +472,23 @@ class CompactCandidateDelegate : InputBroadcastReceiver {
                 val width = right - left
                 if (width > 0 && width != oldRight - oldLeft) renderCandidates(width)
             }
+            addOnAttachStateChangeListener(
+                object : View.OnAttachStateChangeListener {
+                    override fun onViewAttachedToWindow(view: View) {
+                        candidatePreferences.bilingualTranslation
+                            .registerOnChangeListener(translationEnabledListener)
+                        candidatePreferences.compactTranslationMode
+                            .registerOnChangeListener(translationModeListener)
+                    }
+
+                    override fun onViewDetachedFromWindow(view: View) {
+                        candidatePreferences.bilingualTranslation
+                            .unregisterOnChangeListener(translationEnabledListener)
+                        candidatePreferences.compactTranslationMode
+                            .unregisterOnChangeListener(translationModeListener)
+                    }
+                },
+            )
         }
     }
 

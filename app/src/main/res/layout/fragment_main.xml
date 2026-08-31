@@ -105,6 +105,7 @@
                 android:orientation="vertical">
 
                 <TextView
+                    android:id="@+id/preview_pinyin"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:includeFontPadding="false"
@@ -113,6 +114,7 @@
                     android:textSize="15sp" />
 
                 <TextView
+                    android:id="@+id/preview_chinese"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="6dp"
@@ -435,6 +437,46 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
+                        android:text="@string/compact_translation_mode"
+                        android:textAppearance="@style/TextAppearance.HaoHao.SettingTitle" />
+
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="48dp"
+                        android:orientation="horizontal">
+
+                        <androidx.appcompat.widget.AppCompatButton
+                            android:id="@+id/translation_mode_word"
+                            style="@style/Widget.HaoHao.SegmentButton"
+                            android:layout_width="80dp"
+                            android:layout_height="48dp"
+                            android:text="@string/compact_translation_mode_word" />
+
+                        <androidx.appcompat.widget.AppCompatButton
+                            android:id="@+id/translation_mode_adaptive"
+                            style="@style/Widget.HaoHao.SegmentButton"
+                            android:layout_width="80dp"
+                            android:layout_height="48dp"
+                            android:layout_marginStart="4dp"
+                            android:text="@string/compact_translation_mode_adaptive" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:background="@color/haohao_divider" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="64dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
                         android:text="@string/bilingual_candidate_phonetic"
                         android:textAppearance="@style/TextAppearance.HaoHao.SettingTitle" />
 
@@ -608,6 +650,7 @@
                 android:orientation="horizontal">
 
                 <TextView
+                    android:id="@+id/portrait_candidate_count_label"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
@@ -656,6 +699,7 @@
                 android:orientation="horizontal">
 
                 <TextView
+                    android:id="@+id/landscape_candidate_count_label"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"

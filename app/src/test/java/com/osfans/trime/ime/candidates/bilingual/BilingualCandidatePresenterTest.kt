@@ -5,6 +5,7 @@
 package com.osfans.trime.ime.candidates.bilingual
 
 import com.osfans.trime.core.CandidateProto
+import com.osfans.trime.ime.candidates.compact.COMPACT_ADAPTIVE_TRANSLATION_MAX_WIDTH_DP
 import com.osfans.trime.ime.candidates.compact.COMPACT_CANDIDATE_HORIZONTAL_PADDING_DP
 import com.osfans.trime.ime.candidates.compact.COMPACT_CANDIDATE_LANDSCAPE_DEFAULT
 import com.osfans.trime.ime.candidates.compact.COMPACT_CANDIDATE_LANDSCAPE_MAX
@@ -15,12 +16,17 @@ import com.osfans.trime.ime.candidates.compact.COMPACT_CANDIDATE_PORTRAIT_DEFAUL
 import com.osfans.trime.ime.candidates.compact.COMPACT_CANDIDATE_PORTRAIT_MAX
 import com.osfans.trime.ime.candidates.compact.COMPACT_CANDIDATE_PORTRAIT_MIN
 import com.osfans.trime.ime.candidates.compact.CompactCandidateWidthBounds
+import com.osfans.trime.ime.candidates.compact.CompactTranslationMode
 import com.osfans.trime.ime.candidates.compact.CompactTranslationWidthLimits
+import com.osfans.trime.ime.candidates.compact.DEFAULT_COMPACT_TRANSLATION_MODE
 import com.osfans.trime.ime.candidates.compact.compactCandidateAvailableWidth
 import com.osfans.trime.ime.candidates.compact.compactCandidateCellWidth
+import com.osfans.trime.ime.candidates.compact.compactTranslationHint
+import com.osfans.trime.ime.candidates.compact.compactTranslationTextForCell
 import com.osfans.trime.ime.candidates.compact.fitCompactCandidateRow
 import com.osfans.trime.ime.candidates.compact.resolveCompactCandidateCount
 import com.osfans.trime.ime.candidates.compact.toCompactCandidateItems
+import com.osfans.trime.ime.candidates.compact.withCompactTranslationWidth
 import com.osfans.trime.ime.candidates.unrolled.UnrolledCandidateItem
 import com.osfans.trime.ime.candidates.unrolled.toDisplayableUnrolledCandidates
 import io.kotest.core.spec.style.StringSpec
@@ -300,6 +306,85 @@ class BilingualCandidatePresenterTest :
 
             pending.map { it.width } shouldBe ready.map { it.width }
             ready.map { it.width } shouldBe missing.map { it.width }
+        }
+
+        "compact translation defaults to word mode and accepts only one lexical word" {
+            DEFAULT_COMPACT_TRANSLATION_MODE shouldBe CompactTranslationMode.WORD
+
+            listOf("chicken", "Computer", "good-looking", "don't", "rock’n’roll").forEach { translation ->
+                compactTranslationHint(
+                    mode = CompactTranslationMode.WORD,
+                    translation = translation,
+                    requiredWidth = 88,
+                    adaptiveMaximumWidth = 160,
+                )?.text shouldBe translation
+            }
+            listOf("no problem", "input method", "-broken", "broken-").forEach { translation ->
+                compactTranslationHint(
+                    mode = CompactTranslationMode.WORD,
+                    translation = translation,
+                    requiredWidth = 88,
+                    adaptiveMaximumWidth = 160,
+                ) shouldBe null
+            }
+        }
+
+        "word mode hides an overlong word instead of returning truncated text" {
+            val hint = compactTranslationHint(
+                mode = CompactTranslationMode.WORD,
+                translation = "extraordinary",
+                requiredWidth = 116,
+                adaptiveMaximumWidth = 160,
+            )
+
+            compactTranslationTextForCell(hint, cellWidth = 112) shouldBe null
+            compactTranslationTextForCell(hint, cellWidth = 116) shouldBe "extraordinary"
+        }
+
+        "adaptive mode reserves real phrase width and rejects explanations over 160dp" {
+            COMPACT_ADAPTIVE_TRANSLATION_MAX_WIDTH_DP shouldBe 160
+            val phrase = compactTranslationHint(
+                mode = CompactTranslationMode.ADAPTIVE,
+                translation = "no problem",
+                requiredWidth = 124,
+                adaptiveMaximumWidth = 160,
+            )
+            val tooLong = compactTranslationHint(
+                mode = CompactTranslationMode.ADAPTIVE,
+                translation = "an explanation that cannot fit",
+                requiredWidth = 176,
+                adaptiveMaximumWidth = 160,
+            )
+
+            CompactCandidateWidthBounds(48, 64)
+                .withCompactTranslationWidth(CompactTranslationMode.ADAPTIVE, phrase)
+                .shouldBe(CompactCandidateWidthBounds(124, 124))
+            tooLong shouldBe null
+        }
+
+        "adaptive phrases reduce the visible candidate count without changing indexes" {
+            val candidates = arrayOf(
+                CandidateProto(text = "没关系", comment = "", label = ""),
+                CandidateProto(text = "输入法", comment = "", label = ""),
+                CandidateProto(text = "你好", comment = "", label = ""),
+                CandidateProto(text = "中国", comment = "", label = ""),
+            ).toCompactCandidateItems(maxCount = 4)
+            val requiredWidths = mapOf(0 to 132, 1 to 128, 2 to 80, 3 to 80)
+
+            val cells = fitCompactCandidateRow(candidates, targetCount = 4, availableWidth = 272) { item ->
+                CompactCandidateWidthBounds(48, 64).withCompactTranslationWidth(
+                    CompactTranslationMode.ADAPTIVE,
+                    compactTranslationHint(
+                        mode = CompactTranslationMode.ADAPTIVE,
+                        translation = "phrase",
+                        requiredWidth = requiredWidths.getValue(item.globalIndex),
+                        adaptiveMaximumWidth = 160,
+                    ),
+                )
+            }
+
+            cells.map { it.item.globalIndex } shouldBe listOf(0, 1)
+            cells.map { it.width } shouldBe listOf(132, 128)
         }
 
         "compact monolingual layout does not reserve translation width" {

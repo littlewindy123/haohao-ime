@@ -84,7 +84,9 @@ class PinyinCorrectionConfigTest :
         }
 
         "full correction compile fixture matches the deterministic renderer" {
-            val fixture = File("src/test/assets/pinyin-correction/luna_pinyin_simp.custom.yaml").readText()
+            val fixture = File("src/test/assets/pinyin-correction/luna_pinyin_simp.custom.yaml")
+                .readText()
+                .replace("\r\n", "\n")
             val expected = renderPinyinCorrectionPatch(
                 PinyinCorrectionSettings(
                     smartCorrection = true,

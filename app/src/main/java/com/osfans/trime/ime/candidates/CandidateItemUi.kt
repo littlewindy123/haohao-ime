@@ -101,10 +101,12 @@ class CandidateItemUi(
     private val revealController: CandidateTranslationRevealController by di.instance()
     private var boundItem: CandidateProto? = null
     private var boundHighlighted = false
+    private var restrictCompactTranslation = false
+    private var boundCompactTranslation: String? = null
 
     @Keep
     private val revealListener = CandidateTranslationRevealListener {
-        boundItem?.let { item -> update(item, boundHighlighted) }
+        boundItem?.let { item -> render(item, boundHighlighted) }
     }
 
     private val attachStateListener =
@@ -144,7 +146,7 @@ class CandidateItemUi(
             this.textSize = translationSize
             typeface = commentFont
             isSingleLine = true
-            ellipsize = TextUtils.TruncateAt.END
+            ellipsize = TextUtils.TruncateAt.END.takeIf { isExpanded }
             if (!isExpanded) maxWidth = dp(CANDIDATE_TRANSLATION_MAX_WIDTH_DP)
             gravity = itemGravity
             horizontalPadding = dp(theme.generalStyle.candidatePadding)
@@ -269,6 +271,28 @@ class CandidateItemUi(
     ) {
         boundItem = item
         boundHighlighted = highlighted
+        restrictCompactTranslation = false
+        boundCompactTranslation = null
+        render(item, highlighted)
+    }
+
+    fun updateCompact(
+        item: CandidateProto,
+        highlighted: Boolean,
+        compactTranslation: String?,
+    ) {
+        boundItem = item
+        boundHighlighted = highlighted
+        restrictCompactTranslation = true
+        boundCompactTranslation = compactTranslation
+        render(item, highlighted)
+    }
+
+    @SuppressLint("UseKtx")
+    private fun render(
+        item: CandidateProto,
+        highlighted: Boolean,
+    ) {
         val presentation = defaultBilingualCandidatePresenter.present(item)
         val tColor = if (highlighted) hlTextColor else textColor
         val cColor = if (highlighted) hlCommentColor else commentColor
@@ -284,7 +308,9 @@ class CandidateItemUi(
         comment.setTextColor(cColor)
         comment.isVisible = commentText.isNotEmpty()
 
-        val translationText = presentation.translation
+        val translationText = presentation.translation.takeIf {
+            !restrictCompactTranslation || it == boundCompactTranslation
+        }
         translation.text = translationText.orEmpty()
         translation.setTextColor(cColor)
         translation.visibility =
@@ -294,7 +320,7 @@ class CandidateItemUi(
                 else -> View.GONE
             }
 
-        val phoneticText = presentation.phonetic
+        val phoneticText = presentation.phonetic.takeIf { !translationText.isNullOrEmpty() }
         phonetic.text = phoneticText.orEmpty()
         phonetic.setTextColor(cColor)
         phonetic.visibility =

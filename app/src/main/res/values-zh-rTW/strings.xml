@@ -32,6 +32,8 @@
     <string name="quick_settings_delay_value">%1$d ms</string>
     <string name="quick_settings_portrait_candidate_count">直向目標候選數</string>
     <string name="quick_settings_landscape_candidate_count">橫向目標候選數</string>
+    <string name="quick_settings_portrait_candidate_limit">直向候選數上限</string>
+    <string name="quick_settings_landscape_candidate_limit">橫向候選數上限</string>
     <string name="quick_settings_adjust_custom_feedback">調整自訂回饋參數</string>
     <string name="quick_settings_theme_current">目前：%1$s</string>
     <string name="quick_settings_theme_haohao">好好主題</string>
@@ -359,4 +361,7 @@
     <string name="pinyin_fuzzy_in_ing">in ↔ ing</string>
     <string name="pinyin_fuzzy_ian_iang">ian ↔ iang</string>
     <string name="pinyin_fuzzy_uan_uang">uan ↔ uang</string>
+    <string name="compact_translation_mode">頂部英文模式</string>
+    <string name="compact_translation_mode_word">單詞</string>
+    <string name="compact_translation_mode_adaptive">自適應</string>
 </resources>

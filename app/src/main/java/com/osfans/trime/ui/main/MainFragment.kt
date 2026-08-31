@@ -38,6 +38,7 @@ import com.osfans.trime.data.prefs.PreferenceDelegate
 import com.osfans.trime.data.theme.DEFAULT_THEME_ID
 import com.osfans.trime.data.theme.ThemeManager
 import com.osfans.trime.databinding.FragmentMainBinding
+import com.osfans.trime.ime.candidates.compact.CompactTranslationMode
 import com.osfans.trime.ui.common.PaddingPreferenceFragment
 import com.osfans.trime.util.addCategory
 import com.osfans.trime.util.addPreference
@@ -84,6 +85,10 @@ class MainFragment : Fragment(R.layout.fragment_main) {
     private val phoneticListener = PreferenceDelegate.OnChangeListener<Boolean> { _, _ ->
         renderCandidateSettings(reschedulePreview = true)
     }
+    private val translationModeListener =
+        PreferenceDelegate.OnChangeListener<CompactTranslationMode> { _, _ ->
+            renderCandidateSettings(reschedulePreview = true)
+        }
     private val learningHistoryListener = PreferenceDelegate.OnChangeListener<Boolean> { _, _ ->
         renderLearningSetting()
     }
@@ -209,6 +214,12 @@ class MainFragment : Fragment(R.layout.fragment_main) {
                 override fun onStopTrackingTouch(seekBar: android.widget.SeekBar?) = Unit
             },
         )
+        bindSegmentButtons(
+            listOf(
+                binding.translationModeWord to CompactTranslationMode.WORD,
+                binding.translationModeAdaptive to CompactTranslationMode.ADAPTIVE,
+            ),
+        ) { prefs.candidates.compactTranslationMode.setValue(it) }
 
         bindSegmentButtons(
             listOf(
@@ -373,6 +384,7 @@ class MainFragment : Fragment(R.layout.fragment_main) {
         prefs.candidates.bilingualTranslation.registerOnChangeListener(translationListener)
         prefs.candidates.bilingualTranslationDelay.registerOnChangeListener(delayListener)
         prefs.candidates.bilingualPhonetic.registerOnChangeListener(phoneticListener)
+        prefs.candidates.compactTranslationMode.registerOnChangeListener(translationModeListener)
         prefs.candidates.learningHistoryEnabled.registerOnChangeListener(learningHistoryListener)
         prefs.candidates.compactCandidateCount.registerOnChangeListener(portraitCountListener)
         prefs.candidates.compactCandidateCountLandscape.registerOnChangeListener(landscapeCountListener)
@@ -388,6 +400,7 @@ class MainFragment : Fragment(R.layout.fragment_main) {
         prefs.candidates.bilingualTranslation.unregisterOnChangeListener(translationListener)
         prefs.candidates.bilingualTranslationDelay.unregisterOnChangeListener(delayListener)
         prefs.candidates.bilingualPhonetic.unregisterOnChangeListener(phoneticListener)
+        prefs.candidates.compactTranslationMode.unregisterOnChangeListener(translationModeListener)
         prefs.candidates.learningHistoryEnabled.unregisterOnChangeListener(learningHistoryListener)
         prefs.candidates.compactCandidateCount.unregisterOnChangeListener(portraitCountListener)
         prefs.candidates.compactCandidateCountLandscape.unregisterOnChangeListener(landscapeCountListener)
@@ -448,17 +461,34 @@ class MainFragment : Fragment(R.layout.fragment_main) {
         if (viewBinding == null) return
         val candidates = prefs.candidates
         val translationEnabled = candidates.bilingualTranslation.getValue()
+        val translationMode = candidates.compactTranslationMode.getValue()
         val delayMs = candidates.bilingualTranslationDelay.getValue()
         updatingUi = true
         binding.translationSwitch.isChecked = translationEnabled
         binding.phoneticSwitch.isChecked = candidates.bilingualPhonetic.getValue()
         binding.phoneticSwitch.isEnabled = translationEnabled
+        binding.translationModeWord.isEnabled = translationEnabled
+        binding.translationModeAdaptive.isEnabled = translationEnabled
         binding.translationDelaySlider.isEnabled = translationEnabled
         binding.translationDelayLabel.isEnabled = translationEnabled
         binding.translationDelayValue.isEnabled = translationEnabled
         binding.translationOptions.alpha = if (translationEnabled) ENABLED_ALPHA else DISABLED_ALPHA
         binding.translationDelaySlider.progress = delayMs / TRANSLATION_DELAY_STEP_MS
         binding.translationDelayValue.text = getString(R.string.quick_settings_delay_value, delayMs)
+        selectSegment(
+            listOf(
+                binding.translationModeWord to CompactTranslationMode.WORD,
+                binding.translationModeAdaptive to CompactTranslationMode.ADAPTIVE,
+            ),
+            translationMode,
+        )
+        val adaptive = translationMode == CompactTranslationMode.ADAPTIVE
+        binding.portraitCandidateCountLabel.setText(
+            if (adaptive) R.string.quick_settings_portrait_candidate_limit else R.string.quick_settings_portrait_candidate_count,
+        )
+        binding.landscapeCandidateCountLabel.setText(
+            if (adaptive) R.string.quick_settings_landscape_candidate_limit else R.string.quick_settings_landscape_candidate_count,
+        )
         selectSegment(
             listOf(
                 binding.portraitCount3 to 3,
@@ -554,6 +584,20 @@ class MainFragment : Fragment(R.layout.fragment_main) {
 
     private fun schedulePreview() {
         previewJob?.cancel()
+        val adaptive =
+            prefs.candidates.compactTranslationMode.getValue() == CompactTranslationMode.ADAPTIVE
+        binding.previewPinyin.setText(
+            if (adaptive) R.string.quick_settings_preview_adaptive_pinyin else R.string.quick_settings_preview_pinyin,
+        )
+        binding.previewChinese.setText(
+            if (adaptive) R.string.quick_settings_preview_adaptive_chinese else R.string.quick_settings_preview_chinese,
+        )
+        binding.previewEnglish.setText(
+            if (adaptive) R.string.quick_settings_preview_adaptive_english else R.string.quick_settings_preview_english,
+        )
+        binding.previewIpa.setText(
+            if (adaptive) R.string.quick_settings_preview_adaptive_ipa else R.string.quick_settings_preview_ipa,
+        )
         binding.previewEnglish.isInvisible = true
         binding.previewIpa.isInvisible = true
         if (!prefs.candidates.bilingualTranslation.getValue()) return

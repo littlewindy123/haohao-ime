@@ -62,7 +62,7 @@ internal class CompactCandidateViewAdapter(
         val candidate = item.item.candidate
         val globalIndex = item.item.globalIndex
         val isHighlighted = globalIndex == highlightedIdx
-        holder.ui.update(candidate, isHighlighted)
+        holder.ui.updateCompact(candidate, isHighlighted, item.compactTranslation)
         holder.text = candidate.text
         holder.comment = candidate.comment
         holder.idx = globalIndex

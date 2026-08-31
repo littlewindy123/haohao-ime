@@ -23,6 +23,8 @@ import com.osfans.trime.ime.candidates.compact.COMPACT_CANDIDATE_PORTRAIT_DEFAUL
 import com.osfans.trime.ime.candidates.compact.COMPACT_CANDIDATE_PORTRAIT_MAX
 import com.osfans.trime.ime.candidates.compact.COMPACT_CANDIDATE_PORTRAIT_MIN
 import com.osfans.trime.ime.candidates.compact.CompactCandidateMode
+import com.osfans.trime.ime.candidates.compact.CompactTranslationMode
+import com.osfans.trime.ime.candidates.compact.DEFAULT_COMPACT_TRANSLATION_MODE
 import com.osfans.trime.ime.candidates.compact.resolveCompactCandidateCount
 import com.osfans.trime.ime.candidates.popup.PopupCandidatesLayout
 import com.osfans.trime.ime.candidates.popup.PopupCandidatesMode
@@ -503,6 +505,7 @@ class AppPrefs(
             const val BILINGUAL_TRANSLATION = "bilingual_candidate_translation"
             const val BILINGUAL_TRANSLATION_DELAY = "bilingual_candidate_translation_delay_ms"
             const val BILINGUAL_PHONETIC = "bilingual_candidate_phonetic"
+            const val COMPACT_TRANSLATION_MODE = "compact_translation_mode"
             const val LEARNING_HISTORY_ENABLED = "learning_history_enabled"
             const val COMPACT_CANDIDATE_COUNT = "max_span_count"
             const val COMPACT_CANDIDATE_COUNT_LANDSCAPE = "max_span_count_landscape"
@@ -529,6 +532,12 @@ class AppPrefs(
             BILINGUAL_PHONETIC,
             false,
             R.string.bilingual_candidate_phonetic_summary,
+            enableUiOn = { shared.getBoolean(BILINGUAL_TRANSLATION, true) },
+        )
+        val compactTranslationMode = enum(
+            R.string.compact_translation_mode,
+            COMPACT_TRANSLATION_MODE,
+            DEFAULT_COMPACT_TRANSLATION_MODE,
             enableUiOn = { shared.getBoolean(BILINGUAL_TRANSLATION, true) },
         )
         val learningHistoryEnabled = switch(
