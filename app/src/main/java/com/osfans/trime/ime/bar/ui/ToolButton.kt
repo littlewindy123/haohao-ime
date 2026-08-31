@@ -92,6 +92,7 @@ class ToolButton(context: Context) : GestureFrame(context) {
             singleStyle = fg.style
         }
         actionLabel = keyAction.getLabel(KeyboardSwitcher.currentKeyboard)
+        contentDescription = actionLabel
 
         val padding = dp(fg.padding)
         image.padding = padding

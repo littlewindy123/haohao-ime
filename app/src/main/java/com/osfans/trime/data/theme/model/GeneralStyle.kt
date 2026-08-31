@@ -54,6 +54,7 @@ data class GeneralStyle(
     val keyHintOffsetY: Float,
     val keyPressOffsetX: Float,
     val keyPressOffsetY: Float,
+    val keyShadowOffsetY: Float,
     val keyWidth: Float,
     val labelTextSize: Float,
     val labelFont: List<String>,
@@ -147,6 +148,7 @@ data class GeneralStyle(
             keyHintOffsetY = node["key_hint_offset_y"]?.float ?: 0f,
             keyPressOffsetX = node["key_press_offset_x"]?.float ?: 0f,
             keyPressOffsetY = node["key_press_offset_y"]?.float ?: 0f,
+            keyShadowOffsetY = node["key_shadow_offset_y"]?.float ?: 0f,
             keyWidth = node["key_width"]?.float ?: 0f,
             labelTextSize = node["label_text_size"]?.float ?: 0f,
             labelFont = node["label_font"]?.sequence

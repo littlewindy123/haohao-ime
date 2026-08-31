@@ -8,6 +8,7 @@ package com.osfans.trime.ime.keyboard
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Canvas
+import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.PorterDuff
 import android.graphics.PorterDuffColorFilter
@@ -33,6 +34,62 @@ import com.osfans.trime.util.sp
 import splitties.dimensions.dp
 import timber.log.Timber
 import kotlin.math.abs
+import kotlin.math.roundToInt
+
+private const val FUNCTION_KEY_DEPTH_ALPHA = 0.72f
+private const val HIGHLIGHT_INSET_RATIO = 0.65f
+
+internal data class KeySurfaceRect(
+    val left: Int,
+    val top: Int,
+    val right: Int,
+    val bottom: Int,
+) {
+    fun offset(dx: Int, dy: Int) = copy(
+        left = left + dx,
+        top = top + dy,
+        right = right + dx,
+        bottom = bottom + dy,
+    )
+
+    fun contains(x: Int, y: Int): Boolean = x in left until right && y in top until bottom
+}
+
+internal data class KeySurfaceGeometry(
+    val logicalCell: KeySurfaceRect,
+    val cap: KeySurfaceRect,
+    val shadow: KeySurfaceRect?,
+)
+
+internal fun calculateKeySurfaceGeometry(
+    width: Int,
+    height: Int,
+    paddingLeft: Int,
+    paddingTop: Int,
+    paddingRight: Int,
+    paddingBottom: Int,
+    shadowOffsetY: Int,
+    pressOffsetX: Int,
+    pressOffsetY: Int,
+    pressed: Boolean,
+): KeySurfaceGeometry {
+    val logicalCell = KeySurfaceRect(0, 0, width, height)
+    val safeLeft = paddingLeft.coerceIn(0, width)
+    val safeTop = paddingTop.coerceIn(0, height)
+    val capBase = KeySurfaceRect(
+        left = safeLeft,
+        top = safeTop,
+        right = (width - paddingRight).coerceIn(safeLeft, width),
+        bottom = (height - paddingBottom).coerceIn(safeTop, height),
+    )
+    val effectiveShadowOffset = shadowOffsetY.coerceIn(0, paddingBottom.coerceAtLeast(0))
+    val layered = effectiveShadowOffset > 0
+    val effectivePressOffsetX = pressOffsetX.coerceIn(-safeLeft, paddingRight.coerceAtLeast(0))
+    val effectivePressOffsetY = pressOffsetY.coerceIn(-safeTop, paddingBottom.coerceAtLeast(0))
+    val cap = if (layered && pressed) capBase.offset(effectivePressOffsetX, effectivePressOffsetY) else capBase
+    val shadow = if (layered && !pressed) capBase.offset(0, effectiveShadowOffset) else null
+    return KeySurfaceGeometry(logicalCell, cap, shadow)
+}
 
 @SuppressLint("ClickableViewAccessibility", "ViewConstructor")
 class KeyView(
@@ -70,6 +127,12 @@ class KeyView(
     private val symbolPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         textAlign = Paint.Align.CENTER
     }
+    private val shadowPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val highlightPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        strokeWidth = dp(1).toFloat()
+        strokeCap = Paint.Cap.ROUND
+    }
+    private val isHaoHaoTheme = ThemeManager.prefs.selectedTheme.getValue() == DEFAULT_THEME_ID
 
     private var cachedIcon: IconicsDrawable? = null
     private var cachedIconName: String? = null
@@ -94,7 +157,7 @@ class KeyView(
         isRepeatable = key.click?.isRepeatable ?: false
         isSlideCursor = key.click?.isSlideCursor == true && keyboardPrefs.spacebarSlideCursor.getValue()
         isSlideDelete = key.click?.isSlideDelete == true && keyboardPrefs.backspaceSlideDelete.getValue()
-        if (ThemeManager.prefs.selectedTheme.getValue() == DEFAULT_THEME_ID) {
+        if (isHaoHaoTheme) {
             slideStepDensity = resources.displayMetrics.density
         }
         hasLongPress = key.hasAction(KeyBehavior.LONG_CLICK)
@@ -344,19 +407,68 @@ class KeyView(
 
     private fun drawBackground(canvas: Canvas, k: Key) {
         val bg = k.getBackgroundDrawable() ?: return
+        val cornerRadius = dp(k.roundCorner ?: keyboard.roundCorner)
+        val geometry = calculateKeySurfaceGeometry(
+            width = width,
+            height = height,
+            paddingLeft = paddingLeft,
+            paddingTop = paddingTop,
+            paddingRight = paddingRight,
+            paddingBottom = paddingBottom,
+            shadowOffsetY = dp(keyboard.keyShadowOffsetY).roundToInt(),
+            pressOffsetX = sp(k.keyPressOffsetX).roundToInt(),
+            pressOffsetY = sp(k.keyPressOffsetY).roundToInt(),
+            pressed = k.isPressed,
+        )
+        val depthAlpha = if (k.click?.isFunctional == true) FUNCTION_KEY_DEPTH_ALPHA else 1f
+
+        geometry.shadow?.let { shadow ->
+            val shadowColor = runCatching { ColorManager.getColor("key_shadow_color") }.getOrDefault(Color.TRANSPARENT)
+            if (Color.alpha(shadowColor) > 0) {
+                shadowPaint.color = shadowColor
+                shadowPaint.alpha = (Color.alpha(shadowColor) * depthAlpha).roundToInt()
+                canvas.drawRoundRect(
+                    shadow.left.toFloat(),
+                    shadow.top.toFloat(),
+                    shadow.right.toFloat(),
+                    shadow.bottom.toFloat(),
+                    cornerRadius,
+                    cornerRadius,
+                    shadowPaint,
+                )
+                shadowPaint.alpha = 255
+            }
+        }
 
         if (bg is GradientDrawable) {
-            (k.roundCorner ?: keyboard.roundCorner).takeIf { it > 0f }?.let { bg.cornerRadius = dp(it) }
+            cornerRadius.takeIf { it > 0f }?.let { bg.cornerRadius = it }
             (k.keyBorder ?: keyboard.keyBorder).takeIf { it > 0 }?.let { bg.setStroke(dp(it), ColorManager.getColor("key_border_color")) }
         }
 
         bg.setBounds(
-            paddingLeft,
-            paddingTop,
-            width - paddingRight,
-            height - paddingBottom,
+            geometry.cap.left,
+            geometry.cap.top,
+            geometry.cap.right,
+            geometry.cap.bottom,
         )
         bg.draw(canvas)
+
+        if (geometry.shadow != null) {
+            val highlightColor = runCatching { ColorManager.getColor("key_highlight_color") }.getOrDefault(Color.TRANSPARENT)
+            if (Color.alpha(highlightColor) > 0) {
+                val horizontalInset = maxOf(dp(4).toFloat(), cornerRadius * HIGHLIGHT_INSET_RATIO)
+                highlightPaint.color = highlightColor
+                highlightPaint.alpha = (Color.alpha(highlightColor) * depthAlpha).roundToInt()
+                canvas.drawLine(
+                    geometry.cap.left + horizontalInset,
+                    geometry.cap.top + dp(1).toFloat(),
+                    geometry.cap.right - horizontalInset,
+                    geometry.cap.top + dp(1).toFloat(),
+                    highlightPaint,
+                )
+                highlightPaint.alpha = 255
+            }
+        }
     }
 
     private fun drawLabel(canvas: Canvas, label: String) {

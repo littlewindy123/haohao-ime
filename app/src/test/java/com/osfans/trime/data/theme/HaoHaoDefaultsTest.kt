@@ -18,12 +18,15 @@ import com.osfans.trime.data.base.repairManagedRimeData
 import com.osfans.trime.data.base.upgradeSimplifiedSchemaCustomPatch
 import com.osfans.trime.data.theme.model.KeyActionToken
 import com.osfans.trime.data.theme.model.TextKeyboard
+import com.osfans.trime.data.theme.model.ToolBar
 import com.osfans.trime.ime.haohao.HAOHAO_EDITOR_ACTION
 import com.osfans.trime.ime.haohao.HAOHAO_EDITOR_KEY
 import com.osfans.trime.ime.haohao.HAOHAO_INPUT_FOOTPRINTS_ACTION
 import com.osfans.trime.ime.haohao.HAOHAO_INPUT_FOOTPRINTS_KEY
 import com.osfans.trime.ime.haohao.HaoHaoToolboxAction
 import com.osfans.trime.ime.keyboard.KeyBehavior
+import com.osfans.trime.ime.keyboard.KeySurfaceRect
+import com.osfans.trime.ime.keyboard.calculateKeySurfaceGeometry
 import com.osfans.trime.util.yaml.Yaml
 import com.osfans.trime.util.yaml.boolean
 import com.osfans.trime.util.yaml.float
@@ -111,24 +114,94 @@ class HaoHaoDefaultsTest :
                 "ca3e83cd3ff1b6896a055c26cd24dc98b79f2c1fe56acd983eb7479a319b4240"
         }
 
-        "Pixel theme defines stable geometry and light-dark palettes" {
-            style["key_height"]?.int shouldBe 56
-            style["key_text_size"]?.float shouldBe 23f
-            style["horizontal_gap"]?.int shouldBe 5
-            style["vertical_gap"]?.int shouldBe 6
+        "compact theme defines reference geometry and light-dark palettes" {
+            style["key_height"]?.int shouldBe 50
+            style["key_text_size"]?.float shouldBe 22f
+            style["symbol_text_size"]?.float shouldBe 11f
+            style["horizontal_gap"]?.int shouldBe 6
+            style["vertical_gap"]?.int shouldBe 9
+            style["keyboard_padding"]?.int shouldBe 6
+            style["keyboard_height"]?.int shouldBe 232
             style["round_corner"]?.float shouldBe 8f
+            style["key_border"]?.int shouldBe 1
             style["key_press_offset_y"]?.float shouldBe 1f
+            style["key_shadow_offset_y"]?.float shouldBe 2f
             style["candidate_corner_radius"]?.float shouldBe 8f
 
             val light = requireNotNull(colorSchemes["default"]?.mapping)
             val dark = requireNotNull(colorSchemes["haohao_dark"]?.mapping)
             light["dark_scheme"]?.string shouldBe "haohao_dark"
-            light["keyboard_back_color"]?.int shouldBe 0xf2f3f5
+            light["keyboard_back_color"]?.int shouldBe 0xe9edf2
             light["key_back_color"]?.int shouldBe 0xffffff
+            light["key_border_color"]?.int shouldBe 0xd5dbe4
+            light["key_shadow_color"]?.int shouldBe 0x2b5c6878
+            light["key_highlight_color"]?.int shouldBe 0x66ffffff
+            light["off_key_back_color"]?.int shouldBe 0xdce2e9
             light["on_key_back_color"]?.int shouldBe 0x4f7df3
-            dark["keyboard_back_color"]?.int shouldBe 0x1f2125
-            dark["key_back_color"]?.int shouldBe 0x2b2e34
+            dark["keyboard_back_color"]?.int shouldBe 0x1d2025
+            dark["key_back_color"]?.int shouldBe 0x2e3239
+            dark["key_border_color"]?.int shouldBe 0x444a55
+            dark["key_shadow_color"]?.int shouldBe 0x66000000
+            dark["key_highlight_color"]?.int shouldBe 0x24ffffff
+            dark["off_key_back_color"]?.int shouldBe 0x3a3f49
             dark["on_key_back_color"]?.int shouldBe 0x7ea2ff
+        }
+
+        "layered key surface keeps the visual gutter inside a complete touch cell" {
+            val resting = calculateKeySurfaceGeometry(
+                width = 36,
+                height = 58,
+                paddingLeft = 3,
+                paddingTop = 4,
+                paddingRight = 3,
+                paddingBottom = 4,
+                shadowOffsetY = 2,
+                pressOffsetX = 0,
+                pressOffsetY = 1,
+                pressed = false,
+            )
+            resting.logicalCell shouldBe KeySurfaceRect(0, 0, 36, 58)
+            resting.cap shouldBe KeySurfaceRect(3, 4, 33, 54)
+            resting.shadow shouldBe KeySurfaceRect(3, 6, 33, 56)
+            resting.logicalCell.contains(1, 1) shouldBe true
+            resting.cap.contains(1, 1) shouldBe false
+            val adjacentCell = resting.logicalCell.offset(36, 0)
+            resting.logicalCell.contains(35, 29) shouldBe true
+            resting.logicalCell.contains(36, 29) shouldBe false
+            adjacentCell.contains(35, 29) shouldBe false
+            adjacentCell.contains(36, 29) shouldBe true
+
+            val pressed = calculateKeySurfaceGeometry(
+                width = 36,
+                height = 58,
+                paddingLeft = 3,
+                paddingTop = 4,
+                paddingRight = 3,
+                paddingBottom = 4,
+                shadowOffsetY = 2,
+                pressOffsetX = 0,
+                pressOffsetY = 1,
+                pressed = true,
+            )
+            pressed.cap shouldBe KeySurfaceRect(3, 5, 33, 55)
+            pressed.shadow shouldBe null
+        }
+
+        "themes without layered depth retain their original key surface" {
+            val geometry = calculateKeySurfaceGeometry(
+                width = 36,
+                height = 58,
+                paddingLeft = 2,
+                paddingTop = 3,
+                paddingRight = 2,
+                paddingBottom = 3,
+                shadowOffsetY = 0,
+                pressOffsetX = 0,
+                pressOffsetY = 1,
+                pressed = true,
+            )
+            geometry.cap shouldBe KeySurfaceRect(2, 3, 34, 55)
+            geometry.shadow shouldBe null
         }
 
         "functional keys use compact icon labels" {
@@ -154,18 +227,44 @@ class HaoHaoDefaultsTest :
             ).all { id -> presetKeys[id]?.mapping?.get("functional")?.boolean == true } shouldBe true
         }
 
-        "HaoHao toolbar exposes one branded toolbox entry" {
+        "HaoHao idle toolbar exposes eight equally distributed actions" {
             val primaryButton = requireNotNull(toolBar["primary_button"]?.mapping)
             val foreground = requireNotNull(primaryButton["foreground"]?.mapping)
+            val decodedToolBar = ToolBar.decode(toolBar)
 
             primaryButton["action"]?.string shouldBe "HaoHaoToolbox"
             primaryButton["size"]?.sequence?.mapNotNull { it.int } shouldContainExactly listOf(48, 48)
-            foreground["style"]?.string shouldBe "好"
-            toolBar["buttons"]?.sequence?.size shouldBe 0
+            foreground["style"]?.string shouldBe "ic@view_grid_outline"
+            decodedToolBar.equalWidth shouldBe true
+            ToolBar.decode(null).equalWidth shouldBe false
+
+            val toolbarActions = decodedToolBar.buttons.map { it.action }
+            toolbarActions shouldContainExactly listOf(
+                "Hide",
+                "HaoHaoTheme",
+                "liquid_keyboard_emoji",
+                HAOHAO_EDITOR_KEY,
+                "VOICE_ASSIST",
+                HAOHAO_INPUT_FOOTPRINTS_KEY,
+                "clipboard_window",
+            )
+            decodedToolBar.equalWidthButtonsInDisplayOrder().map { it.action } shouldContainExactly listOf(
+                "HaoHaoToolbox",
+                "HaoHaoTheme",
+                "liquid_keyboard_emoji",
+                HAOHAO_EDITOR_KEY,
+                "VOICE_ASSIST",
+                HAOHAO_INPUT_FOOTPRINTS_KEY,
+                "clipboard_window",
+                "Hide",
+            )
 
             val toolboxKey = requireNotNull(presetKeys["HaoHaoToolbox"]?.mapping)
             toolboxKey["send"]?.string shouldBe "FUNCTION"
             toolboxKey["command"]?.string shouldBe "haohao_toolbox"
+            presetKeys["HaoHaoTheme"]?.mapping?.get("send")?.string shouldBe "SETTINGS"
+            presetKeys["HaoHaoTheme"]?.mapping?.get("option")?.string shouldBe "theme"
+            presetKeys["HaoHaoSymbols"]?.mapping?.get("label")?.string shouldBe "符"
         }
 
         "HaoHao toolbox keeps six actions in the branded order" {
@@ -191,27 +290,49 @@ class HaoHaoDefaultsTest :
             } shouldBe 1
         }
 
-        "main keyboard is a four-row 26-key layout without technical shortcuts" {
+        "main keyboard follows the compact four-row layout with long-press symbols" {
             val main = keyboard("default")
 
             main.asciiMode shouldBe false
             main.resetAsciiMode shouldBe true
             main.lock shouldBe true
+            main.height shouldBe 50f
             rowWidths(main) shouldContainExactly listOf(100f, 100f, 100f, 100f)
             clickTokens(main) shouldContainExactly listOf(
                 "q", "w", "e", "r", "t", "y", "u", "i", "o", "p",
                 "a", "s", "d", "f", "g", "h", "j", "k", "l",
                 "Shift_L", "z", "x", "c", "v", "b", "n", "m", "BackSpace",
-                "HaoHaoNumber", "Mode_switch", ",", "HaoHaoSpace", ".", "HaoHaoReturn",
+                "HaoHaoSymbols", "HaoHaoNumber", ",", "HaoHaoSpace", ".", "Mode_switch", "HaoHaoReturn",
             )
-            main.keys.all { key ->
-                key.hint.isEmpty() &&
-                    key.labelSymbol.isEmpty()
-            } shouldBe true
+
+            val expectedSymbols = linkedMapOf(
+                "q" to "1", "w" to "2", "e" to "3", "r" to "4", "t" to "5",
+                "y" to "6", "u" to "7", "i" to "8", "o" to "9", "p" to "0",
+                "a" to "~", "s" to "@", "d" to "#", "f" to "!", "g" to "%",
+                "h" to "&", "j" to "*", "k" to "(", "l" to ")",
+                "z" to "`", "x" to "/", "c" to "-", "v" to "_", "b" to ":",
+                "n" to ";", "m" to "?",
+            )
+            expectedSymbols.forEach { (click, symbol) ->
+                val key = main.keys.single { it.behaviors[KeyBehavior.CLICK] == KeyActionToken.Plain(click) }
+                key.labelSymbol shouldBe symbol
+                key.behaviors[KeyBehavior.LONG_CLICK] shouldBe KeyActionToken.Plain(symbol)
+            }
             main.keys.single { it.behaviors[KeyBehavior.CLICK] == KeyActionToken.Plain("Shift_L") }
                 .behaviors[KeyBehavior.LONG_CLICK] shouldBe KeyActionToken.Plain("Shift_L")
-            main.keys.filterNot { it.behaviors[KeyBehavior.CLICK] == KeyActionToken.Plain("Shift_L") }
-                .all { it.behaviors[KeyBehavior.LONG_CLICK] == null } shouldBe true
+
+            val bottomWidths = listOf(
+                "HaoHaoSymbols" to 14f,
+                "HaoHaoNumber" to 12f,
+                "," to 10f,
+                "HaoHaoSpace" to 28f,
+                "." to 10f,
+                "Mode_switch" to 12f,
+                "HaoHaoReturn" to 14f,
+            )
+            bottomWidths.forEach { (click, width) ->
+                main.keys.single { it.behaviors[KeyBehavior.CLICK] == KeyActionToken.Plain(click) }.width shouldBe width
+            }
         }
 
         "letter-only schemas route qwerty to the HaoHao main keyboard" {
@@ -331,6 +452,8 @@ class HaoHaoDefaultsTest :
             val number = keyboard("number")
             val symbols = keyboard("symbols")
 
+            number.height shouldBe 50f
+            symbols.height shouldBe 50f
             rowWidths(number) shouldContainExactly listOf(100f, 100f, 100f, 100f)
             rowWidths(symbols) shouldContainExactly listOf(100f, 100f, 100f, 100f)
             clickTokens(number).contains("HaoHaoLetters") shouldBe true

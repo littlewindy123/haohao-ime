@@ -66,6 +66,8 @@ class Keyboard(
     val keyBorder: Int =
         selfConfig?.keyBorder?.takeIf { it >= 0 } ?: theme.generalStyle.keyBorder
 
+    val keyShadowOffsetY: Float = theme.generalStyle.keyShadowOffsetY
+
     /** 鍵盤的Shift鍵  */
     var mShiftKey: Key? = null
     var mCtrlKey: Key? = null

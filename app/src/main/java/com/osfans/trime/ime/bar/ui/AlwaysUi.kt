@@ -6,10 +6,13 @@
 package com.osfans.trime.ime.bar.ui
 
 import android.content.Context
+import android.view.Gravity
+import android.widget.LinearLayout
 import android.widget.ViewAnimator
 import androidx.annotation.DrawableRes
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.view.children
+import androidx.core.view.isVisible
 import com.osfans.trime.R
 import com.osfans.trime.data.theme.Theme
 import com.osfans.trime.data.theme.model.ToolBar
@@ -63,6 +66,16 @@ class AlwaysUi(
 
     val buttonsUi = ButtonsBarUi(ctx, theme, onButtonClick)
 
+    private val equalWidthToolbar = LinearLayout(ctx).apply {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+        theme.toolBar.equalWidthButtonsInDisplayOrder().forEach { config ->
+            val button = toolButton(config)
+            val height = buttonsUi.getButtonSize(config).second
+            addView(button, LinearLayout.LayoutParams(0, height, 1f))
+        }
+    }
+
     val clipboardUi = ClipboardSuggestionUi(ctx)
 
     val inlineSuggestionsUi = InlineSuggestionsUi(ctx)
@@ -113,20 +126,33 @@ class AlwaysUi(
                 centerVertically()
             },
         )
+        if (theme.toolBar.equalWidth) {
+            add(
+                equalWidthToolbar,
+                lParams(matchConstraints, matchParent) {
+                    startOfParent()
+                    endOfParent()
+                    centerVertically()
+                },
+            )
+        }
     }.apply {
         updateRightMostButton(State.Toolbar)
+        updateLayoutMode(State.Toolbar)
     }
 
     fun updateButtonsStyle(option: String, enabled: Boolean) {
         leftMostButton.updateStyle(option, enabled)
         buttonsUi.firstButton?.updateStyle(option, enabled)
         buttonsUi.updateStyle(option, enabled)
+        equalWidthToolbar.children.forEach { (it as ToolButton).updateStyle(option, enabled) }
     }
 
     fun toggleOptions(): Set<String> = buildSet {
         leftMostButton.option?.let { add(it) }
         buttonsUi.firstButton?.option?.let { add(it) }
         buttonsUi.root.children.forEach { (it as ToolButton).option?.let { add(it) } }
+        equalWidthToolbar.children.forEach { (it as ToolButton).option?.let { add(it) } }
     }
 
     fun updateState(state: State) {
@@ -135,6 +161,15 @@ class AlwaysUi(
         currentState = state
         updateRightMostButton(state)
         updateLeftMostButton(state)
+        updateLayoutMode(state)
+    }
+
+    private fun updateLayoutMode(state: State) {
+        val showEqualWidthToolbar = theme.toolBar.equalWidth && state == State.Toolbar
+        equalWidthToolbar.isVisible = showEqualWidthToolbar
+        leftMostButton.isVisible = !showEqualWidthToolbar
+        rightMostButton.isVisible = !showEqualWidthToolbar
+        animator.isVisible = !showEqualWidthToolbar
     }
 
     private fun updateRightMostButton(state: State) {
