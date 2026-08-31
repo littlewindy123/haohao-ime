@@ -7,11 +7,15 @@ package com.osfans.trime.ime.haohao
 
 import android.view.KeyEvent
 import com.osfans.trime.core.RimeLifecycle
+import com.osfans.trime.core.RimeLifecycleObserver
 import com.osfans.trime.core.RimeLifecycleRegistry
 import com.osfans.trime.core.RimeRuntimeState
 import com.osfans.trime.data.prefs.AppPrefs
+import io.kotest.assertions.throwables.shouldNotThrowAny
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldContain
+import java.io.File
 
 class HaoHaoTypingErgonomicsTest :
     StringSpec({
@@ -133,6 +137,21 @@ class HaoHaoTypingErgonomicsTest :
 
             registry.currentState shouldBe RimeLifecycle.State.STOPPED
             RimeRuntimeState.entries.map { it.name } shouldBe listOf("PREPARING", "READY", "FAILED")
+        }
+
+        "broken lifecycle observer cannot leave startup stuck in preparing" {
+            val registry = RimeLifecycleRegistry()
+            registry.addObserver(RimeLifecycleObserver { error("broken observer") })
+
+            shouldNotThrowAny { registry.emitState(RimeLifecycle.State.STARTING) }
+            registry.currentState shouldBe RimeLifecycle.State.STARTING
+            shouldNotThrowAny { registry.emitStartupFailed() }
+            registry.currentState shouldBe RimeLifecycle.State.STOPPED
+        }
+
+        "native startup waits for Rime maintenance to finish" {
+            File("src/main/jni/librime_jni/rime_jni.cc").readText() shouldContain
+                "rime->join_maintenance_thread();"
         }
     })
 
