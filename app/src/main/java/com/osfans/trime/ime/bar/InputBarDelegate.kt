@@ -355,8 +355,10 @@ class InputBarDelegate : InputBroadcastReceiver {
             evalAlwaysUiState()
             ClipboardHelper.addOnUpdateListener(onClipboardUpdateListener)
             syncToolbarOptionStates()
-            service.lifecycleScope.launch {
-                RimeDaemon.runtimeState.collect(::showRuntimeState)
+            post {
+                service.lifecycleScope.launch {
+                    RimeDaemon.runtimeState.collect(::showRuntimeState)
+                }
             }
         }
     }
