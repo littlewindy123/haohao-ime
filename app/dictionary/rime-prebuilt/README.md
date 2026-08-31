@@ -9,7 +9,7 @@
 - 产物及 SHA-256：见 `prebuilt.properties`
 
 维护版本时先运行 `prepareWanxiangDictionary` 生成固定 YAML，把所有编译输入时间统一为
-`prebuilt.properties` 的 `sourceTimestampEpochSeconds`，再用匹配版本的
+`prebuilt.properties` 的 `sourceTimestampEpochSeconds + 500ms`（librime 的 Windows 文件时钟换算在整秒边界可能落到前一秒），再用匹配版本的
 `rime_deployer --compile luna_pinyin_simp.schema.yaml <user> <shared> <staging>` 生成四个必需文件。
 在两个全新的 staging 目录重复编译并比较 SHA-256，完全一致后再替换 `files/` 和元数据。
 
