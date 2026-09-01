@@ -219,7 +219,13 @@ abstract class VerifyRimePrebuiltDataTask : DefaultTask() {
             entries.sortedBy { it.first }.forEach { (path, file) ->
                 digest.update(path.toByteArray(Charsets.UTF_8))
                 digest.update(0)
-                file.inputStream().use { input -> updateDigest(digest, input) }
+                file.inputStream().use { input ->
+                    if (file.extension.lowercase() in TEXT_INPUT_EXTENSIONS) {
+                        updateTextDigest(digest, input)
+                    } else {
+                        updateDigest(digest, input)
+                    }
+                }
                 digest.update(0)
             }
             return digest.hex()
@@ -251,6 +257,30 @@ abstract class VerifyRimePrebuiltDataTask : DefaultTask() {
                 digest.update(buffer, 0, count)
             }
         }
+
+        private fun updateTextDigest(
+            digest: MessageDigest,
+            input: InputStream,
+        ) {
+            var pendingCarriageReturn = false
+            while (true) {
+                val value = input.read()
+                if (value < 0) break
+                if (pendingCarriageReturn) {
+                    digest.update('\n'.code.toByte())
+                    pendingCarriageReturn = false
+                    if (value == '\n'.code) continue
+                }
+                if (value == '\r'.code) {
+                    pendingCarriageReturn = true
+                } else {
+                    digest.update(value.toByte())
+                }
+            }
+            if (pendingCarriageReturn) digest.update('\n'.code.toByte())
+        }
+
+        private val TEXT_INPUT_EXTENSIONS = setOf("json", "properties", "txt", "yaml", "yml")
 
         private fun MessageDigest.hex(): String = digest().joinToString("") { "%02x".format(it) }
 

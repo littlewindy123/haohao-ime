@@ -47,6 +47,24 @@ class RimePrebuiltDataTest :
                     sourceMetadata,
                 ) shouldBe first
 
+                shared.resolve("default.yaml").writeText("schema:\r\n  value: first\r\n")
+                val windowsLineEndings =
+                    VerifyRimePrebuiltDataTask.compileInputSha256(
+                        shared,
+                        compileShared,
+                        compileUser,
+                        source,
+                        sourceMetadata,
+                    )
+                shared.resolve("default.yaml").writeText("schema:\n  value: first\n")
+                VerifyRimePrebuiltDataTask.compileInputSha256(
+                    shared,
+                    compileShared,
+                    compileUser,
+                    source,
+                    sourceMetadata,
+                ) shouldBe windowsLineEndings
+
                 shared.resolve("default.yaml").writeText("schema: second")
                 (
                     VerifyRimePrebuiltDataTask.compileInputSha256(
@@ -74,5 +92,11 @@ class RimePrebuiltDataTest :
                     "stroke.schema.yaml",
                     "stroke.table.bin",
                 )
+        }
+
+        "OpenCC generation uses a cross-platform Python command" {
+            resolvePythonCommand("Windows 11", null) shouldBe "python"
+            resolvePythonCommand("Linux", null) shouldBe "python3"
+            resolvePythonCommand("Windows 11", "C:/Python/python.exe") shouldBe "C:/Python/python.exe"
         }
     })

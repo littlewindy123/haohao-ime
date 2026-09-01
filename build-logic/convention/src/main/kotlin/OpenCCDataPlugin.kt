@@ -15,6 +15,12 @@ import org.gradle.api.tasks.PathSensitivity
 import org.gradle.api.tasks.TaskAction
 import org.gradle.kotlin.dsl.register
 
+internal fun resolvePythonCommand(
+    osName: String,
+    override: String?,
+): String = override?.trim()?.takeIf(String::isNotEmpty)
+    ?: if (osName.startsWith("Windows", ignoreCase = true)) "python" else "python3"
+
 class OpenCCDataPlugin : Plugin<Project> {
     companion object {
         const val INSTALL_TASK = "installOpenCCData"
@@ -102,9 +108,13 @@ class OpenCCDataPlugin : Plugin<Project> {
                     source: String,
                     outputFilePath: String,
                 ) {
+                    val python = resolvePythonCommand(
+                        System.getProperty("os.name").orEmpty(),
+                        project.providers.environmentVariable("PYTHON").orNull,
+                    )
                     project.providers.exec {
                         workingDir = output
-                        commandLine = listOf("python3", reverse, source, outputFilePath)
+                        commandLine = listOf(python, reverse, source, outputFilePath)
                     }.result.get()
                 }
                 for (dict in DICTS_GENERATED) {
