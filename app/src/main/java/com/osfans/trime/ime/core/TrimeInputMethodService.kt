@@ -46,6 +46,7 @@ import com.osfans.trime.core.KeyValue
 import com.osfans.trime.core.RimeApi
 import com.osfans.trime.core.RimeKeyMapping
 import com.osfans.trime.core.RimeMessage
+import com.osfans.trime.core.RIME_NO_PERSONALIZED_LEARNING_OPTION
 import com.osfans.trime.core.RimeRuntimeSnapshot
 import com.osfans.trime.core.RimeRuntimeState
 import com.osfans.trime.core.statusTextRes
@@ -53,6 +54,7 @@ import com.osfans.trime.daemon.RimeDaemon
 import com.osfans.trime.daemon.RimeSession
 import com.osfans.trime.data.base.DEFAULT_SCHEMA_ID
 import com.osfans.trime.data.footprints.InputFootprintRecorder
+import com.osfans.trime.data.footprints.InputFootprintPolicy
 import com.osfans.trime.data.prefs.AppPrefs
 import com.osfans.trime.data.prefs.PreferenceDelegate
 import com.osfans.trime.data.prefs.PreferenceDelegateProvider
@@ -194,6 +196,14 @@ open class TrimeInputMethodService : LifecycleInputMethodService() {
             // HaoHao targets common Simplified Chinese first. Keep Rime's charset filter enabled
             // so rare extension ideographs that most Android fonts cannot render do not become candidates.
             api.setRuntimeOption("extended_charset", false)
+            val editorInfo = currentInputEditorInfo
+            api.setRuntimeOption(
+                RIME_NO_PERSONALIZED_LEARNING_OPTION,
+                editorInfo == null || InputFootprintPolicy.shouldDisablePersonalizedLearning(
+                    editorInfo.inputType,
+                    editorInfo.imeOptions,
+                ),
+            )
         } catch (e: Exception) {
             Timber.e(e)
         }
@@ -733,12 +743,17 @@ open class TrimeInputMethodService : LifecycleInputMethodService() {
         currentSelectionEnd = attribute.initialSelEnd
         Timber.d("onStartInput: restarting=$restarting")
         val isNullType = attribute.inputType and InputType.TYPE_MASK_CLASS == InputType.TYPE_NULL
+        val disablePersonalizedLearning = InputFootprintPolicy.shouldDisablePersonalizedLearning(
+            attribute.inputType,
+            attribute.imeOptions,
+        )
         postRimeJob {
             if (restarting) {
                 // when input restarts in the same editor, clear previous composition
                 clearComposition()
             }
             setNullInputType(isNullType)
+            setRuntimeOption(RIME_NO_PERSONALIZED_LEARNING_OPTION, disablePersonalizedLearning)
         }
     }
 

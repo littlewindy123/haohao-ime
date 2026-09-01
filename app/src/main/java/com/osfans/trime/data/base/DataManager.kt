@@ -57,6 +57,11 @@ internal const val SIMPLIFIED_SCHEMA_CUSTOM_PATCH = """
     translator/enable_charset_filter: true
     engine/filters/+:
       - charset_filter
+    engine/translators:
+      - punct_translator
+      - table_translator@custom_phrase
+      - reverse_lookup_translator
+      - haohao_script_translator
     speller/algebra:
       __patch:
         - pinyin:/abbreviation

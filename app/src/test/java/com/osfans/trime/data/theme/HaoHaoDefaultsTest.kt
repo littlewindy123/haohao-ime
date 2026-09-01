@@ -97,6 +97,7 @@ class HaoHaoDefaultsTest :
             SIMPLIFIED_SCHEMA_CUSTOM_PATCH.contains("translator/user_dict: luna_pinyin") shouldBe true
             SIMPLIFIED_SCHEMA_CUSTOM_PATCH.contains("translator/max_word_length: 6") shouldBe true
             SIMPLIFIED_SCHEMA_CUSTOM_PATCH.contains("translator/enable_correction: false") shouldBe true
+            SIMPLIFIED_SCHEMA_CUSTOM_PATCH.contains("- haohao_script_translator") shouldBe true
             SIMPLIFIED_SCHEMA_CUSTOM_PATCH.contains("- pinyin:/abbreviation") shouldBe true
             SIMPLIFIED_SCHEMA_CUSTOM_PATCH.contains("spelling_correction") shouldBe false
             SIMPLIFIED_SCHEMA_CUSTOM_PATCH.contains("key_correction") shouldBe false

@@ -7,6 +7,8 @@ package com.osfans.trime.core
 
 import kotlinx.coroutines.flow.SharedFlow
 
+internal const val RIME_NO_PERSONALIZED_LEARNING_OPTION = "_haohao_no_personalized_learning"
+
 interface RimeApi {
     val messageFlow: SharedFlow<RimeMessage<*>>
 

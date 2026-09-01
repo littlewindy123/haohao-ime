@@ -9,6 +9,7 @@ import android.text.InputType
 import android.view.inputmethod.EditorInfo
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import java.io.File
 
 class InputFootprintPolicyTest :
     FunSpec({
@@ -32,6 +33,28 @@ class InputFootprintPolicyTest :
                 InputType.TYPE_CLASS_TEXT,
                 EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING,
             ) shouldBe false
+        }
+
+        test("Rime learning uses the same sensitive editor boundary") {
+            InputFootprintPolicy.shouldDisablePersonalizedLearning(
+                InputType.TYPE_CLASS_TEXT,
+                0,
+            ) shouldBe false
+            InputFootprintPolicy.shouldDisablePersonalizedLearning(
+                InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD,
+                0,
+            ) shouldBe true
+            InputFootprintPolicy.shouldDisablePersonalizedLearning(
+                InputType.TYPE_CLASS_TEXT,
+                EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING,
+            ) shouldBe true
+        }
+
+        test("HaoHao native translator skips memory for protected editors") {
+            val nativeSource = File("src/main/jni/librime_jni/rime_jni.cc").readText()
+            nativeSource.contains("_haohao_no_personalized_learning") shouldBe true
+            nativeSource.contains("class HaoHaoScriptTranslator") shouldBe true
+            nativeSource.contains("ScriptTranslator::Memorize(commit_entry)") shouldBe true
         }
 
         test("disabled history or missing translation rejects recording") {

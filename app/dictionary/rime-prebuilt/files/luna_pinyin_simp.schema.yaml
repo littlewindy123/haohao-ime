@@ -47,7 +47,7 @@ engine:
     - punct_translator
     - "table_translator@custom_phrase"
     - reverse_lookup_translator
-    - script_translator
+    - haohao_script_translator
 key_binder:
   bindings:
     - {accept: "Control+p", send: Up, when: composing}

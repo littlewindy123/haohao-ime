@@ -4,6 +4,14 @@
 
 #include <rime_api.h>
 
+#include <rime/component.h>
+#include <rime/context.h>
+#include <rime/dict/corrector.h>
+#include <rime/engine.h>
+#include <rime/gear/poet.h>
+#include <rime/gear/script_translator.h>
+#include <rime/registry.h>
+
 #include <memory>
 #include <string>
 #include <vector>
@@ -14,6 +22,32 @@
 #include "session.h"
 
 #define MAX_BUFFER_LENGTH 2048
+
+namespace {
+
+constexpr const char *kHaoHaoNoPersonalizedLearning =
+    "_haohao_no_personalized_learning";
+
+class HaoHaoScriptTranslator final : public rime::ScriptTranslator {
+ public:
+  using ScriptTranslator::ScriptTranslator;
+
+  bool Memorize(const rime::CommitEntry &commit_entry) override {
+    if (!engine_ ||
+        engine_->context()->get_option(kHaoHaoNoPersonalizedLearning)) {
+      return false;
+    }
+    return ScriptTranslator::Memorize(commit_entry);
+  }
+};
+
+void register_haohao_components() {
+  rime::Registry::instance().Register(
+      "haohao_script_translator",
+      new rime::Component<HaoHaoScriptTranslator>);
+}
+
+}  // namespace
 
 extern void rime_require_module_lua();
 extern void rime_require_module_octagram();
@@ -54,6 +88,7 @@ class Rime {
 
     rime->setup(&trime_traits);
     rime->initialize(&trime_traits);
+    register_haohao_components();
     rime->set_notification_handler(notificationHandler, GlobalRef->jvm);
     return rime->start_maintenance(fullCheck);
   }

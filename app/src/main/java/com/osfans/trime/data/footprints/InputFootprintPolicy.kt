@@ -30,6 +30,11 @@ internal object InputFootprintPolicy {
         }
     }
 
+    fun shouldDisablePersonalizedLearning(
+        inputType: Int,
+        imeOptions: Int,
+    ): Boolean = !canRecord(inputType, imeOptions)
+
     private val TEXT_PASSWORD_VARIATIONS = setOf(
         InputType.TYPE_TEXT_VARIATION_PASSWORD,
         InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD,
