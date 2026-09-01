@@ -39,6 +39,29 @@ internal fun bilingualPhoneticTextSize(candidateTextSize: Float): Float = candid
 
 internal fun bilingualPhoneticLineHeight(textSize: Float): Int = ceil(textSize * PHONETIC_LINE_HEIGHT_RATIO).toInt()
 
+internal data class CandidateTypography(
+    val candidateTextSize: Float,
+    val translationTextSize: Float,
+    val phoneticTextSize: Float,
+)
+
+internal fun resolveCandidateTypography(
+    candidateTextSize: Float,
+    commentTextSize: Float,
+    compactCandidateTextSize: Float? = null,
+    compactTranslationTextSize: Float? = null,
+    compactPhoneticTextSize: Float? = null,
+): CandidateTypography {
+    val resolvedCandidateSize = compactCandidateTextSize ?: candidateTextSize
+    return CandidateTypography(
+        candidateTextSize = resolvedCandidateSize,
+        translationTextSize = compactTranslationTextSize
+            ?: bilingualTranslationTextSize(resolvedCandidateSize, commentTextSize),
+        phoneticTextSize = compactPhoneticTextSize
+            ?: bilingualPhoneticTextSize(resolvedCandidateSize),
+    )
+}
+
 internal data class CandidatePresentation(
     val candidate: CandidateProto,
     val translation: String?,

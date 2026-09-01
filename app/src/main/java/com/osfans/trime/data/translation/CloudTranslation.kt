@@ -545,6 +545,10 @@ internal class CloudTranslationManager(
         if (!AppPrefs.defaultInstance().cloudTranslation.consentGranted.getValue()) {
             return CloudTranslationResult.Failure(CloudTranslationResult.Failure.Kind.CONSENT_REQUIRED)
         }
+        return configurationStatus()
+    }
+
+    fun configurationStatus(): CloudTranslationResult.Failure? {
         if (config.activeProvider() != CloudTranslationProviderType.HAOHAO && Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
             return CloudTranslationResult.Failure(CloudTranslationResult.Failure.Kind.UNSUPPORTED_DEVICE)
         }

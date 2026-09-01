@@ -315,6 +315,17 @@
     <string name="haohao_toolbox_emoji">Emoji</string>
     <string name="haohao_toolbox_voice">Voice input</string>
     <string name="haohao_toolbox_settings">Common settings</string>
+    <string name="haohao_toolbox_editor_summary">Move, select, and edit text</string>
+    <string name="haohao_toolbox_translation_summary">Translate a Chinese draft</string>
+    <string name="haohao_toolbox_voice_summary">Switch to system voice input</string>
+    <string name="haohao_toolbox_settings_summary">Candidates, theme, and key feedback</string>
+    <string name="haohao_tool_unavailable_preparing">Dictionary is preparing</string>
+    <string name="haohao_tool_unavailable_failed">Input engine is unavailable</string>
+    <string name="haohao_tool_unavailable_composing">Finish the current Pinyin first</string>
+    <string name="haohao_tool_unavailable_not_configured">Not configured</string>
+    <string name="haohao_tool_consent_required">Privacy confirmation required on first use</string>
+    <string name="haohao_tool_unavailable_unsupported">Not supported on this device</string>
+    <string name="haohao_tool_unavailable_local_data">Local data is unavailable</string>
     <string name="haohao_editor_title">Text editor</string>
     <string name="haohao_editor_select">Select</string>
     <string name="haohao_editor_selecting">Selecting</string>

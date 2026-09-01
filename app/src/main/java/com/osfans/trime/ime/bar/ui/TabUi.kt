@@ -43,7 +43,7 @@ class TabUi(
         backButton = if (backButtonConfig != null) {
             ToolButton(ctx, backButtonConfig)
         } else {
-            ToolButton(ctx, R.drawable.ic_baseline_arrow_back_24)
+            ToolButton(ctx, R.drawable.ic_baseline_arrow_back_24, theme.toolBar.builtinIconSize)
         }
     }
 

@@ -111,6 +111,27 @@ class BilingualCandidatePresenterTest :
             bilingualTranslationLineHeight(textSize, configuredHeight = 12) shouldBe 24
         }
 
+        "keyboard candidate surfaces share the explicit compact typography" {
+            resolveCandidateTypography(
+                candidateTextSize = 16f,
+                commentTextSize = 12f,
+                compactCandidateTextSize = 16f,
+                compactTranslationTextSize = 12f,
+                compactPhoneticTextSize = 10f,
+            ) shouldBe CandidateTypography(16f, 12f, 10f)
+
+            resolveCandidateTypography(
+                candidateTextSize = 16f,
+                commentTextSize = 12f,
+            ) shouldBe CandidateTypography(16f, 14.4f, 11.52f)
+
+            maxOf(30 + bilingualTranslationLineHeight(12f, 12), 48) shouldBe 48
+            maxOf(
+                30 + bilingualTranslationLineHeight(12f, 12) + bilingualPhoneticLineHeight(10f),
+                48,
+            ) shouldBe 57
+        }
+
         "expanded candidate layout uses a dense three-column grid" {
             UNROLLED_CANDIDATE_COLUMNS shouldBe 3
             UNROLLED_CANDIDATE_MIN_HEIGHT_DP shouldBe 72

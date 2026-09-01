@@ -297,6 +297,17 @@
     <string name="haohao_toolbox_emoji">表情符號</string>
     <string name="haohao_toolbox_voice">語音輸入</string>
     <string name="haohao_toolbox_settings">常用設定</string>
+    <string name="haohao_toolbox_editor_summary">移動游標、選取和編輯</string>
+    <string name="haohao_toolbox_translation_summary">整句中譯英</string>
+    <string name="haohao_toolbox_voice_summary">切換到系統語音輸入</string>
+    <string name="haohao_toolbox_settings_summary">候選、主題與按鍵回饋</string>
+    <string name="haohao_tool_unavailable_preparing">詞庫準備中</string>
+    <string name="haohao_tool_unavailable_failed">輸入引擎未就緒</string>
+    <string name="haohao_tool_unavailable_composing">請先完成拼音</string>
+    <string name="haohao_tool_unavailable_not_configured">未設定</string>
+    <string name="haohao_tool_consent_required">首次使用需確認隱私</string>
+    <string name="haohao_tool_unavailable_unsupported">本機不支援</string>
+    <string name="haohao_tool_unavailable_local_data">本機資料無法使用</string>
     <string name="haohao_editor_title">文字編輯</string>
     <string name="haohao_editor_select">選取</string>
     <string name="haohao_editor_selecting">選取中</string>

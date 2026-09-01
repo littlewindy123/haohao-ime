@@ -16,6 +16,8 @@ import com.osfans.trime.R
 import com.osfans.trime.core.KeyModifiers
 import com.osfans.trime.core.RimeApi
 import com.osfans.trime.core.RimeKeyEvent
+import com.osfans.trime.core.RimeRuntimeState
+import com.osfans.trime.daemon.RimeDaemon
 import com.osfans.trime.daemon.RimeSession
 import com.osfans.trime.daemon.launchOnReady
 import com.osfans.trime.data.db.ClipboardHelper
@@ -37,8 +39,10 @@ import com.osfans.trime.ime.haohao.HAOHAO_INPUT_FOOTPRINTS_ACTION
 import com.osfans.trime.ime.haohao.HAOHAO_TRANSLATION_ACTION
 import com.osfans.trime.ime.haohao.HaoHaoEditorWindow
 import com.osfans.trime.ime.haohao.HaoHaoShiftPolicy
+import com.osfans.trime.ime.haohao.HaoHaoToolboxAction
 import com.osfans.trime.ime.haohao.HaoHaoToolboxWindow
 import com.osfans.trime.ime.haohao.HaoHaoTranslationController
+import com.osfans.trime.ime.haohao.resolveHaoHaoToolAvailability
 import com.osfans.trime.ime.switches.SwitchOptionWindow
 import com.osfans.trime.ime.symbol.LiquidData
 import com.osfans.trime.ime.symbol.LiquidWindow
@@ -228,10 +232,8 @@ class CommonKeyboardActionListener {
                     "haohao_toolbox" -> windowManager.attachWindow(HaoHaoToolboxWindow())
                     HAOHAO_EDITOR_ACTION -> openHaoHaoEditor()
                     HAOHAO_INPUT_FOOTPRINTS_ACTION -> {
-                        if (InputFootprints.isAvailable) {
+                        if (ensureHaoHaoToolAvailable(HaoHaoToolboxAction.Footprints)) {
                             AppUtils.launchMainToInputFootprints(service)
-                        } else {
-                            service.toast(R.string.optional_feature_unavailable)
                         }
                     }
                     HAOHAO_TRANSLATION_ACTION -> openHaoHaoTranslation()
@@ -252,38 +254,54 @@ class CommonKeyboardActionListener {
                 }
             }
 
+            private fun currentHaoHaoToolAvailability(action: HaoHaoToolboxAction) = run {
+                val runtimeState = RimeDaemon.runtimeState.value
+                resolveHaoHaoToolAvailability(
+                    action = action,
+                    rimeState = runtimeState,
+                    composing = if (runtimeState == RimeRuntimeState.READY) {
+                        runCatching { rime.run { statusCached.isComposing } }.getOrDefault(false)
+                    } else {
+                        false
+                    },
+                    translationFailure = if (action == HaoHaoToolboxAction.Translation) {
+                        runCatching {
+                            val manager = CloudTranslationRuntime.manager
+                            manager.configurationStatus()?.kind ?: manager.status()?.kind
+                        }.getOrDefault(CloudTranslationResult.Failure.Kind.NOT_CONFIGURED)
+                    } else {
+                        null
+                    },
+                    footprintsAvailable =
+                    action != HaoHaoToolboxAction.Footprints || InputFootprints.isAvailable,
+                    voiceAvailable =
+                    action != HaoHaoToolboxAction.Voice || InputMethodUtils.firstVoiceInput() != null,
+                )
+            }
+
+            private fun ensureHaoHaoToolAvailable(action: HaoHaoToolboxAction): Boolean {
+                val availability = currentHaoHaoToolAvailability(action)
+                if (availability.enabled) return true
+                availability.reason?.let { service.toast(it.messageRes) }
+                return false
+            }
+
             private fun openHaoHaoEditor() {
-                rime.launchOnReady { api ->
-                    service.lifecycleScope.launch {
-                        if (api.statusCached.isComposing) {
-                            service.toast(R.string.haohao_editor_finish_composing)
-                        } else {
-                            windowManager.attachWindow(HaoHaoEditorWindow())
-                        }
-                    }
-                }
+                if (!ensureHaoHaoToolAvailable(HaoHaoToolboxAction.Editor)) return
+                windowManager.attachWindow(HaoHaoEditorWindow())
             }
 
             private fun openHaoHaoTranslation() {
-                rime.launchOnReady { api ->
-                    service.lifecycleScope.launch {
-                        if (api.statusCached.isComposing) {
-                            service.toast(R.string.haohao_editor_finish_composing)
-                            return@launch
-                        }
-                        when (val failure = CloudTranslationRuntime.manager.status()) {
-                            null -> activateHaoHaoTranslation()
-                            is CloudTranslationResult.Failure -> when (failure.kind) {
-                                CloudTranslationResult.Failure.Kind.CONSENT_REQUIRED -> showCloudTranslationConsent()
-                                CloudTranslationResult.Failure.Kind.NOT_CONFIGURED -> {
-                                    service.toast(R.string.haohao_translation_not_configured)
-                                    AppUtils.launchMainToCloudTranslation(service)
-                                }
-                                CloudTranslationResult.Failure.Kind.INVALID_REQUEST ->
-                                    service.toast(R.string.haohao_translation_sensitive_disabled)
-                                else -> service.toast(R.string.cloud_translation_error_network)
-                            }
-                        }
+                if (!ensureHaoHaoToolAvailable(HaoHaoToolboxAction.Translation)) return
+                when (val failure = CloudTranslationRuntime.manager.status()) {
+                    null -> activateHaoHaoTranslation()
+                    is CloudTranslationResult.Failure -> when (failure.kind) {
+                        CloudTranslationResult.Failure.Kind.CONSENT_REQUIRED -> showCloudTranslationConsent()
+                        CloudTranslationResult.Failure.Kind.NOT_CONFIGURED ->
+                            service.toast(R.string.haohao_translation_not_configured)
+                        CloudTranslationResult.Failure.Kind.INVALID_REQUEST ->
+                            service.toast(R.string.haohao_translation_sensitive_disabled)
+                        else -> service.toast(R.string.cloud_translation_error_network)
                     }
                 }
             }
@@ -326,6 +344,8 @@ class CommonKeyboardActionListener {
                 if (index >= 0) {
                     windowManager.attachWindow(LiquidWindow)
                     liquidWindow.setDataByIndex(index)
+                } else if (ThemeManager.prefs.selectedTheme.getValue() == DEFAULT_THEME_ID) {
+                    service.toast(R.string.optional_feature_unavailable)
                 } else {
                     windowManager.attachWindow(KeyboardWindow)
                 }
@@ -433,6 +453,7 @@ class CommonKeyboardActionListener {
             }
 
             private fun switchToVoiceInputMethod() {
+                if (!ensureHaoHaoToolAvailable(HaoHaoToolboxAction.Voice)) return
                 val pkgName = prefs.general.preferredVoiceInput.getValue()
                 val voiceInputSubType = if (pkgName.isNotEmpty()) {
                     InputMethodUtils.voiceInputMethods().find {

@@ -48,7 +48,7 @@ class ButtonsBarUi(
             }
         }
     } else {
-        ToolButton(ctx, icon).apply {
+        ToolButton(ctx, icon, theme.toolBar.builtinIconSize).apply {
             setOnClickListener { onButtonClick?.invoke("") }
         }
     }

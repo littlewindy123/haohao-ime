@@ -38,9 +38,8 @@ import com.osfans.trime.ime.bar.ui.CandidateUi
 import com.osfans.trime.ime.bar.ui.TabUi
 import com.osfans.trime.ime.broadcast.InputBroadcastReceiver
 import com.osfans.trime.ime.candidates.bilingual.bilingualPhoneticLineHeight
-import com.osfans.trime.ime.candidates.bilingual.bilingualPhoneticTextSize
 import com.osfans.trime.ime.candidates.bilingual.bilingualTranslationLineHeight
-import com.osfans.trime.ime.candidates.bilingual.bilingualTranslationTextSize
+import com.osfans.trime.ime.candidates.bilingual.resolveCandidateTypography
 import com.osfans.trime.ime.candidates.compact.CompactCandidateDelegate
 import com.osfans.trime.ime.candidates.unrolled.window.FlexboxUnrolledCandidateWindow
 import com.osfans.trime.ime.core.TrimeInputMethodService
@@ -86,16 +85,34 @@ class InputBarDelegate : InputBroadcastReceiver {
     private val minimumToolBarHeight = theme.toolBar.primaryButton?.size?.getOrNull(1) ?: 0
     val themedHeight = theme.generalStyle.run { max(candidateViewHeight + commentHeight, minimumToolBarHeight) }
 
+    private val candidateTypography = theme.generalStyle.run {
+        resolveCandidateTypography(
+            candidateTextSize = candidateTextSize,
+            commentTextSize = commentTextSize,
+            compactCandidateTextSize = compactCandidateTextSize,
+            compactTranslationTextSize = compactTranslationTextSize,
+            compactPhoneticTextSize = compactPhoneticTextSize,
+        )
+    }
+
     private val bilingualThemedHeight =
         theme.generalStyle.run {
-            val translationTextSize = bilingualTranslationTextSize(candidateTextSize, commentTextSize)
-            candidateViewHeight + bilingualTranslationLineHeight(translationTextSize, commentHeight)
+            max(
+                candidateViewHeight + bilingualTranslationLineHeight(
+                    candidateTypography.translationTextSize,
+                    commentHeight,
+                ),
+                minimumToolBarHeight,
+            )
         }
 
     private val bilingualPhoneticThemedHeight =
         theme.generalStyle.run {
-            bilingualThemedHeight + bilingualPhoneticLineHeight(
-                bilingualPhoneticTextSize(candidateTextSize),
+            max(
+                candidateViewHeight +
+                    bilingualTranslationLineHeight(candidateTypography.translationTextSize, commentHeight) +
+                    bilingualPhoneticLineHeight(candidateTypography.phoneticTextSize),
+                minimumToolBarHeight,
             )
         }
 

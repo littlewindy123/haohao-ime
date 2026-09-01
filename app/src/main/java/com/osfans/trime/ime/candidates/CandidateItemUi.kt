@@ -26,10 +26,9 @@ import com.osfans.trime.ime.candidates.bilingual.CandidateTranslationRevealListe
 import com.osfans.trime.ime.candidates.bilingual.UNROLLED_CANDIDATE_MIN_HEIGHT_DP
 import com.osfans.trime.ime.candidates.bilingual.UNROLLED_CANDIDATE_PHONETIC_HEIGHT_DP
 import com.osfans.trime.ime.candidates.bilingual.bilingualPhoneticLineHeight
-import com.osfans.trime.ime.candidates.bilingual.bilingualPhoneticTextSize
 import com.osfans.trime.ime.candidates.bilingual.bilingualTranslationLineHeight
-import com.osfans.trime.ime.candidates.bilingual.bilingualTranslationTextSize
 import com.osfans.trime.ime.candidates.bilingual.defaultBilingualCandidatePresenter
+import com.osfans.trime.ime.candidates.bilingual.resolveCandidateTypography
 import com.osfans.trime.ime.core.AutoScaleTextView
 import com.osfans.trime.ime.dependency.InputDependencyManager
 import com.osfans.trime.ime.keyboard.GestureFrame
@@ -75,12 +74,21 @@ class CandidateItemUi(
     private val itemGravity = Gravity.CENTER
     private val itemWidth = ViewGroup.LayoutParams.MATCH_PARENT
 
-    private val textSize = theme.generalStyle.candidateTextSize
     private val commentSize = theme.generalStyle.commentTextSize
-    private val translationSize = bilingualTranslationTextSize(textSize, commentSize)
+    private val typography = theme.generalStyle.run {
+        resolveCandidateTypography(
+            candidateTextSize = candidateTextSize,
+            commentTextSize = commentTextSize,
+            compactCandidateTextSize = compactCandidateTextSize,
+            compactTranslationTextSize = compactTranslationTextSize,
+            compactPhoneticTextSize = compactPhoneticTextSize,
+        )
+    }
+    private val textSize = typography.candidateTextSize
+    private val translationSize = typography.translationTextSize
     private val translationLineHeight =
         bilingualTranslationLineHeight(translationSize, theme.generalStyle.commentHeight)
-    private val phoneticSize = bilingualPhoneticTextSize(textSize)
+    private val phoneticSize = typography.phoneticTextSize
     private val phoneticLineHeight = bilingualPhoneticLineHeight(phoneticSize)
 
     private val textFont = FontManager.getTypeface("candidate_font")

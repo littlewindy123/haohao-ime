@@ -306,6 +306,17 @@
     <string name="haohao_toolbox_emoji">表情符号</string>
     <string name="haohao_toolbox_voice">语音输入</string>
     <string name="haohao_toolbox_settings">常用设置</string>
+    <string name="haohao_toolbox_editor_summary">移动光标、选择和编辑</string>
+    <string name="haohao_toolbox_translation_summary">整句中译英</string>
+    <string name="haohao_toolbox_voice_summary">切换到系统语音输入</string>
+    <string name="haohao_toolbox_settings_summary">候选、主题与按键反馈</string>
+    <string name="haohao_tool_unavailable_preparing">词库准备中</string>
+    <string name="haohao_tool_unavailable_failed">输入引擎未就绪</string>
+    <string name="haohao_tool_unavailable_composing">请先完成拼音</string>
+    <string name="haohao_tool_unavailable_not_configured">未配置</string>
+    <string name="haohao_tool_consent_required">首次使用需确认隐私</string>
+    <string name="haohao_tool_unavailable_unsupported">本机不支持</string>
+    <string name="haohao_tool_unavailable_local_data">本地数据不可用</string>
     <string name="haohao_editor_title">文本编辑</string>
     <string name="haohao_editor_select">选择</string>
     <string name="haohao_editor_selecting">选择中</string>

@@ -35,6 +35,10 @@ import splitties.views.imageDrawable
 import splitties.views.imageResource
 import splitties.views.padding
 
+private const val BUILTIN_ICON_PADDING_DP = 4
+
+internal fun toolButtonIconFrameSizeDp(iconSizeDp: Int): Int = iconSizeDp + BUILTIN_ICON_PADDING_DP * 2
+
 class ToolButton(context: Context) : GestureFrame(context) {
 
     private val image = imageView {
@@ -70,12 +74,21 @@ class ToolButton(context: Context) : GestureFrame(context) {
     private var fontSize = 0f
     private var colorStateList: ColorStateList? = null
 
-    constructor(context: Context, @DrawableRes icon: Int) : this(context) {
+    constructor(
+        context: Context,
+        @DrawableRes icon: Int,
+        builtinIconSize: Int = 24,
+    ) : this(context) {
         val tintList = ColorStateList.valueOf(
             ColorManager.getColor("candidate_text_color"),
         )
         image.imageTintList = tintList
-        image.padding = dp(4)
+        image.padding = dp(BUILTIN_ICON_PADDING_DP)
+        image.layoutParams = image.layoutParams.apply {
+            val frameSize = dp(toolButtonIconFrameSizeDp(builtinIconSize))
+            width = frameSize
+            height = frameSize
+        }
         setIcon(icon)
     }
 

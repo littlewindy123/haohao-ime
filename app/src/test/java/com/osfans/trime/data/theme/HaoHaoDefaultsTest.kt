@@ -5,6 +5,7 @@
 
 package com.osfans.trime.data.theme
 
+import com.osfans.trime.core.RimeRuntimeState
 import com.osfans.trime.data.base.BRANDED_SIMPLIFIED_SCHEMA_CUSTOM_PATCH
 import com.osfans.trime.data.base.DEFAULT_SCHEMA_ID
 import com.osfans.trime.data.base.DataManager
@@ -16,14 +17,21 @@ import com.osfans.trime.data.base.managedSchemaDisplayName
 import com.osfans.trime.data.base.migrateLegacyRimeData
 import com.osfans.trime.data.base.repairManagedRimeData
 import com.osfans.trime.data.base.upgradeSimplifiedSchemaCustomPatch
+import com.osfans.trime.data.theme.model.GeneralStyle
 import com.osfans.trime.data.theme.model.KeyActionToken
 import com.osfans.trime.data.theme.model.TextKeyboard
 import com.osfans.trime.data.theme.model.ToolBar
+import com.osfans.trime.data.translation.CloudTranslationResult
+import com.osfans.trime.ime.bar.ui.toolButtonIconFrameSizeDp
 import com.osfans.trime.ime.haohao.HAOHAO_EDITOR_ACTION
 import com.osfans.trime.ime.haohao.HAOHAO_EDITOR_KEY
 import com.osfans.trime.ime.haohao.HAOHAO_INPUT_FOOTPRINTS_ACTION
 import com.osfans.trime.ime.haohao.HAOHAO_INPUT_FOOTPRINTS_KEY
+import com.osfans.trime.ime.haohao.HAOHAO_TRANSLATION_KEY
+import com.osfans.trime.ime.haohao.HaoHaoToolAvailability
+import com.osfans.trime.ime.haohao.HaoHaoToolUnavailableReason
 import com.osfans.trime.ime.haohao.HaoHaoToolboxAction
+import com.osfans.trime.ime.haohao.resolveHaoHaoToolAvailability
 import com.osfans.trime.ime.keyboard.KeyBehavior
 import com.osfans.trime.ime.keyboard.KeySurfaceRect
 import com.osfans.trime.ime.keyboard.calculateKeySurfaceGeometry
@@ -52,6 +60,7 @@ class HaoHaoDefaultsTest :
         val keyboards = requireNotNull(config["preset_keyboards"]?.mapping)
         val presetKeys = requireNotNull(config["preset_keys"]?.mapping)
         val style = requireNotNull(config["style"]?.mapping)
+        val decodedStyle = GeneralStyle.decode(style)
         val colorSchemes = requireNotNull(config["preset_color_schemes"]?.mapping)
         val toolBar = requireNotNull(config["tool_bar"]?.mapping)
         val wanxiangMetadata =
@@ -116,17 +125,34 @@ class HaoHaoDefaultsTest :
 
         "compact theme defines reference geometry and light-dark palettes" {
             style["key_height"]?.int shouldBe 50
-            style["key_text_size"]?.float shouldBe 22f
-            style["symbol_text_size"]?.float shouldBe 11f
-            style["horizontal_gap"]?.int shouldBe 6
+            style["candidate_text_size"]?.float shouldBe 16f
+            style["comment_text_size"]?.float shouldBe 12f
+            style["key_text_size"]?.float shouldBe 16f
+            style["key_long_text_size"]?.float shouldBe 14f
+            style["symbol_text_size"]?.float shouldBe 10f
+            style["label_text_size"]?.float shouldBe 16f
+            style["popup_text_size"]?.float shouldBe 16f
+            style["horizontal_gap"]?.int shouldBe 4
             style["vertical_gap"]?.int shouldBe 9
-            style["keyboard_padding"]?.int shouldBe 6
+            style["keyboard_padding"]?.int shouldBe 5
             style["keyboard_height"]?.int shouldBe 232
-            style["round_corner"]?.float shouldBe 8f
+            style["round_corner"]?.float shouldBe 7f
             style["key_border"]?.int shouldBe 1
             style["key_press_offset_y"]?.float shouldBe 1f
             style["key_shadow_offset_y"]?.float shouldBe 2f
             style["candidate_corner_radius"]?.float shouldBe 8f
+            decodedStyle.compactCandidateTextSize shouldBe 16f
+            decodedStyle.compactTranslationTextSize shouldBe 12f
+            decodedStyle.compactPhoneticTextSize shouldBe 10f
+
+            val preedit = requireNotNull(config["preedit"]?.mapping)
+            requireNotNull(preedit["foreground"]?.mapping)["font_size"]?.float shouldBe 14f
+
+            val candidateWindow = requireNotNull(config["window"]?.mapping)
+            val windowForeground = requireNotNull(candidateWindow["foreground"]?.mapping)
+            windowForeground["label_font_size"]?.float shouldBe 12f
+            windowForeground["text_font_size"]?.float shouldBe 16f
+            windowForeground["comment_font_size"]?.float shouldBe 12f
 
             val light = requireNotNull(colorSchemes["default"]?.mapping)
             val dark = requireNotNull(colorSchemes["haohao_dark"]?.mapping)
@@ -151,9 +177,9 @@ class HaoHaoDefaultsTest :
             val resting = calculateKeySurfaceGeometry(
                 width = 36,
                 height = 58,
-                paddingLeft = 3,
+                paddingLeft = 2,
                 paddingTop = 4,
-                paddingRight = 3,
+                paddingRight = 2,
                 paddingBottom = 4,
                 shadowOffsetY = 2,
                 pressOffsetX = 0,
@@ -161,8 +187,8 @@ class HaoHaoDefaultsTest :
                 pressed = false,
             )
             resting.logicalCell shouldBe KeySurfaceRect(0, 0, 36, 58)
-            resting.cap shouldBe KeySurfaceRect(3, 4, 33, 54)
-            resting.shadow shouldBe KeySurfaceRect(3, 6, 33, 56)
+            resting.cap shouldBe KeySurfaceRect(2, 4, 34, 54)
+            resting.shadow shouldBe KeySurfaceRect(2, 6, 34, 56)
             resting.logicalCell.contains(1, 1) shouldBe true
             resting.cap.contains(1, 1) shouldBe false
             val adjacentCell = resting.logicalCell.offset(36, 0)
@@ -174,17 +200,50 @@ class HaoHaoDefaultsTest :
             val pressed = calculateKeySurfaceGeometry(
                 width = 36,
                 height = 58,
-                paddingLeft = 3,
+                paddingLeft = 2,
                 paddingTop = 4,
-                paddingRight = 3,
+                paddingRight = 2,
                 paddingBottom = 4,
                 shadowOffsetY = 2,
                 pressOffsetX = 0,
                 pressOffsetY = 1,
                 pressed = true,
             )
-            pressed.cap shouldBe KeySurfaceRect(3, 5, 33, 55)
+            pressed.cap shouldBe KeySurfaceRect(2, 5, 34, 55)
             pressed.shadow shouldBe null
+        }
+
+        "360 369 and 411dp viewports keep wider caps and continuous touch cells" {
+            val density = 3
+            val sidePadding = 5 * density
+            val halfGap = 2 * density
+            val expectedCapWidths = mapOf(360 to 93, 369 to 95, 411 to 108)
+
+            expectedCapWidths.forEach { (viewportDp, expectedCapWidth) ->
+                val availableWidth = viewportDp * density - sidePadding * 2
+                val cellWidth = availableWidth / 10
+                val geometry = calculateKeySurfaceGeometry(
+                    width = cellWidth,
+                    height = 58 * density,
+                    paddingLeft = halfGap,
+                    paddingTop = 4 * density,
+                    paddingRight = halfGap,
+                    paddingBottom = 4 * density,
+                    shadowOffsetY = 2 * density,
+                    pressOffsetX = 0,
+                    pressOffsetY = density,
+                    pressed = false,
+                )
+
+                geometry.cap.right - geometry.cap.left shouldBe expectedCapWidth
+                repeat(9) { index ->
+                    val current = geometry.logicalCell.offset(index * cellWidth, 0)
+                    val next = geometry.logicalCell.offset((index + 1) * cellWidth, 0)
+                    current.right shouldBe next.left
+                    current.contains(current.right - 1, current.bottom / 2) shouldBe true
+                    next.contains(current.right, current.bottom / 2) shouldBe true
+                }
+            }
         }
 
         "themes without layered depth retain their original key surface" {
@@ -227,7 +286,7 @@ class HaoHaoDefaultsTest :
             ).all { id -> presetKeys[id]?.mapping?.get("functional")?.boolean == true } shouldBe true
         }
 
-        "HaoHao idle toolbar exposes eight equally distributed actions" {
+        "HaoHao idle toolbar exposes four reliable actions" {
             val primaryButton = requireNotNull(toolBar["primary_button"]?.mapping)
             val foreground = requireNotNull(primaryButton["foreground"]?.mapping)
             val decodedToolBar = ToolBar.decode(toolBar)
@@ -236,28 +295,28 @@ class HaoHaoDefaultsTest :
             primaryButton["size"]?.sequence?.mapNotNull { it.int } shouldContainExactly listOf(48, 48)
             foreground["style"]?.string shouldBe "ic@view_grid_outline"
             decodedToolBar.equalWidth shouldBe true
+            decodedToolBar.builtinIconSize shouldBe 21
             ToolBar.decode(null).equalWidth shouldBe false
+            ToolBar.decode(null).builtinIconSize shouldBe 24
+            decodedToolBar.equalWidthButtonsInDisplayOrder().all { button ->
+                button.size == listOf(48, 48) && button.foreground.fontSize == 21f
+            } shouldBe true
+            toolButtonIconFrameSizeDp(decodedToolBar.builtinIconSize) shouldBe 29
 
             val toolbarActions = decodedToolBar.buttons.map { it.action }
             toolbarActions shouldContainExactly listOf(
                 "Hide",
-                "HaoHaoTranslation",
                 "liquid_keyboard_emoji",
-                HAOHAO_EDITOR_KEY,
-                "VOICE_ASSIST",
-                HAOHAO_INPUT_FOOTPRINTS_KEY,
                 "clipboard_window",
             )
             decodedToolBar.equalWidthButtonsInDisplayOrder().map { it.action } shouldContainExactly listOf(
                 "HaoHaoToolbox",
-                "HaoHaoTranslation",
                 "liquid_keyboard_emoji",
-                HAOHAO_EDITOR_KEY,
-                "VOICE_ASSIST",
-                HAOHAO_INPUT_FOOTPRINTS_KEY,
                 "clipboard_window",
                 "Hide",
             )
+            decodedToolBar.buttons.single { it.action == "clipboard_window" }
+                .foreground.style shouldBe "ic@clipboard_text_outline"
 
             val toolboxKey = requireNotNull(presetKeys["HaoHaoToolbox"]?.mapping)
             toolboxKey["send"]?.string shouldBe "FUNCTION"
@@ -267,12 +326,11 @@ class HaoHaoDefaultsTest :
             presetKeys["HaoHaoSymbols"]?.mapping?.get("label")?.string shouldBe "符"
         }
 
-        "HaoHao toolbox keeps six actions in the branded order" {
+        "HaoHao toolbox keeps five secondary actions without toolbar duplicates" {
             HaoHaoToolboxAction.entries.map { it.actionToken } shouldContainExactly listOf(
-                HAOHAO_INPUT_FOOTPRINTS_KEY,
                 HAOHAO_EDITOR_KEY,
-                "clipboard_window",
-                "liquid_keyboard_emoji",
+                HAOHAO_TRANSLATION_KEY,
+                HAOHAO_INPUT_FOOTPRINTS_KEY,
                 "VOICE_ASSIST",
                 "Settings",
             )
@@ -288,6 +346,83 @@ class HaoHaoDefaultsTest :
             presetKeys.values.count { key ->
                 key.mapping?.get("command")?.string == HAOHAO_EDITOR_ACTION
             } shouldBe 1
+        }
+
+        "HaoHao toolbox resolves unavailable tools without waiting" {
+            resolveHaoHaoToolAvailability(
+                action = HaoHaoToolboxAction.Editor,
+                rimeState = RimeRuntimeState.PREPARING,
+                composing = false,
+                translationFailure = null,
+                footprintsAvailable = true,
+                voiceAvailable = true,
+            ).reason shouldBe HaoHaoToolUnavailableReason.RIME_PREPARING
+
+            resolveHaoHaoToolAvailability(
+                action = HaoHaoToolboxAction.Translation,
+                rimeState = RimeRuntimeState.READY,
+                composing = true,
+                translationFailure = null,
+                footprintsAvailable = true,
+                voiceAvailable = true,
+            ).reason shouldBe HaoHaoToolUnavailableReason.COMPOSING
+
+            resolveHaoHaoToolAvailability(
+                action = HaoHaoToolboxAction.Translation,
+                rimeState = RimeRuntimeState.READY,
+                composing = false,
+                translationFailure = CloudTranslationResult.Failure.Kind.NOT_CONFIGURED,
+                footprintsAvailable = true,
+                voiceAvailable = true,
+            ).reason shouldBe HaoHaoToolUnavailableReason.NOT_CONFIGURED
+
+            resolveHaoHaoToolAvailability(
+                action = HaoHaoToolboxAction.Translation,
+                rimeState = RimeRuntimeState.READY,
+                composing = false,
+                translationFailure = CloudTranslationResult.Failure.Kind.CONSENT_REQUIRED,
+                footprintsAvailable = true,
+                voiceAvailable = true,
+            ) shouldBe HaoHaoToolAvailability(
+                enabled = true,
+                reason = HaoHaoToolUnavailableReason.CONSENT_REQUIRED,
+            )
+
+            resolveHaoHaoToolAvailability(
+                action = HaoHaoToolboxAction.Editor,
+                rimeState = RimeRuntimeState.FAILED,
+                composing = false,
+                translationFailure = null,
+                footprintsAvailable = true,
+                voiceAvailable = true,
+            ).reason shouldBe HaoHaoToolUnavailableReason.RIME_FAILED
+
+            resolveHaoHaoToolAvailability(
+                action = HaoHaoToolboxAction.Footprints,
+                rimeState = RimeRuntimeState.READY,
+                composing = false,
+                translationFailure = null,
+                footprintsAvailable = false,
+                voiceAvailable = true,
+            ).reason shouldBe HaoHaoToolUnavailableReason.LOCAL_DATA_UNAVAILABLE
+
+            resolveHaoHaoToolAvailability(
+                action = HaoHaoToolboxAction.Voice,
+                rimeState = RimeRuntimeState.READY,
+                composing = false,
+                translationFailure = null,
+                footprintsAvailable = true,
+                voiceAvailable = false,
+            ).reason shouldBe HaoHaoToolUnavailableReason.UNSUPPORTED
+
+            resolveHaoHaoToolAvailability(
+                action = HaoHaoToolboxAction.Settings,
+                rimeState = RimeRuntimeState.FAILED,
+                composing = true,
+                translationFailure = CloudTranslationResult.Failure.Kind.NOT_CONFIGURED,
+                footprintsAvailable = false,
+                voiceAvailable = false,
+            ).enabled shouldBe true
         }
 
         "main keyboard follows the compact four-row layout with long-press symbols" {

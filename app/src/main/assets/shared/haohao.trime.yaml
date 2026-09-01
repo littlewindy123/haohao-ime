@@ -16,33 +16,39 @@ style:
   candidate_border_round: 0
   candidate_view_height: 30
   candidate_corner_radius: 8
-  horizontal_gap: 6
+  candidate_text_size: 16
+  comment_text_size: 12
+  compact_candidate_text_size: 16
+  compact_translation_text_size: 12
+  compact_phonetic_text_size: 10
+  horizontal_gap: 4
   vertical_gap: 9
-  keyboard_padding: 6
+  keyboard_padding: 5
   keyboard_padding_bottom: 4
   keyboard_padding_land: 24
   keyboard_padding_land_bottom: 6
   key_height: 50
-  key_text_size: 22
-  key_long_text_size: 16
-  symbol_text_size: 11
+  key_text_size: 16
+  key_long_text_size: 14
+  symbol_text_size: 10
   key_border: 1
   key_press_offset_y: 1
   key_shadow_offset_y: 2
-  label_text_size: 18
+  label_text_size: 16
+  popup_text_size: 16
   keyboard_height: 232
   keyboard_height_land: 220
   preview_height: 54
   preview_offset: -10
-  preview_text_size: 36
-  round_corner: 8
+  preview_text_size: 18
+  round_corner: 7
   reset_ascii_mode_on_focus_change: false
 
 preedit:
   horizontal_padding: 10
   top_end_radius: 8
   foreground:
-    font_size: 15
+    font_size: 14
 
 window:
   insets:
@@ -54,9 +60,14 @@ window:
   corner_radius: 12
   border: 1
   shadow: 4
+  foreground:
+    label_font_size: 12
+    text_font_size: 16
+    comment_font_size: 12
 
 tool_bar:
   equal_width: true
+  builtin_icon_size: 21
   button_spacing: 0
   primary_button:
     size: [48, 48]
@@ -69,30 +80,18 @@ tool_bar:
       style: "ic@view_grid_outline"
       normal: candidate_text_color
       highlight: hilited_comment_text_color
-      font_size: 26
+      font_size: 21
       padding: 10
     action: HaoHaoToolbox
   buttons:
     - size: [48, 48]
-      foreground: {style: "ic@keyboard_close", font_size: 26, padding: 10}
+      foreground: {style: "ic@keyboard_close", font_size: 21, padding: 10}
       action: Hide
     - size: [48, 48]
-      foreground: {style: "ic@translate", font_size: 26, padding: 10}
-      action: HaoHaoTranslation
-    - size: [48, 48]
-      foreground: {style: "ic@emoticon_outline", font_size: 26, padding: 10}
+      foreground: {style: "ic@emoticon_outline", font_size: 21, padding: 10}
       action: liquid_keyboard_emoji
     - size: [48, 48]
-      foreground: {style: "ic@cursor_text", font_size: 26, padding: 10}
-      action: HaoHaoEditor
-    - size: [48, 48]
-      foreground: {style: "ic@microphone_outline", font_size: 26, padding: 10}
-      action: VOICE_ASSIST
-    - size: [48, 48]
-      foreground: {style: "ic@book_open_variant", font_size: 26, padding: 10}
-      action: HaoHaoInputFootprints
-    - size: [48, 48]
-      foreground: {style: "ic@clipboard_text_outline", font_size: 26, padding: 10}
+      foreground: {style: "ic@clipboard_text_outline", font_size: 21, padding: 10}
       action: clipboard_window
 
 preset_keys:

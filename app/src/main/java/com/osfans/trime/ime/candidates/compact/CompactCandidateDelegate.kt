@@ -33,7 +33,7 @@ import com.osfans.trime.data.translation.OfflineFirstCandidateTranslationReposit
 import com.osfans.trime.ime.bar.InputBarDelegate
 import com.osfans.trime.ime.bar.UnrollButtonStateMachine
 import com.osfans.trime.ime.broadcast.InputBroadcastReceiver
-import com.osfans.trime.ime.candidates.bilingual.bilingualTranslationTextSize
+import com.osfans.trime.ime.candidates.bilingual.resolveCandidateTypography
 import com.osfans.trime.ime.candidates.unrolled.UnrolledCandidateItem
 import com.osfans.trime.ime.candidates.unrolled.toDisplayableUnrolledCandidates
 import com.osfans.trime.ime.core.InputView
@@ -282,9 +282,21 @@ class CompactCandidateDelegate : InputBroadcastReceiver {
         context.resources.displayMetrics,
     )
 
+    private val typography by lazy {
+        theme.generalStyle.run {
+            resolveCandidateTypography(
+                candidateTextSize = candidateTextSize,
+                commentTextSize = commentTextSize,
+                compactCandidateTextSize = compactCandidateTextSize,
+                compactTranslationTextSize = compactTranslationTextSize,
+                compactPhoneticTextSize = compactPhoneticTextSize,
+            )
+        }
+    }
+
     private val candidateTextPaint by lazy {
         TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
-            textSize = scaledPixels(theme.generalStyle.candidateTextSize)
+            textSize = scaledPixels(typography.candidateTextSize)
             typeface = FontManager.getTypeface("candidate_font")
         }
     }
@@ -298,12 +310,7 @@ class CompactCandidateDelegate : InputBroadcastReceiver {
 
     private val translationTextPaint by lazy {
         TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
-            textSize = scaledPixels(
-                bilingualTranslationTextSize(
-                    theme.generalStyle.candidateTextSize,
-                    theme.generalStyle.commentTextSize,
-                ),
-            )
+            textSize = scaledPixels(typography.translationTextSize)
             typeface = FontManager.getTypeface("comment_font")
         }
     }

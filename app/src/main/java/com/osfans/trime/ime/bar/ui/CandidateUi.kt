@@ -39,7 +39,7 @@ class CandidateUi(
         get() = if (primaryButton == null) 0 else ctx.dp(HAOHAO_TOOLBOX_BUTTON_WIDTH_DP)
 
     val unrollButton =
-        ToolButton(ctx, R.drawable.ic_baseline_expand_more_24).apply {
+        ToolButton(ctx, R.drawable.ic_baseline_expand_more_24, theme.toolBar.builtinIconSize).apply {
             visibility = View.INVISIBLE
         }
 

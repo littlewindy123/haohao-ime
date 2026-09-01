@@ -23,6 +23,7 @@ data class ToolBar(
     val buttonFont: List<String> = emptyList(),
     val backStyle: String = "ic@arrow-left",
     val equalWidth: Boolean = false,
+    val builtinIconSize: Int = 24,
 ) : Parcelable {
 
     fun equalWidthButtonsInDisplayOrder(): List<Button> = listOfNotNull(primaryButton) + buttons.drop(1) + listOfNotNull(buttons.firstOrNull())
@@ -110,6 +111,7 @@ data class ToolBar(
                 ?.mapNotNull(Node::string) ?: emptyList(),
             backStyle = node?.get("back_style")?.string ?: "ic@arrow-left",
             equalWidth = node?.get("equal_width")?.boolean ?: false,
+            builtinIconSize = node?.get("builtin_icon_size")?.int ?: 24,
         )
     }
 }
