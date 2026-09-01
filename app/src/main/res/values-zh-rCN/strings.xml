@@ -361,6 +361,8 @@
     <string name="input_footprints_added_favorite">已加入收藏</string>
     <string name="input_footprints_removed_favorite">已取消收藏</string>
     <string name="pinyin_input_settings">拼音输入</string>
+    <string name="pinyin_exact_mode">精确拼音</string>
+    <string name="pinyin_exact_mode_summary">仅保留精确拼写与简拼，不再自动改写你的输入</string>
     <string name="pinyin_smart_correction">智能纠错</string>
     <string name="pinyin_smart_correction_summary">纠正常见的漏字母和字母顺序错误</string>
     <string name="pinyin_adjacent_key_correction">按键纠错</string>

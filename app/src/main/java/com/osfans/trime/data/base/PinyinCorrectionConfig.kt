@@ -35,7 +35,7 @@ internal enum class PinyinFuzzyPair(
 }
 
 internal data class PinyinCorrectionSettings(
-    val smartCorrection: Boolean = true,
+    val smartCorrection: Boolean = false,
     val adjacentKeyCorrection: Boolean = false,
     val fuzzyEnabled: Boolean = false,
     val fuzzyPairs: Set<PinyinFuzzyPair> = emptySet(),
@@ -45,37 +45,9 @@ internal data class PinyinCorrectionSettings(
     }
 }
 
-internal fun renderPinyinCorrectionPatch(settings: PinyinCorrectionSettings): String {
-    if (settings == PinyinCorrectionSettings.DEFAULT) {
-        return SIMPLIFIED_SCHEMA_CUSTOM_PATCH.trimIndent()
-    }
-    val algebra = buildList {
-        add("pinyin:/abbreviation")
-        add("pinyin:/spelling_correction")
-        if (settings.smartCorrection) add("pinyin:/key_correction")
-        if (settings.adjacentKeyCorrection) {
-            add("haohao_pinyin_correction:/adjacent_key_correction")
-        }
-        if (settings.fuzzyEnabled) {
-            PinyinFuzzyPair.entries
-                .filter(settings.fuzzyPairs::contains)
-                .forEach { add("haohao_pinyin_correction:/fuzzy_${it.configKey}") }
-        }
-    }
-    return buildString {
-        appendLine("# haohao-managed-pinyin-correction-v1")
-        appendLine("patch:")
-        appendLine("  schema/name: 好好拼音")
-        appendLine("  translator/dictionary: haohao_pinyin")
-        appendLine("  translator/user_dict: luna_pinyin")
-        appendLine("  translator/enable_charset_filter: true")
-        appendLine("  engine/filters/+:")
-        appendLine("    - charset_filter")
-        appendLine("  speller/algebra:")
-        appendLine("    __patch:")
-        algebra.forEach { appendLine("      - $it") }
-    }.trimEnd()
-}
+@Suppress("UNUSED_PARAMETER")
+internal fun renderPinyinCorrectionPatch(settings: PinyinCorrectionSettings): String =
+    SIMPLIFIED_SCHEMA_CUSTOM_PATCH.trimIndent()
 
 internal fun pinyinCorrectionSha256(content: String): String = MessageDigest.getInstance("SHA-256")
     .digest(content.toByteArray(StandardCharsets.UTF_8))
@@ -89,6 +61,7 @@ internal fun isManagedPinyinCorrectionConfig(
     val knownPatches = listOf(
         LEGACY_SIMPLIFIED_SCHEMA_CUSTOM_PATCH,
         BRANDED_SIMPLIFIED_SCHEMA_CUSTOM_PATCH,
+        LEGACY_DICTIONARY_SCHEMA_CUSTOM_PATCH,
         SIMPLIFIED_SCHEMA_CUSTOM_PATCH,
     ).map { it.trimIndent().trim().replace("\r\n", "\n") }
     return normalized in knownPatches ||

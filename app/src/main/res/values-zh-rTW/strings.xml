@@ -352,6 +352,8 @@
     <string name="input_footprints_added_favorite">已加入收藏</string>
     <string name="input_footprints_removed_favorite">已取消收藏</string>
     <string name="pinyin_input_settings">拼音輸入</string>
+    <string name="pinyin_exact_mode">精確拼音</string>
+    <string name="pinyin_exact_mode_summary">僅保留精確拼寫與簡拼，不再自動改寫你的輸入</string>
     <string name="pinyin_smart_correction">智慧糾錯</string>
     <string name="pinyin_smart_correction_summary">修正常見的漏字母和字母順序錯誤</string>
     <string name="pinyin_adjacent_key_correction">按鍵糾錯</string>

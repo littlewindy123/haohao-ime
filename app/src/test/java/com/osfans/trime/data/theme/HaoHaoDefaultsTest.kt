@@ -15,6 +15,7 @@ import com.osfans.trime.data.base.alignManagedRimeSourceTimestamps
 import com.osfans.trime.data.base.invalidatePrebuiltRimeData
 import com.osfans.trime.data.base.managedSchemaDisplayName
 import com.osfans.trime.data.base.migrateLegacyRimeData
+import com.osfans.trime.data.base.pinyinCorrectionSha256
 import com.osfans.trime.data.base.repairManagedRimeData
 import com.osfans.trime.data.base.upgradeSimplifiedSchemaCustomPatch
 import com.osfans.trime.data.theme.model.GeneralStyle
@@ -94,6 +95,11 @@ class HaoHaoDefaultsTest :
             SIMPLIFIED_SCHEMA_CUSTOM_PATCH.contains("schema/name: 好好拼音") shouldBe true
             SIMPLIFIED_SCHEMA_CUSTOM_PATCH.contains("translator/dictionary: haohao_pinyin") shouldBe true
             SIMPLIFIED_SCHEMA_CUSTOM_PATCH.contains("translator/user_dict: luna_pinyin") shouldBe true
+            SIMPLIFIED_SCHEMA_CUSTOM_PATCH.contains("translator/max_word_length: 6") shouldBe true
+            SIMPLIFIED_SCHEMA_CUSTOM_PATCH.contains("translator/enable_correction: false") shouldBe true
+            SIMPLIFIED_SCHEMA_CUSTOM_PATCH.contains("- pinyin:/abbreviation") shouldBe true
+            SIMPLIFIED_SCHEMA_CUSTOM_PATCH.contains("spelling_correction") shouldBe false
+            SIMPLIFIED_SCHEMA_CUSTOM_PATCH.contains("key_correction") shouldBe false
             SIMPLIFIED_SCHEMA_CUSTOM_PATCH.contains("- charset_filter") shouldBe true
             SIMPLIFIED_SCHEMA_CUSTOM_PATCH.contains("translator/enable_charset_filter: true") shouldBe true
             config["__include"]?.string shouldBe "trime:/"
@@ -476,9 +482,21 @@ class HaoHaoDefaultsTest :
 
         "managed simplified schema patch upgrades without overwriting user data" {
             val expected = SIMPLIFIED_SCHEMA_CUSTOM_PATCH.trimIndent()
+            val oldManagedCorrection = """
+                # haohao-managed-pinyin-correction-v1
+                patch:
+                  speller/algebra:
+                    __patch:
+                      - pinyin:/spelling_correction
+                      - pinyin:/key_correction
+            """.trimIndent()
 
             upgradeSimplifiedSchemaCustomPatch(LEGACY_SIMPLIFIED_SCHEMA_CUSTOM_PATCH.trimIndent()) shouldBe expected
             upgradeSimplifiedSchemaCustomPatch(BRANDED_SIMPLIFIED_SCHEMA_CUSTOM_PATCH.trimIndent()) shouldBe expected
+            upgradeSimplifiedSchemaCustomPatch(
+                oldManagedCorrection,
+                pinyinCorrectionSha256(oldManagedCorrection),
+            ) shouldBe expected
             upgradeSimplifiedSchemaCustomPatch("${LEGACY_SIMPLIFIED_SCHEMA_CUSTOM_PATCH.trimIndent()}\n# user change") shouldBe null
             upgradeSimplifiedSchemaCustomPatch(expected) shouldBe null
         }

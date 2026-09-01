@@ -2,6 +2,11 @@ patch:
   schema/name: 好好拼音
   translator/dictionary: haohao_pinyin
   translator/user_dict: luna_pinyin
+  translator/max_word_length: 6
+  translator/enable_correction: false
   translator/enable_charset_filter: true
   engine/filters/+:
     - charset_filter
+  speller/algebra:
+    __patch:
+      - pinyin:/abbreviation

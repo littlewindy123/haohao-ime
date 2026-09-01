@@ -119,7 +119,7 @@ class AppPrefs(
             const val FUZZY_PREFIX = "pinyin_fuzzy_"
         }
 
-        val smartCorrection = bool(SMART_CORRECTION, true)
+        val smartCorrection = bool(SMART_CORRECTION, false)
         val adjacentKeyCorrection = bool(ADJACENT_KEY_CORRECTION, false)
         val fuzzyEnabled = bool(FUZZY_ENABLED, false)
         private val fuzzyPairs = PinyinFuzzyPair.entries.associateWith { pair ->

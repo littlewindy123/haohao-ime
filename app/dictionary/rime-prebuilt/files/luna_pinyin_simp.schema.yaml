@@ -392,16 +392,6 @@ speller:
   algebra:
     - "abbrev/^([a-z]).+$/$1/"
     - "abbrev/^([zcs]h).+$/$1/"
-    - "derive/^([nl])ve$/$1ue/"
-    - "derive/^([jqxy])u/$1v/"
-    - "derive/un$/uen/"
-    - "derive/ui$/uei/"
-    - "derive/iu$/iou/"
-    - "derive/([aeiou])ng$/$1gn/"
-    - "derive/([dtngkhrzcs])o(u|ng)$/$1o/"
-    - "derive/ong$/on/"
-    - "derive/ao$/oa/"
-    - "derive/([iu])a(o|ng?)$/a$1$2/"
   alphabet: zyxwvutsrqponmlkjihgfedcba
   delimiter: " '"
 switches:
@@ -418,6 +408,8 @@ switches:
 translator:
   dictionary: haohao_pinyin
   enable_charset_filter: true
+  enable_correction: false
+  max_word_length: 6
   preedit_format:
     - "xform/([nl])v/$1ü/"
     - "xform/([nl])ue/$1üe/"

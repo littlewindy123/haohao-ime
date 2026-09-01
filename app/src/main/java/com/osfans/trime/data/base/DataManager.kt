@@ -37,7 +37,7 @@ internal const val BRANDED_SIMPLIFIED_SCHEMA_CUSTOM_PATCH = """
     engine/filters/+:
       - charset_filter
 """
-internal const val SIMPLIFIED_SCHEMA_CUSTOM_PATCH = """
+internal const val LEGACY_DICTIONARY_SCHEMA_CUSTOM_PATCH = """
   patch:
     schema/name: 好好拼音
     translator/dictionary: haohao_pinyin
@@ -46,11 +46,29 @@ internal const val SIMPLIFIED_SCHEMA_CUSTOM_PATCH = """
     engine/filters/+:
       - charset_filter
 """
+internal const val SIMPLIFIED_SCHEMA_CUSTOM_PATCH = """
+  # haohao-managed-exact-pinyin-v2
+  patch:
+    schema/name: 好好拼音
+    translator/dictionary: haohao_pinyin
+    translator/user_dict: luna_pinyin
+    translator/max_word_length: 6
+    translator/enable_correction: false
+    translator/enable_charset_filter: true
+    engine/filters/+:
+      - charset_filter
+    speller/algebra:
+      __patch:
+        - pinyin:/abbreviation
+"""
 
-internal fun upgradeSimplifiedSchemaCustomPatch(existing: String): String? = SIMPLIFIED_SCHEMA_CUSTOM_PATCH.trimIndent().takeIf {
+internal fun upgradeSimplifiedSchemaCustomPatch(
+    existing: String,
+    storedManagedHash: String = "",
+): String? = SIMPLIFIED_SCHEMA_CUSTOM_PATCH.trimIndent().takeIf {
     val normalized = existing.trim().replace("\r\n", "\n")
-    normalized == LEGACY_SIMPLIFIED_SCHEMA_CUSTOM_PATCH.trimIndent().trim() ||
-        normalized == BRANDED_SIMPLIFIED_SCHEMA_CUSTOM_PATCH.trimIndent().trim()
+    normalized != SIMPLIFIED_SCHEMA_CUSTOM_PATCH.trimIndent().trim() &&
+        isManagedPinyinCorrectionConfig(existing, storedManagedHash)
 }
 
 internal fun managedSchemaDisplayName(
@@ -365,6 +383,9 @@ object DataManager {
     internal fun repairManagedData(): ManagedRimeRepairResult = lock.withLock {
         val backupName = SimpleDateFormat("yyyyMMdd-HHmmss-SSS", Locale.US).format(Date())
         repairManagedRimeData(userDataDir, backupName).also {
+            prefs.internal.pinyinCorrectionConfigHash.setValue(
+                pinyinCorrectionSha256(SIMPLIFIED_SCHEMA_CUSTOM_PATCH.trimIndent()),
+            )
             invalidatePrebuiltRimeData(prebuiltDataDir, managedChecksumsFile)
         }
     }
@@ -490,10 +511,18 @@ object DataManager {
             val content = when {
                 !custom.exists() -> patch.trimIndent()
                 fileName == SIMPLIFIED_SCHEMA_CUSTOM_FILE_NAME ->
-                    upgradeSimplifiedSchemaCustomPatch(custom.readText())
+                    upgradeSimplifiedSchemaCustomPatch(
+                        custom.readText(),
+                        prefs.internal.pinyinCorrectionConfigHash.getValue(),
+                    )
                 else -> null
             }
-            content?.let(custom::writeText)
+            content?.let {
+                custom.writeText(it)
+                if (fileName == SIMPLIFIED_SCHEMA_CUSTOM_FILE_NAME) {
+                    prefs.internal.pinyinCorrectionConfigHash.setValue(pinyinCorrectionSha256(it))
+                }
+            }
         }
 
         val prebuiltMetadataFile = prebuiltDataDir.resolve(PREBUILT_METADATA_FILE_NAME)

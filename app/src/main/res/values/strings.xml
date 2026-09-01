@@ -370,6 +370,8 @@
     <string name="input_footprints_added_favorite">Added to favorites</string>
     <string name="input_footprints_removed_favorite">Removed from favorites</string>
     <string name="pinyin_input_settings">Pinyin input</string>
+    <string name="pinyin_exact_mode">Exact Pinyin</string>
+    <string name="pinyin_exact_mode_summary">Exact spelling and abbreviations only; automatic correction is off</string>
     <string name="pinyin_smart_correction">Smart correction</string>
     <string name="pinyin_smart_correction_summary">Correct common missing or transposed letters</string>
     <string name="pinyin_adjacent_key_correction">Key correction</string>
