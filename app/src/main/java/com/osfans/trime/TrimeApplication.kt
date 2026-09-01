@@ -6,21 +6,18 @@
 package com.osfans.trime
 
 import android.app.Application
-import android.content.Intent
 import android.content.IntentFilter
 import android.content.res.Configuration
 import android.os.Process
 import android.util.Log
 import androidx.core.content.ContextCompat
-import androidx.core.content.edit
-import androidx.preference.PreferenceManager
+import com.osfans.trime.core.RimeRuntimeDiagnostics
 import com.osfans.trime.data.db.ClipboardHelper
 import com.osfans.trime.data.db.CollectionHelper
 import com.osfans.trime.data.footprints.InputFootprints
 import com.osfans.trime.data.prefs.AppPrefs
 import com.osfans.trime.data.theme.ColorManager
 import com.osfans.trime.receiver.RimeIntentReceiver
-import com.osfans.trime.ui.main.LogActivity
 import com.osfans.trime.util.isNightMode
 import com.osfans.trime.worker.BackgroundSyncWork
 import kotlinx.coroutines.CoroutineName
@@ -28,7 +25,6 @@ import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.plus
 import timber.log.Timber
-import kotlin.system.exitProcess
 
 /**
  * Custom Application class.
@@ -59,92 +55,80 @@ class TrimeApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        if (!BuildConfig.DEBUG) {
-            Thread.setDefaultUncaughtExceptionHandler { _, e ->
-                val crashTime = System.currentTimeMillis()
-                val sharedPrefs = PreferenceManager.getDefaultSharedPreferences(applicationContext)
-                val lastCrashTimePrefKey = "last_crash_time"
-                val lastCrashTime = sharedPrefs.getLong(lastCrashTimePrefKey, -1L)
-                sharedPrefs.edit(commit = true) {
-                    putLong(lastCrashTimePrefKey, crashTime)
-                }
-                if (crashTime - lastCrashTime <= 10_000L) {
-                    // continuous crashes within 10 seconds, maybe in a crash loop. just bail
-                    exitProcess(10)
-                }
-                startActivity(
-                    Intent(applicationContext, LogActivity::class.java).apply {
-                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                        putExtra(LogActivity.FROM_CRASH, true)
-                        // avoid transaction overflow
-                        val truncated =
-                            e.stackTraceToString().let {
-                                if (it.length > MAX_STACKTRACE_SIZE) {
-                                    it.take(MAX_STACKTRACE_SIZE) + "<truncated>"
-                                } else {
-                                    it
-                                }
-                            }
-                        putExtra(LogActivity.CRASH_STACK_TRACE, truncated)
-                    },
-                )
-                exitProcess(10)
+        instance = this
+        installCrashSummaryHandler()
+        if (BuildConfig.DEBUG) {
+            Timber.plant(
+                object : Timber.DebugTree() {
+                    override fun createStackElementTag(element: StackTraceElement): String = "${super.createStackElementTag(element)}|${element.fileName}:${element.lineNumber}"
+
+                    override fun log(
+                        priority: Int,
+                        tag: String?,
+                        message: String,
+                        t: Throwable?,
+                    ) {
+                        super.log(
+                            priority,
+                            "[${Thread.currentThread().name}] ${tag?.substringBefore('|')}",
+                            "${tag?.substringAfter('|')}] $message",
+                            t,
+                        )
+                    }
+                },
+            )
+        } else {
+            Timber.plant(
+                object : Timber.Tree() {
+                    override fun log(
+                        priority: Int,
+                        tag: String?,
+                        message: String,
+                        t: Throwable?,
+                    ) {
+                        if (priority < Log.INFO) return
+                        Log.println(priority, "[${Thread.currentThread().name}]", message)
+                    }
+                },
+            )
+        }
+        val sharedPreferences = androidx.preference.PreferenceManager.getDefaultSharedPreferences(applicationContext)
+        val appPrefs = AppPrefs.initDefault(sharedPreferences)
+        // record last pid for crash logs
+        appPrefs.internal.pid.apply {
+            val currentPid = Process.myPid()
+            lastPid = getValue()
+            Timber.d("Last pid is $lastPid. Set it to current pid: $currentPid")
+            setValue(currentPid)
+        }
+        initializeOptionalModule("clipboard") { ClipboardHelper.init(applicationContext) }
+        initializeOptionalModule("collection") { CollectionHelper.init(applicationContext) }
+        initializeOptionalModule("input-footprints") { InputFootprints.init(applicationContext) }
+        registerBroadcastReceiver()
+        startWorkManager()
+    }
+
+    private fun installCrashSummaryHandler() {
+        val previous = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { thread, error ->
+            runCatching { RimeRuntimeDiagnostics.recordCrash(error) }
+            if (previous != null) {
+                previous.uncaughtException(thread, error)
+            } else {
+                Process.killProcess(Process.myPid())
             }
         }
-        instance = this
-        try {
-            if (BuildConfig.DEBUG) {
-                Timber.plant(
-                    object : Timber.DebugTree() {
-                        override fun createStackElementTag(element: StackTraceElement): String = "${super.createStackElementTag(element)}|${element.fileName}:${element.lineNumber}"
+    }
 
-                        override fun log(
-                            priority: Int,
-                            tag: String?,
-                            message: String,
-                            t: Throwable?,
-                        ) {
-                            super.log(
-                                priority,
-                                "[${Thread.currentThread().name}] ${tag?.substringBefore('|')}",
-                                "${tag?.substringAfter('|')}] $message",
-                                t,
-                            )
-                        }
-                    },
-                )
-            } else {
-                Timber.plant(
-                    object : Timber.Tree() {
-                        override fun log(
-                            priority: Int,
-                            tag: String?,
-                            message: String,
-                            t: Throwable?,
-                        ) {
-                            if (priority < Log.INFO) return
-                            Log.println(priority, "[${Thread.currentThread().name}]", message)
-                        }
-                    },
-                )
-            }
-            val sharedPreferences = PreferenceManager.getDefaultSharedPreferences(applicationContext)
-            val appPrefs = AppPrefs.initDefault(sharedPreferences)
-            // record last pid for crash logs
-            appPrefs.internal.pid.apply {
-                val currentPid = Process.myPid()
-                lastPid = getValue()
-                Timber.d("Last pid is $lastPid. Set it to current pid: $currentPid")
-                setValue(currentPid)
-            }
-            ClipboardHelper.init(applicationContext)
-            CollectionHelper.init(applicationContext)
-            InputFootprints.init(applicationContext)
-            registerBroadcastReceiver()
-            startWorkManager()
-        } catch (e: Exception) {
-            e.fillInStackTrace()
-            return
+    private inline fun initializeOptionalModule(
+        name: String,
+        initializer: () -> Unit,
+    ) {
+        try {
+            initializer()
+        } catch (error: Exception) {
+            Timber.e(error, "Optional module disabled: %s", name)
+            RimeRuntimeDiagnostics.recordOptionalModuleFailure(name, error)
         }
     }
 
@@ -170,8 +154,6 @@ class TrimeApplication : Application() {
         fun getInstance() = instance ?: throw IllegalStateException("Trime application is not created!")
 
         fun getLastPid() = lastPid
-
-        private const val MAX_STACKTRACE_SIZE = 128000
 
         /**
          * This permission is requested by com.android.shell, makes it possible to start

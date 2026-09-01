@@ -84,13 +84,15 @@ abstract class BaseInputView(
         service.lifecycleScope.launch {
             InputFeedbackManager.keyPressVibrate(view, longPress = true)
             val editorInfo = service.currentInputEditorInfo
+            val footprintStore = InputFootprints.storeOrNull
             val canFavorite = editorInfo != null &&
+                footprintStore != null &&
                 InputFootprintPolicy.canRecord(editorInfo.inputType, editorInfo.imeOptions) &&
                 withContext(Dispatchers.IO) {
                     OfflineCandidateTranslationRepository.lookup(text) != null
                 }
             val isFavorite = canFavorite && withContext(Dispatchers.IO) {
-                InputFootprints.store.isFavorite(text)
+                requireNotNull(footprintStore).isFavorite(text)
             }
             candidateActionMenu =
                 PopupMenu(themedContext, view).apply {
@@ -106,7 +108,7 @@ abstract class BaseInputView(
                             },
                         ).setOnMenuItemClickListener {
                             service.lifecycleScope.launch(Dispatchers.IO) {
-                                InputFootprints.store.setFavorite(text, !isFavorite, System.currentTimeMillis())
+                                requireNotNull(footprintStore).setFavorite(text, !isFavorite, System.currentTimeMillis())
                                 withContext(Dispatchers.Main) {
                                     service.toast(
                                         if (isFavorite) {

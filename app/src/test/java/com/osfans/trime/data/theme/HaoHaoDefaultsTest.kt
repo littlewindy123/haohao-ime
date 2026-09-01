@@ -241,7 +241,7 @@ class HaoHaoDefaultsTest :
             val toolbarActions = decodedToolBar.buttons.map { it.action }
             toolbarActions shouldContainExactly listOf(
                 "Hide",
-                "HaoHaoTheme",
+                "HaoHaoTranslation",
                 "liquid_keyboard_emoji",
                 HAOHAO_EDITOR_KEY,
                 "VOICE_ASSIST",
@@ -250,7 +250,7 @@ class HaoHaoDefaultsTest :
             )
             decodedToolBar.equalWidthButtonsInDisplayOrder().map { it.action } shouldContainExactly listOf(
                 "HaoHaoToolbox",
-                "HaoHaoTheme",
+                "HaoHaoTranslation",
                 "liquid_keyboard_emoji",
                 HAOHAO_EDITOR_KEY,
                 "VOICE_ASSIST",
@@ -262,8 +262,8 @@ class HaoHaoDefaultsTest :
             val toolboxKey = requireNotNull(presetKeys["HaoHaoToolbox"]?.mapping)
             toolboxKey["send"]?.string shouldBe "FUNCTION"
             toolboxKey["command"]?.string shouldBe "haohao_toolbox"
-            presetKeys["HaoHaoTheme"]?.mapping?.get("send")?.string shouldBe "SETTINGS"
-            presetKeys["HaoHaoTheme"]?.mapping?.get("option")?.string shouldBe "theme"
+            presetKeys["HaoHaoTranslation"]?.mapping?.get("send")?.string shouldBe "FUNCTION"
+            presetKeys["HaoHaoTranslation"]?.mapping?.get("command")?.string shouldBe "haohao_translation"
             presetKeys["HaoHaoSymbols"]?.mapping?.get("label")?.string shouldBe "符"
         }
 
@@ -464,5 +464,14 @@ class HaoHaoDefaultsTest :
             clickTokens(symbols).contains("HaoHaoSpace") shouldBe true
             clickTokens(symbols).contains("HaoHaoNumber") shouldBe true
             clickTokens(symbols).contains("；") shouldBe true
+        }
+
+        "manifest does not request broad external storage access" {
+            val manifest = File("src/main/AndroidManifest.xml").readText()
+
+            manifest.contains("READ_EXTERNAL_STORAGE") shouldBe false
+            manifest.contains("WRITE_EXTERNAL_STORAGE") shouldBe false
+            manifest.contains("MANAGE_EXTERNAL_STORAGE") shouldBe false
+            manifest.contains("requestLegacyExternalStorage") shouldBe false
         }
     })

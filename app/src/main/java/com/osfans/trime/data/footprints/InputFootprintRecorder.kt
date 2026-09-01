@@ -39,7 +39,7 @@ internal object InputFootprintRecorder : CoroutineScope by CoroutineScope(Superv
             ) {
                 return@launch
             }
-            InputFootprints.store.record(text, timestamp)
+            InputFootprints.storeOrNull?.record(text, timestamp)
         }
     }
 

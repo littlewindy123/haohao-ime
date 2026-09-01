@@ -87,6 +87,12 @@ internal object InputFootprints {
     private const val DATABASE_NAME = "haohao_vocabulary.db"
     private lateinit var storeInstance: InputFootprintStore
 
+    val isAvailable: Boolean
+        get() = ::storeInstance.isInitialized
+
+    val storeOrNull: InputFootprintStore?
+        get() = if (isAvailable) storeInstance else null
+
     val store: InputFootprintStore
         get() = storeInstance
 
@@ -99,6 +105,12 @@ internal object InputFootprints {
                 InputFootprintDatabase::class.java,
                 databaseFile(context).absolutePath,
             ).build()
-        storeInstance = InputFootprintStore(database)
+        try {
+            database.openHelper.writableDatabase
+            storeInstance = InputFootprintStore(database)
+        } catch (error: Throwable) {
+            database.close()
+            throw error
+        }
     }
 }

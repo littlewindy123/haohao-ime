@@ -20,17 +20,31 @@ object CollectionHelper : CoroutineScope by CoroutineScope(SupervisorJob() + Dis
     private lateinit var cltDb: Database
     private lateinit var cltDao: DatabaseDao
 
+    @Volatile
+    var isAvailable: Boolean = false
+        private set
+
     private val mutex = Mutex()
 
     private var lastBean: DatabaseBean? = null
 
     fun init(context: Context) {
-        cltDb =
+        val database =
             Room
                 .databaseBuilder(context, Database::class.java, "collection.db")
                 .addMigrations(Database.MIGRATION_3_4)
                 .build()
-        cltDao = cltDb.databaseDao()
+        try {
+            val dao = database.databaseDao()
+            database.openHelper.writableDatabase
+            cltDb = database
+            cltDao = dao
+            isAvailable = true
+        } catch (error: Throwable) {
+            isAvailable = false
+            database.close()
+            throw error
+        }
     }
 
     suspend fun insert(bean: DatabaseBean) = cltDao.insert(bean)

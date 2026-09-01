@@ -36,9 +36,9 @@ class Rime {
     return instance;
   }
 
-  void startup(bool fullCheck,
+  bool startup(bool fullCheck,
                const RimeNotificationHandler &notificationHandler) {
-    if (!rime) return;
+    if (!rime) return false;
     const char *userDir = getenv("RIME_USER_DATA_DIR");
     const char *sharedDir = getenv("RIME_SHARED_DATA_DIR");
     const char *versionName = getenv("RIME_DISTRIBUTION_VERSION");
@@ -55,10 +55,10 @@ class Rime {
     rime->setup(&trime_traits);
     rime->initialize(&trime_traits);
     rime->set_notification_handler(notificationHandler, GlobalRef->jvm);
-    if (rime->start_maintenance(fullCheck)) {
-      rime->join_maintenance_thread();
-    }
+    return rime->start_maintenance(fullCheck);
   }
+
+  void joinMaintenanceThread() { rime->join_maintenance_thread(); }
 
   bool deploySchema(std::string_view schemaFile) {
     return rime->deploy_schema(schemaFile.data());
@@ -238,7 +238,7 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *jvm, void *reserved) {
   return JNI_VERSION_1_6;
 }
 
-extern "C" JNIEXPORT void JNICALL Java_com_osfans_trime_core_Rime_startupRime(
+extern "C" JNIEXPORT jboolean JNICALL Java_com_osfans_trime_core_Rime_startupRime(
     JNIEnv *env, jclass clazz, jstring shared_dir, jstring user_dir,
     jstring version_name, jboolean full_check) {
   // for rime shared data dir
@@ -266,7 +266,13 @@ extern "C" JNIEXPORT void JNICALL Java_com_osfans_trime_core_Rime_startupRime(
                               type, *vararg);
   };
 
-  Rime::Instance().startup(full_check, notificationHandler);
+  return Rime::Instance().startup(full_check, notificationHandler);
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_osfans_trime_core_Rime_joinRimeMaintenanceThread(
+    JNIEnv *env, jclass /* thiz */) {
+  Rime::Instance().joinMaintenanceThread();
 }
 
 extern "C" JNIEXPORT void JNICALL

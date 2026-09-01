@@ -26,7 +26,9 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
 import androidx.preference.PreferenceGroup
 import com.osfans.trime.R
+import com.osfans.trime.core.RimeRuntimeSnapshot
 import com.osfans.trime.core.RimeRuntimeState
+import com.osfans.trime.core.statusTextRes
 import com.osfans.trime.daemon.RimeDaemon
 import com.osfans.trime.daemon.launchOnReady
 import com.osfans.trime.data.base.DataManager
@@ -285,17 +287,18 @@ class MainFragment : Fragment(R.layout.fragment_main) {
         }
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                RimeDaemon.runtimeState.collect(::renderEngineStatus)
+                RimeDaemon.runtimeSnapshot.collect(::renderEngineStatus)
             }
         }
     }
 
-    private fun renderEngineStatus(state: RimeRuntimeState) {
+    private fun renderEngineStatus(snapshot: RimeRuntimeSnapshot) {
         if (viewBinding == null) return
+        val state = RimeDaemon.runtimeState.value
         when (state) {
             RimeRuntimeState.PREPARING -> {
                 binding.engineStatusTitle.setText(R.string.rime_runtime_preparing)
-                binding.engineStatusSummary.setText(R.string.rime_runtime_preparing_summary)
+                binding.engineStatusSummary.setText(snapshot.phase.statusTextRes)
                 binding.repairEngineButton.isVisible = false
             }
             RimeRuntimeState.READY -> {
@@ -355,12 +358,19 @@ class MainFragment : Fragment(R.layout.fragment_main) {
         binding.learningHistorySwitch.setOnCheckedChangeListener { _, checked ->
             if (!updatingUi) prefs.candidates.learningHistoryEnabled.setValue(checked)
         }
+        val footprintStore = InputFootprints.storeOrNull
+        binding.inputFootprintsDestination.isEnabled = footprintStore != null
+        binding.inputFootprintsDestination.alpha = if (footprintStore != null) 1f else 0.45f
         binding.inputFootprintsDestination.setOnClickListener {
-            findNavController().navigateWithAnim(NavigationRoute.InputFootprints)
+            if (footprintStore != null) findNavController().navigateWithAnim(NavigationRoute.InputFootprints)
+        }
+        if (footprintStore == null) {
+            binding.inputFootprintsSummary.setText(R.string.optional_feature_unavailable)
+            return
         }
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                InputFootprints.store.counts.collect { counts ->
+                footprintStore.counts.collect { counts ->
                     binding.inputFootprintsSummary.text = getString(
                         R.string.input_footprints_summary,
                         counts.recent,

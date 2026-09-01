@@ -25,4 +25,22 @@ class ImeBootstrapPolicyTest :
             ImeBootstrapPolicy.resolve(RimeRuntimeState.FAILED, hasTheme = true) shouldBe
                 ImeBootstrapState.FAILED
         }
+
+        "the same ready attempt never mounts a second full keyboard view" {
+            ImeBootstrapPolicy.shouldInstallReadyView(
+                renderedAttemptId = 7L,
+                currentAttemptId = 7L,
+                readyViewInstalled = true,
+            ) shouldBe false
+            ImeBootstrapPolicy.shouldInstallReadyView(
+                renderedAttemptId = 7L,
+                currentAttemptId = 8L,
+                readyViewInstalled = true,
+            ) shouldBe true
+            ImeBootstrapPolicy.shouldInstallReadyView(
+                renderedAttemptId = 7L,
+                currentAttemptId = 7L,
+                readyViewInstalled = false,
+            ) shouldBe true
+        }
     })

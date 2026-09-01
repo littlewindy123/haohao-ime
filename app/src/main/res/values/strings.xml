@@ -96,6 +96,11 @@
     <string name="rime_runtime_section">Input engine</string>
     <string name="rime_runtime_preparing">Preparing offline dictionary…</string>
     <string name="rime_runtime_preparing_summary">The first start can take a moment. Typing will be ready when it finishes.</string>
+    <string name="rime_runtime_phase_data">Checking offline dictionary…</string>
+    <string name="rime_runtime_phase_native">Starting input engine…</string>
+    <string name="rime_runtime_phase_maintenance">Preparing HaoHao Pinyin…</string>
+    <string name="rime_runtime_phase_schema">Activating Simplified Chinese…</string>
+    <string name="rime_runtime_phase_theme">Loading keyboard theme…</string>
     <string name="rime_runtime_ready">Input engine ready</string>
     <string name="rime_runtime_ready_summary">HaoHao Pinyin · Simplified Chinese · offline</string>
     <string name="rime_runtime_failed">Input engine unavailable</string>
@@ -105,6 +110,7 @@
     <string name="rime_runtime_copy_diagnostics">Copy diagnostics</string>
     <string name="rime_runtime_diagnostics_label">HaoHao IME diagnostics</string>
     <string name="rime_runtime_diagnostics_copied">Diagnostics copied</string>
+    <string name="optional_feature_unavailable">This optional feature is temporarily unavailable</string>
     <string name="setup__enable_before_select">Enable HaoHao IME in system settings first</string>
     <string name="periodic_background_sync">Periodic background sync</string>
     <string name="periodic_background_sync_status">Last: %1$s (%2$s)</string>

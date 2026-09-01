@@ -88,6 +88,11 @@
     <string name="rime_runtime_section">輸入引擎</string>
     <string name="rime_runtime_preparing">正在準備離線詞庫…</string>
     <string name="rime_runtime_preparing_summary">首次啟動可能需要一點時間，完成後即可正常輸入</string>
+    <string name="rime_runtime_phase_data">正在校驗離線詞庫…</string>
+    <string name="rime_runtime_phase_native">正在啟動輸入引擎…</string>
+    <string name="rime_runtime_phase_maintenance">正在準備好好拼音…</string>
+    <string name="rime_runtime_phase_schema">正在啟用簡體方案…</string>
+    <string name="rime_runtime_phase_theme">正在載入鍵盤主題…</string>
     <string name="rime_runtime_ready">輸入引擎正常</string>
     <string name="rime_runtime_ready_summary">好好拼音 · 簡體中文 · 本機離線</string>
     <string name="rime_runtime_failed">輸入引擎未就緒</string>
@@ -97,6 +102,7 @@
     <string name="rime_runtime_copy_diagnostics">複製診斷資訊</string>
     <string name="rime_runtime_diagnostics_label">好好輸入法診斷資訊</string>
     <string name="rime_runtime_diagnostics_copied">診斷資訊已複製</string>
+    <string name="optional_feature_unavailable">此選用功能暫時無法使用</string>
     <string name="periodic_background_sync">後台定時同步</string>
     <string name="periodic_background_sync_status">上次同步時間（狀態）：%1$s（%2$s）</string>
     <string name="effects">效果</string>

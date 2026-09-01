@@ -18,6 +18,9 @@ import com.osfans.trime.core.RimeApi
 import com.osfans.trime.core.RimeKeyEvent
 import com.osfans.trime.daemon.RimeSession
 import com.osfans.trime.daemon.launchOnReady
+import com.osfans.trime.data.db.ClipboardHelper
+import com.osfans.trime.data.db.CollectionHelper
+import com.osfans.trime.data.footprints.InputFootprints
 import com.osfans.trime.data.prefs.AppPrefs
 import com.osfans.trime.data.theme.ColorManager
 import com.osfans.trime.data.theme.DEFAULT_THEME_ID
@@ -224,7 +227,13 @@ class CommonKeyboardActionListener {
                     "menu_keyboard" -> windowManager.attachWindow(SwitchOptionWindow())
                     "haohao_toolbox" -> windowManager.attachWindow(HaoHaoToolboxWindow())
                     HAOHAO_EDITOR_ACTION -> openHaoHaoEditor()
-                    HAOHAO_INPUT_FOOTPRINTS_ACTION -> AppUtils.launchMainToInputFootprints(service)
+                    HAOHAO_INPUT_FOOTPRINTS_ACTION -> {
+                        if (InputFootprints.isAvailable) {
+                            AppUtils.launchMainToInputFootprints(service)
+                        } else {
+                            service.toast(R.string.optional_feature_unavailable)
+                        }
+                    }
                     HAOHAO_TRANSLATION_ACTION -> openHaoHaoTranslation()
                     "clipboard_window" -> handleClipboardWindow(arg)
                     "set_color_scheme" -> handleColorScheme(arg)
@@ -323,6 +332,10 @@ class CommonKeyboardActionListener {
             }
 
             private fun handleClipboardWindow(arg: String) {
+                if (!ClipboardHelper.isAvailable || !CollectionHelper.isAvailable) {
+                    service.toast(R.string.optional_feature_unavailable)
+                    return
+                }
                 val tabIndex = arg.toIntOrNull()?.coerceIn(0, 1) ?: 0
                 windowManager.attachWindow(ClipboardWindow(tabIndex))
             }

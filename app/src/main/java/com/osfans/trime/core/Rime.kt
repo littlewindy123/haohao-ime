@@ -10,26 +10,35 @@ import com.osfans.trime.BuildConfig
 import com.osfans.trime.data.base.DEFAULT_SCHEMA_ID
 import com.osfans.trime.data.base.DataManager
 import com.osfans.trime.data.base.DataSyncStats
+import com.osfans.trime.data.base.InsufficientRimeStorageException
 import com.osfans.trime.data.opencc.OpenCCDictManager
 import com.osfans.trime.data.prefs.AppPrefs
 import com.osfans.trime.ime.core.InlinePreeditMode
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import timber.log.Timber
+import java.util.concurrent.CopyOnWriteArrayList
 
 /**
  * Rime JNI and instance methods
  *
  * @see [librime](https://github.com/rime/librime)
  */
+private class RimeStartupException(
+    val attemptId: Long,
+    val code: RimeFailureCode,
+    cause: Throwable,
+) : IllegalStateException(cause.message ?: cause.javaClass.simpleName, cause)
+
 class Rime :
     RimeApi,
     RimeLifecycleOwner {
@@ -39,10 +48,29 @@ class Rime :
     override val messageFlow = messageFlow_.asSharedFlow()
 
     override val isReady: Boolean
-        get() = lifecycle.currentState == RimeLifecycle.State.READY
+        get() =
+            lifecycle.currentState == RimeLifecycle.State.READY &&
+                preparationController.runtimeState.value == RimeRuntimeState.READY
 
-    private val mutableRuntimeState = MutableStateFlow(RimeRuntimeState.PREPARING)
-    val runtimeState: StateFlow<RimeRuntimeState> = mutableRuntimeState.asStateFlow()
+    private val preparationController =
+        RimePreparationController(clock = SystemClock::elapsedRealtime)
+    val runtimeState: StateFlow<RimeRuntimeState> = preparationController.runtimeState
+    internal val runtimeSnapshot: StateFlow<RimeRuntimeSnapshot> = preparationController.snapshot
+
+    private val startupScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val startupLock = Any()
+    private var timeoutJob: Job? = null
+    private var automaticRetryJob: Job? = null
+    private var automaticRetryAttemptId = 0L
+
+    @Volatile
+    private var activeAttemptId = 0L
+
+    @Volatile
+    private var maintenanceAttemptId = 0L
+
+    @Volatile
+    private var shutdownRequested = false
 
     @Volatile
     var lastFailure: String? = null
@@ -79,18 +107,22 @@ class Rime :
         RimeDispatcher(
             object : RimeDispatcher.RimeController {
                 override fun nativeStartup() {
-                    startRime(startupFullCheck)
-                    lifecycleRegistry.emitState(RimeLifecycle.State.READY)
-                    markRuntimeReady()
+                    val attemptId = activeAttemptId
+                    val maintenanceStarted = startRime(attemptId, startupFullCheck)
+                    if (!maintenanceStarted) completeRuntimeStartup(attemptId)
                 }
 
                 override fun nativeStartupFailed(error: Throwable) {
                     runCatching(::exitRime)
-                    lastFailure = error.message ?: error.javaClass.simpleName
-                    mutableRuntimeState.value = RimeRuntimeState.FAILED
                     runCatching(lifecycleRegistry::emitStartupFailed)
                         .onFailure { Timber.e(it, "Unable to reset Rime lifecycle after startup failure") }
                     unregisterRimeMessageHandler(::handleRimeMessage)
+                    val startupError = error as? RimeStartupException
+                    handlePreparationFailure(
+                        attemptId = startupError?.attemptId ?: activeAttemptId,
+                        code = startupError?.code ?: RimeFailureCode.NATIVE_STARTUP,
+                        error = startupError?.cause ?: error,
+                    )
                 }
 
                 override fun nativeFinalize() {
@@ -128,15 +160,11 @@ class Rime :
     }
 
     override suspend fun deploy() = withRimeContext {
-        exitRime()
-        startRime(true)
-        markRuntimeReady()
+        restartRimeSynchronously(fullCheck = true)
     }
 
     override suspend fun updateConfig() = withRimeContext {
-        exitRime()
-        startRime(false)
-        markRuntimeReady()
+        restartRimeSynchronously(fullCheck = false)
     }
 
     override suspend fun syncUserData(): Boolean = withRimeContext {
@@ -255,15 +283,28 @@ class Rime :
         emitResponse()
     }
 
-    private fun startRime(fullCheck: Boolean) {
+    private fun startRime(
+        attemptId: Long,
+        fullCheck: Boolean,
+    ): Boolean {
+        if (!preparationController.advance(attemptId, RimePreparationPhase.DATA_SYNCHRONIZATION)) return false
         val dataStartedAt = SystemClock.elapsedRealtime()
         lastDataSyncStats = null
         val syncStats = try {
             DataManager.sync()
+        } catch (error: Throwable) {
+            val code =
+                if (error is InsufficientRimeStorageException) {
+                    RimeFailureCode.INSUFFICIENT_SPACE
+                } else {
+                    RimeFailureCode.DATA_CORRUPTION
+                }
+            throw RimeStartupException(attemptId, code, error)
         } finally {
             lastDataPreparationMillis = SystemClock.elapsedRealtime() - dataStartedAt
         }
         lastDataSyncStats = syncStats
+        if (!preparationController.isPreparing(attemptId)) return false
         Timber.i(
             "Rime data prepared in %d ms: copied=%d, bytes=%d, reused=%s",
             lastDataPreparationMillis,
@@ -283,14 +324,80 @@ class Rime :
         )
         val nativeStartedAt = SystemClock.elapsedRealtime()
         try {
+            if (!preparationController.advance(attemptId, RimePreparationPhase.NATIVE_INITIALIZATION)) {
+                return false
+            }
             deploymentFailure = null
-            startupRime(sharedDataDir, userDataDir, BuildConfig.BUILD_VERSION_NAME, fullCheck)
-            deploymentFailure?.let(::error)
-            enforceSimplifiedSchema()
+            maintenanceAttemptId = attemptId
+            val maintenanceStarted =
+                startupRime(sharedDataDir, userDataDir, BuildConfig.BUILD_VERSION_NAME, fullCheck)
+            deploymentFailure?.let { error ->
+                throw RimeStartupException(attemptId, RimeFailureCode.MAINTENANCE_FAILURE, IllegalStateException(error))
+            }
+            if (maintenanceStarted) {
+                preparationController.advance(attemptId, RimePreparationPhase.MAINTENANCE_DEPLOYMENT)
+            }
+            return maintenanceStarted
+        } catch (error: RimeStartupException) {
+            throw error
+        } catch (error: Throwable) {
+            throw RimeStartupException(attemptId, RimeFailureCode.NATIVE_STARTUP, error)
         } finally {
             lastNativeStartupMillis = SystemClock.elapsedRealtime() - nativeStartedAt
             Timber.i("Rime native startup finished in %d ms", lastNativeStartupMillis)
         }
+    }
+
+    private fun completeRuntimeStartup(attemptId: Long) {
+        if (
+            !preparationController.isCurrent(attemptId) ||
+            preparationController.runtimeState.value != RimeRuntimeState.PREPARING
+        ) {
+            return
+        }
+        if (!preparationController.advance(attemptId, RimePreparationPhase.SCHEMA_ACTIVATION)) return
+        try {
+            enforceSimplifiedSchema()
+        } catch (error: Throwable) {
+            handlePreparationFailure(attemptId, RimeFailureCode.SCHEMA_MISSING, error)
+            return
+        }
+        val becameReady = synchronized(startupLock) {
+            if (
+                !preparationController.isPreparing(attemptId) ||
+                lifecycle.currentState !in setOf(RimeLifecycle.State.STARTING, RimeLifecycle.State.READY)
+            ) {
+                return@synchronized false
+            }
+            timeoutJob?.cancel()
+            timeoutJob = null
+            lastFailure = null
+            if (lifecycle.currentState == RimeLifecycle.State.STARTING) {
+                lifecycleRegistry.emitState(RimeLifecycle.State.READY)
+            }
+            preparationController.markReady(attemptId)
+        }
+        if (!becameReady) return
+        startupScope.launch(Dispatchers.IO) { DataManager.cleanupLegacyManagedDataAfterReady() }
+        persistRuntimeSnapshot()
+    }
+
+    private fun restartRimeSynchronously(fullCheck: Boolean) {
+        val attemptId = preparationController.beginAttempt(autoRetry = false)
+        activeAttemptId = attemptId
+        persistRuntimeSnapshot()
+        exitRime()
+        val maintenanceStarted = startRime(attemptId, fullCheck)
+        if (maintenanceStarted) joinRimeMaintenanceThread()
+        deploymentFailure?.let { error ->
+            throw RimeStartupException(
+                attemptId,
+                RimeFailureCode.MAINTENANCE_FAILURE,
+                IllegalStateException(error),
+            )
+        }
+        completeRuntimeStartup(attemptId)
+        if (!isReady) throw RimeUnavailableException(lastFailure ?: "Rime restart failed")
     }
 
     private fun enforceSimplifiedSchema() {
@@ -305,11 +412,6 @@ class Rime :
         }
         statusCached = status
         schemaCached = RimeSchema(DEFAULT_SCHEMA_ID)
-    }
-
-    private fun markRuntimeReady() {
-        mutableRuntimeState.value = RimeRuntimeState.READY
-        lastFailure = null
     }
 
     private fun processKeyInner(value: Int, modifiers: Int, isVirtual: Boolean): Boolean {
@@ -393,16 +495,36 @@ class Rime :
             is RimeMessage.DeployMessage -> {
                 when (it.data) {
                     RimeMessage.DeployMessage.State.Start -> {
-                        mutableRuntimeState.value = RimeRuntimeState.PREPARING
-                        OpenCCDictManager.buildOpenCCDict()
+                        if (preparationController.isPreparing(maintenanceAttemptId)) {
+                            preparationController.advance(
+                                maintenanceAttemptId,
+                                RimePreparationPhase.MAINTENANCE_DEPLOYMENT,
+                            )
+                            persistRuntimeSnapshot()
+                            OpenCCDictManager.buildOpenCCDict()
+                        }
                     }
                     RimeMessage.DeployMessage.State.Success -> {
                         deploymentFailure = null
+                        val attemptId = maintenanceAttemptId
+                        if (
+                            preparationController.isCurrent(attemptId) &&
+                            preparationController.runtimeState.value == RimeRuntimeState.PREPARING
+                        ) {
+                            lifecycleScope.launch(dispatcher) {
+                                completeRuntimeStartup(attemptId)
+                            }
+                        }
                     }
                     RimeMessage.DeployMessage.State.Failure -> {
                         deploymentFailure = "Rime deployment failed"
-                        lastFailure = deploymentFailure
-                        mutableRuntimeState.value = RimeRuntimeState.FAILED
+                        if (preparationController.isPreparing(maintenanceAttemptId)) {
+                            handlePreparationFailure(
+                                maintenanceAttemptId,
+                                RimeFailureCode.MAINTENANCE_FAILURE,
+                                IllegalStateException(requireNotNull(deploymentFailure)),
+                            )
+                        }
                     }
                 }
             }
@@ -458,49 +580,189 @@ class Rime :
         }
     }
 
-    fun startup(fullCheck: Boolean = false) {
+    fun startup(fullCheck: Boolean = false) = synchronized(startupLock) {
+        startAttemptLocked(fullCheck = fullCheck, autoRetry = false)
+    }
+
+    private fun startAttemptLocked(
+        fullCheck: Boolean,
+        autoRetry: Boolean,
+    ) {
         if (lifecycle.currentState != RimeLifecycle.State.STOPPED) {
             Timber.w("Skip starting rime: not at stopped state!")
             return
         }
         startupFullCheck = fullCheck
         lastFailure = null
-        mutableRuntimeState.value = RimeRuntimeState.PREPARING
+        val attemptId = preparationController.beginAttempt(autoRetry)
+        shutdownRequested = false
+        activeAttemptId = attemptId
+        maintenanceAttemptId = attemptId
+        automaticRetryAttemptId = 0L
         registerRimeMessageHandler(::handleRimeMessage)
         lifecycleRegistry.emitState(RimeLifecycle.State.STARTING)
+        persistRuntimeSnapshot()
+        scheduleStartupTimeout(attemptId)
         dispatcher.start()
     }
 
+    private fun scheduleStartupTimeout(attemptId: Long) {
+        timeoutJob?.cancel()
+        timeoutJob = startupScope.launch {
+            delay(STARTUP_TIMEOUT_MILLIS)
+            if (
+                preparationController.isCurrent(attemptId) &&
+                preparationController.runtimeState.value == RimeRuntimeState.PREPARING
+            ) {
+                handlePreparationFailure(
+                    attemptId,
+                    RimeFailureCode.MAINTENANCE_TIMEOUT,
+                    IllegalStateException("Rime preparation exceeded ${STARTUP_TIMEOUT_MILLIS}ms"),
+                )
+            }
+        }
+    }
+
+    private fun handlePreparationFailure(
+        attemptId: Long,
+        code: RimeFailureCode,
+        error: Throwable,
+    ) {
+        val message = error.message ?: error.javaClass.simpleName
+        val recoveryAction = synchronized(startupLock) {
+            preparationController.fail(attemptId, code, message).also { action ->
+                if (action != RimeRecoveryAction.IGNORE) {
+                    timeoutJob?.cancel()
+                    timeoutJob = null
+                    lastFailure = message
+                }
+            }
+        }
+        if (recoveryAction == RimeRecoveryAction.IGNORE) return
+        persistRuntimeSnapshot(error)
+        if (recoveryAction == RimeRecoveryAction.RETRY && !shutdownRequested) {
+            scheduleAutomaticRetry(attemptId)
+        }
+    }
+
+    private fun persistRuntimeSnapshot(error: Throwable? = null) {
+        RimeRuntimeDiagnostics.recordSnapshot(
+            snapshot = preparationController.snapshot.value,
+            runtimeState = preparationController.runtimeState.value,
+            schemaId = schemaCached.schemaId,
+            dataPreparationMillis = lastDataPreparationMillis,
+            nativeStartupMillis = lastNativeStartupMillis,
+            dataSyncStats = lastDataSyncStats,
+            error = error,
+        )
+    }
+
+    private fun scheduleAutomaticRetry(failedAttemptId: Long) {
+        synchronized(startupLock) {
+            automaticRetryJob?.cancel()
+            automaticRetryAttemptId = failedAttemptId
+            automaticRetryJob = startupScope.launch {
+                delay(AUTOMATIC_RETRY_DELAY_MILLIS)
+                val shouldRetry = synchronized(startupLock) {
+                    automaticRetryAttemptId == failedAttemptId &&
+                        preparationController.isCurrent(failedAttemptId) &&
+                        preparationController.runtimeState.value == RimeRuntimeState.FAILED
+                }
+                if (!shouldRetry) return@launch
+                stopRuntime(cancelAutomaticRetry = false)
+                synchronized(startupLock) {
+                    if (
+                        automaticRetryAttemptId == failedAttemptId &&
+                        preparationController.isCurrent(failedAttemptId) &&
+                        preparationController.runtimeState.value == RimeRuntimeState.FAILED &&
+                        lifecycle.currentState == RimeLifecycle.State.STOPPED
+                    ) {
+                        automaticRetryAttemptId = 0L
+                        automaticRetryJob = null
+                        startAttemptLocked(fullCheck = false, autoRetry = true)
+                    }
+                }
+            }
+        }
+    }
+
     fun finalize() {
-        if (lifecycle.currentState != RimeLifecycle.State.READY) {
-            Timber.w("Skip stopping rime: not at ready state!")
+        stopRuntime(cancelAutomaticRetry = true)
+    }
+
+    private fun stopRuntime(cancelAutomaticRetry: Boolean) {
+        val shouldStop = synchronized(startupLock) {
+            timeoutJob?.cancel()
+            timeoutJob = null
+            val lifecycleState = lifecycle.currentState
+            if (cancelAutomaticRetry) {
+                shutdownRequested = true
+                automaticRetryAttemptId = 0L
+                automaticRetryJob?.cancel()
+                automaticRetryJob = null
+                if (lifecycleState != RimeLifecycle.State.STOPPING) {
+                    activeAttemptId = preparationController.invalidateCurrentAttempt()
+                }
+            }
+            when (lifecycleState) {
+                RimeLifecycle.State.STOPPED -> false
+                RimeLifecycle.State.STOPPING -> return
+                RimeLifecycle.State.STARTING,
+                RimeLifecycle.State.READY,
+                -> {
+                    lifecycleRegistry.emitState(RimeLifecycle.State.STOPPING)
+                    true
+                }
+            }
+        }
+        if (!shouldStop) {
+            unregisterRimeMessageHandler(::handleRimeMessage)
             return
         }
-        lifecycleRegistry.emitState(RimeLifecycle.State.STOPPING)
         Timber.i("Rime finalize()")
         dispatcher.stop().let {
             if (it.isNotEmpty()) {
                 Timber.w("${it.size} job(s) didn't get a chance to run!")
             }
         }
-        lifecycleRegistry.emitState(RimeLifecycle.State.STOPPED)
-        unregisterRimeMessageHandler(::handleRimeMessage)
+        synchronized(startupLock) {
+            if (lifecycle.currentState == RimeLifecycle.State.STOPPING) {
+                lifecycleRegistry.emitState(RimeLifecycle.State.STOPPED)
+            }
+            unregisterRimeMessageHandler(::handleRimeMessage)
+        }
     }
 
-    fun markFailed(error: Throwable) {
-        lastFailure = error.message ?: error.javaClass.simpleName
-        mutableRuntimeState.value = RimeRuntimeState.FAILED
+    internal fun markThemeInitializing() {
+        preparationController.advance(activeAttemptId, RimePreparationPhase.THEME_INITIALIZATION)
+        persistRuntimeSnapshot()
+    }
+
+    internal fun markThemeReady() {
+        preparationController.finishCurrentPhase(activeAttemptId)
+        persistRuntimeSnapshot()
+    }
+
+    internal fun markThemeFailed(error: Throwable) {
+        handlePreparationFailure(activeAttemptId, RimeFailureCode.THEME_FAILURE, error)
+    }
+
+    fun markRepairFailed(error: Throwable) {
+        val attemptId = activeAttemptId.takeIf { it != 0L } ?: preparationController.beginAttempt(autoRetry = false)
+        handlePreparationFailure(attemptId, RimeFailureCode.DATA_CORRUPTION, error)
     }
 
     companion object {
         private const val SIMPLIFIED_OPTION = "zh_simp"
+        private const val STARTUP_TIMEOUT_MILLIS = 15_000L
+        private const val AUTOMATIC_RETRY_DELAY_MILLIS = 250L
         private val messageFlow_ =
             MutableSharedFlow<RimeMessage<*>>(
                 extraBufferCapacity = 15,
                 onBufferOverflow = BufferOverflow.DROP_OLDEST,
             )
 
-        private val rimeMessageHandlers = ArrayList<(RimeMessage<*>) -> Unit>()
+        private val rimeMessageHandlers = CopyOnWriteArrayList<(RimeMessage<*>) -> Unit>()
 
         init {
             System.loadLibrary("rime_jni")
@@ -513,7 +775,10 @@ class Rime :
             userDir: String,
             versionName: String,
             fullCheck: Boolean,
-        )
+        ): Boolean
+
+        @JvmStatic
+        external fun joinRimeMaintenanceThread()
 
         @JvmStatic
         external fun exitRime()

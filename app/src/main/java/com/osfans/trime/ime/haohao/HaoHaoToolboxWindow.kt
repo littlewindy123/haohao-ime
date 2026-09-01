@@ -12,6 +12,8 @@ import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import androidx.lifecycle.lifecycleScope
 import com.osfans.trime.R
+import com.osfans.trime.data.db.ClipboardHelper
+import com.osfans.trime.data.db.CollectionHelper
 import com.osfans.trime.data.footprints.InputFootprints
 import com.osfans.trime.data.theme.KeyActionManager
 import com.osfans.trime.data.theme.Theme
@@ -71,6 +73,17 @@ class HaoHaoToolboxWindow : BoardWindow.BarBoardWindow() {
             root.setOnClickListener {
                 actionListener.listener.onAction(KeyActionManager.getAction(action.actionToken))
             }
+            if (action == HaoHaoToolboxAction.Footprints && !InputFootprints.isAvailable) {
+                root.isEnabled = false
+                root.alpha = 0.45f
+            }
+            if (
+                action == HaoHaoToolboxAction.Clipboard &&
+                (!ClipboardHelper.isAvailable || !CollectionHelper.isAvailable)
+            ) {
+                root.isEnabled = false
+                root.alpha = 0.45f
+            }
         }.root
     }
 
@@ -98,8 +111,9 @@ class HaoHaoToolboxWindow : BoardWindow.BarBoardWindow() {
     }
 
     override fun onAttached() {
+        val store = InputFootprints.storeOrNull ?: return
         countsJob = service.lifecycleScope.launch {
-            InputFootprints.store.counts.collect { counts ->
+            store.counts.collect { counts ->
                 updateCounts(counts.recent, counts.favorites)
             }
         }

@@ -145,17 +145,19 @@ abstract class VerifyRimePrebuiltDataTask : DefaultTask() {
             "Unexpected Rime prebuilt file set: $declaredFiles"
         }
 
-        val compiledSchema = prebuiltDirectory.get().asFile.resolve("luna_pinyin_simp.schema.yaml").readText()
-        val nonZeroTimestamps =
-            compiledSchema.lineSequence()
-                .dropWhile { it != "  timestamps:" }
-                .drop(1)
-                .takeWhile { it.startsWith("    ") }
-                .map { it.substringAfter(':').trim().toLong() }
-                .filter { it > 0 }
-                .toSet()
-        check(nonZeroTimestamps == setOf(sourceTimestamp)) {
-            "Compiled schema timestamps do not match sourceTimestampEpochSeconds: $nonZeroTimestamps"
+        listOf("luna_pinyin_simp.schema.yaml", "stroke.schema.yaml").forEach { schemaName ->
+            val compiledSchema = prebuiltDirectory.get().asFile.resolve(schemaName).readText()
+            val nonZeroTimestamps =
+                compiledSchema.lineSequence()
+                    .dropWhile { it != "  timestamps:" }
+                    .drop(1)
+                    .takeWhile { it.startsWith("    ") }
+                    .map { it.substringAfter(':').trim().toLong() }
+                    .filter { it > 0 }
+                    .toSet()
+            check(nonZeroTimestamps == setOf(sourceTimestamp)) {
+                "$schemaName timestamps do not match sourceTimestampEpochSeconds: $nonZeroTimestamps"
+            }
         }
 
         val destination = outputDirectory.get().asFile.resolve("shared/build")
@@ -192,6 +194,10 @@ abstract class VerifyRimePrebuiltDataTask : DefaultTask() {
                 "haohao_pinyin.table.bin",
                 "luna_pinyin_simp.prism.bin",
                 "luna_pinyin_simp.schema.yaml",
+                "stroke.prism.bin",
+                "stroke.reverse.bin",
+                "stroke.schema.yaml",
+                "stroke.table.bin",
             )
 
         internal fun compileInputSha256(

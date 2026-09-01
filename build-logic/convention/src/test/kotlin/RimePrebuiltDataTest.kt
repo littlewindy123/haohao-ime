@@ -62,13 +62,17 @@ class RimePrebuiltDataTest :
             }
         }
 
-        "required prebuilt files cover dictionary prism schema and reverse lookup" {
+        "required prebuilt files cover primary dictionary and stroke reverse lookup" {
             VerifyRimePrebuiltDataTask.REQUIRED_FILES shouldBe
                 setOf(
                     "haohao_pinyin.reverse.bin",
                     "haohao_pinyin.table.bin",
                     "luna_pinyin_simp.prism.bin",
                     "luna_pinyin_simp.schema.yaml",
+                    "stroke.prism.bin",
+                    "stroke.reverse.bin",
+                    "stroke.schema.yaml",
+                    "stroke.table.bin",
                 )
         }
     })

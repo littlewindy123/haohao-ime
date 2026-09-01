@@ -31,6 +31,10 @@ object ClipboardHelper :
     private lateinit var clbDb: Database
     private lateinit var clbDao: DatabaseDao
 
+    @Volatile
+    var isAvailable: Boolean = false
+        private set
+
     fun interface OnClipboardUpdateListener {
         fun onUpdate(bean: DatabaseBean)
     }
@@ -98,18 +102,28 @@ object ClipboardHelper :
     }
 
     fun init(context: Context) {
-        clipboardManager.addPrimaryClipChangedListener(this)
-        clbDb =
+        val database =
             Room
                 .databaseBuilder(context, Database::class.java, "clipboard.db")
                 .addMigrations(Database.MIGRATION_3_4)
                 .build()
-        clbDao = clbDb.databaseDao()
-        enabledListener.onChange(enabledPref.key, enabledPref.getValue())
-        enabledPref.registerOnChangeListener(enabledListener)
-        limitListener.onChange(limitPref.key, limitPref.getValue())
-        limitPref.registerOnChangeListener(limitListener)
-        launch { updateItemCount() }
+        try {
+            val dao = database.databaseDao()
+            database.openHelper.writableDatabase
+            clbDb = database
+            clbDao = dao
+            enabledListener.onChange(enabledPref.key, enabledPref.getValue())
+            enabledPref.registerOnChangeListener(enabledListener)
+            limitListener.onChange(limitPref.key, limitPref.getValue())
+            limitPref.registerOnChangeListener(limitListener)
+            isAvailable = true
+            launch { updateItemCount() }
+        } catch (error: Throwable) {
+            isAvailable = false
+            clipboardManager.removePrimaryClipChangedListener(this)
+            database.close()
+            throw error
+        }
     }
 
     suspend fun get(id: Int) = clbDao.get(id)
@@ -158,6 +172,7 @@ object ClipboardHelper :
      * - [outputRules] 输出规则。如果剪贴板内容与规则匹配，则不通知剪贴板管理器。
      */
     override fun onPrimaryClipChanged() {
+        if (!isAvailable) return
         val clip = clipboardManager.primaryClip ?: return
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val timestamp = clip.description.timestamp

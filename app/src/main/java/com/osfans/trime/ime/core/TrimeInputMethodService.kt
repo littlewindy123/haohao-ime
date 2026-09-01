@@ -7,6 +7,7 @@ package com.osfans.trime.ime.core
 
 import android.annotation.SuppressLint
 import android.app.Dialog
+import android.content.ClipData
 import android.content.IntentFilter
 import android.content.pm.ActivityInfo
 import android.content.res.Configuration
@@ -30,7 +31,9 @@ import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.ExtractedTextRequest
 import android.view.inputmethod.InlineSuggestionsRequest
 import android.view.inputmethod.InlineSuggestionsResponse
+import android.widget.Button
 import android.widget.FrameLayout
+import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.annotation.Keep
 import androidx.annotation.RequiresApi
@@ -43,7 +46,9 @@ import com.osfans.trime.core.KeyValue
 import com.osfans.trime.core.RimeApi
 import com.osfans.trime.core.RimeKeyMapping
 import com.osfans.trime.core.RimeMessage
+import com.osfans.trime.core.RimeRuntimeSnapshot
 import com.osfans.trime.core.RimeRuntimeState
+import com.osfans.trime.core.statusTextRes
 import com.osfans.trime.daemon.RimeDaemon
 import com.osfans.trime.daemon.RimeSession
 import com.osfans.trime.data.base.DEFAULT_SCHEMA_ID
@@ -62,6 +67,7 @@ import com.osfans.trime.util.findSectionFrom
 import com.osfans.trime.util.forceShowSelf
 import com.osfans.trime.util.monitorCursorAnchor
 import com.osfans.trime.util.styledFloat
+import com.osfans.trime.util.toast
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
@@ -85,10 +91,19 @@ open class TrimeInputMethodService : LifecycleInputMethodService() {
     private lateinit var lastKnownConfig: Configuration
     private var inputView: InputView? = null
     private var candidatesView: CandidatesView? = null
-    private var bootstrapView: TextView? = null
+    private var bootstrapView: LinearLayout? = null
+    private var bootstrapStatusView: TextView? = null
+    private var bootstrapRepairButton: Button? = null
+    private var bootstrapCopyButton: Button? = null
+    private var installedInputView: View? = null
+    private var renderedInputAttemptId = 0L
     private var inputViewRequested = false
     private var themeListenersRegistered = false
+    private var preferenceListenersRegistered = false
+    private var feedbackInitialized = false
+    private var receiverRegistered = false
     private var themeInitializationFailed = false
+    private var lastThemeAttemptId = 0L
     private val navBarManager = NavigationBarManager()
     private val inputDeviceManager = InputDeviceManager { useVirtualKeyboard, useCandidatesView ->
         postRimeJob {
@@ -199,6 +214,7 @@ open class TrimeInputMethodService : LifecycleInputMethodService() {
     }
 
     override fun onCreate() {
+        super.onCreate()
         rime = RimeDaemon.createSession(javaClass.name)
         lifecycleScope.launch {
             jobs.consumeEach { it.join() }
@@ -212,16 +228,25 @@ open class TrimeInputMethodService : LifecycleInputMethodService() {
             it.registerOnChangeListener(recreateInputViewListener)
         }
         prefs.candidates.registerOnChangeListener(recreateCandidatesViewListener)
+        preferenceListenersRegistered = true
         lifecycleScope.launch {
-            RimeDaemon.runtimeState.collect { state ->
-                if (state == RimeRuntimeState.READY && !ThemeManager.isInitialized) {
+            RimeDaemon.runtimeSnapshot.collect { snapshot ->
+                val state = RimeDaemon.runtimeState.value
+                if (state == RimeRuntimeState.PREPARING && snapshot.attemptId != lastThemeAttemptId) {
+                    themeInitializationFailed = false
+                }
+                if (state == RimeRuntimeState.READY && lastThemeAttemptId != snapshot.attemptId) {
+                    lastThemeAttemptId = snapshot.attemptId
+                    RimeDaemon.markThemeInitializing()
                     runCatching {
                         rime.runOnReady { ThemeManager.init(resources.configuration) }
                     }.onSuccess {
                         themeInitializationFailed = false
+                        RimeDaemon.markThemeReady()
                     }.onFailure { error ->
                         themeInitializationFailed = true
                         Timber.e(error, "Unable to initialize input theme")
+                        RimeDaemon.markThemeFailed(error)
                     }
                 }
                 if (ThemeManager.isInitialized && !themeListenersRegistered) {
@@ -229,12 +254,13 @@ open class TrimeInputMethodService : LifecycleInputMethodService() {
                     ColorManager.addOnChangedListener(onColorChangeListener)
                     themeListenersRegistered = true
                 }
-                if (inputViewRequested) renderInputViewState(state)
+                if (inputViewRequested) renderInputViewState(state, snapshot)
             }
         }
         InputFeedbackManager.init(this)
+        feedbackInitialized = true
         registerReceiver()
-        super.onCreate()
+        receiverRegistered = true
         Timber.d("onCreate")
         decorView = window.window!!.decorView
         contentView = decorView.findViewById(android.R.id.content)
@@ -340,17 +366,34 @@ open class TrimeInputMethodService : LifecycleInputMethodService() {
     override fun onDestroy() {
         inputViewRequested = false
         bootstrapView = null
-        InputFeedbackManager.destroy()
-        inputView = null
-        recreateInputViewPrefs.forEach {
-            it.unregisterOnChangeListener(recreateInputViewListener)
+        bootstrapStatusView = null
+        bootstrapRepairButton = null
+        bootstrapCopyButton = null
+        installedInputView = null
+        renderedInputAttemptId = 0L
+        if (feedbackInitialized) {
+            InputFeedbackManager.destroy()
+            feedbackInitialized = false
         }
-        prefs.candidates.unregisterOnChangeListener(recreateCandidatesViewListener)
-        ThemeManager.removeOnChangedListener(onThemeChangeListener)
-        ColorManager.removeOnChangedListener(onColorChangeListener)
+        inputView = null
+        if (preferenceListenersRegistered) {
+            recreateInputViewPrefs.forEach {
+                it.unregisterOnChangeListener(recreateInputViewListener)
+            }
+            prefs.candidates.unregisterOnChangeListener(recreateCandidatesViewListener)
+            preferenceListenersRegistered = false
+        }
+        if (themeListenersRegistered) {
+            ThemeManager.removeOnChangedListener(onThemeChangeListener)
+            ColorManager.removeOnChangedListener(onColorChangeListener)
+            themeListenersRegistered = false
+        }
+        if (receiverRegistered) {
+            unregisterReceiver(rimeIntentReceiver)
+            receiverRegistered = false
+        }
+        if (::rime.isInitialized) RimeDaemon.destroySession(javaClass.name)
         super.onDestroy()
-        unregisterReceiver(rimeIntentReceiver)
-        RimeDaemon.destroySession(javaClass.name)
     }
 
     private fun handleReturnKey() {
@@ -529,55 +572,141 @@ open class TrimeInputMethodService : LifecycleInputMethodService() {
 
     fun superEvaluateInputViewShown() = super.onEvaluateInputViewShown()
 
-    override fun onCreateInputView(): View? {
+    override fun onCreateInputView(): View {
         Timber.d("onCreateInputView")
         inputViewRequested = true
-        renderInputViewState(RimeDaemon.runtimeState.value)
-        // We will call `setInputView` by ourselves. This is fine.
-        return null
+        val snapshot = RimeDaemon.runtimeSnapshot.value
+        val view = configureBootstrapView(
+            failed = RimeDaemon.runtimeState.value == RimeRuntimeState.FAILED || themeInitializationFailed,
+            snapshot = snapshot,
+        )
+        installedInputView = view
+        view.post {
+            if (inputViewRequested) renderInputViewState(RimeDaemon.runtimeState.value, RimeDaemon.runtimeSnapshot.value)
+        }
+        return view
     }
 
-    private fun renderInputViewState(runtimeState: RimeRuntimeState) {
+    private fun renderInputViewState(
+        runtimeState: RimeRuntimeState,
+        snapshot: RimeRuntimeSnapshot = RimeDaemon.runtimeSnapshot.value,
+    ) {
         val effectiveRuntimeState = if (themeInitializationFailed) RimeRuntimeState.FAILED else runtimeState
         when (ImeBootstrapPolicy.resolve(effectiveRuntimeState, ThemeManager.isInitialized)) {
             ImeBootstrapState.READY -> {
                 val theme = ThemeManager.activeThemeOrNull ?: return
                 bootstrapView = null
-                replaceInputViews(theme)
+                bootstrapStatusView = null
+                bootstrapRepairButton = null
+                bootstrapCopyButton = null
+                if (
+                    ImeBootstrapPolicy.shouldInstallReadyView(
+                        renderedAttemptId = renderedInputAttemptId,
+                        currentAttemptId = snapshot.attemptId,
+                        readyViewInstalled = installedInputView === inputView,
+                    )
+                ) {
+                    replaceInputViews(theme)
+                    renderedInputAttemptId = snapshot.attemptId
+                }
             }
-            ImeBootstrapState.PREPARING -> showBootstrapView(failed = false)
-            ImeBootstrapState.FAILED -> showBootstrapView(failed = true)
+            ImeBootstrapState.PREPARING -> showBootstrapView(failed = false, snapshot)
+            ImeBootstrapState.FAILED -> showBootstrapView(failed = true, snapshot)
         }
     }
 
-    private fun showBootstrapView(failed: Boolean) {
-        val view = bootstrapView ?: TextView(this).also {
-            it.gravity = Gravity.CENTER
-            it.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
-            it.setTextColor(ContextCompat.getColor(this, R.color.haohao_cocoa))
-            it.setBackgroundColor(ContextCompat.getColor(this, R.color.haohao_page_background))
-            val padding = (24f * resources.displayMetrics.density).toInt()
-            it.setPadding(padding, padding, padding, padding)
-            it.minHeight = (232f * resources.displayMetrics.density).toInt()
-            bootstrapView = it
+    private fun configureBootstrapView(
+        failed: Boolean,
+        snapshot: RimeRuntimeSnapshot,
+    ): LinearLayout {
+        val density = resources.displayMetrics.density
+        val view = bootstrapView ?: LinearLayout(this).also { container ->
+            container.orientation = LinearLayout.VERTICAL
+            container.gravity = Gravity.CENTER
+            container.setBackgroundColor(ContextCompat.getColor(this, R.color.haohao_page_background))
+            val padding = (24f * density).toInt()
+            container.setPadding(padding, padding, padding, padding)
+            container.minimumHeight = (232f * density).toInt()
+
+            val status = TextView(this).apply {
+                gravity = Gravity.CENTER
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+                setTextColor(ContextCompat.getColor(this@TrimeInputMethodService, R.color.haohao_cocoa))
+            }
+            bootstrapStatusView = status
+            container.addView(
+                status,
+                LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    0,
+                    1f,
+                ),
+            )
+
+            val actions = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER
+            }
+            val buttonHeight = (48f * density).toInt()
+            val repair = Button(this@TrimeInputMethodService).apply {
+                minHeight = buttonHeight
+                isAllCaps = false
+                setText(R.string.rime_runtime_repair)
+                setOnClickListener { RimeDaemon.repairRime() }
+            }
+            val copy = Button(this@TrimeInputMethodService).apply {
+                minHeight = buttonHeight
+                isAllCaps = false
+                setText(R.string.rime_runtime_copy_diagnostics)
+                setOnClickListener {
+                    clipboardManager.setPrimaryClip(
+                        ClipData.newPlainText(
+                            getString(R.string.rime_runtime_diagnostics_label),
+                            RimeDaemon.diagnosticText(),
+                        ),
+                    )
+                    toast(R.string.rime_runtime_diagnostics_copied)
+                }
+            }
+            bootstrapRepairButton = repair
+            bootstrapCopyButton = copy
+            actions.addView(repair, LinearLayout.LayoutParams(0, buttonHeight, 1f))
+            actions.addView(copy, LinearLayout.LayoutParams(0, buttonHeight, 1f))
+            container.addView(
+                actions,
+                LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                ),
+            )
+            bootstrapView = container
         }
-        view.setText(
+        bootstrapStatusView?.setText(
             if (failed) {
-                R.string.rime_runtime_failed_repair
+                R.string.rime_runtime_failed
             } else {
-                R.string.rime_runtime_preparing
+                snapshot.phase.statusTextRes
             },
         )
-        view.contentDescription = view.text
-        view.isClickable = failed
-        view.isFocusable = failed
-        view.setOnClickListener(if (failed) View.OnClickListener { RimeDaemon.repairRime() } else null)
+        bootstrapStatusView?.contentDescription = bootstrapStatusView?.text
+        bootstrapRepairButton?.visibility = if (failed) View.VISIBLE else View.GONE
+        bootstrapCopyButton?.visibility = if (failed) View.VISIBLE else View.GONE
+        return view
+    }
+
+    private fun showBootstrapView(
+        failed: Boolean,
+        snapshot: RimeRuntimeSnapshot,
+    ) {
+        val view = configureBootstrapView(failed, snapshot)
+        renderedInputAttemptId = 0L
         candidatesView?.visibility = View.GONE
-        setInputView(view)
+        if (installedInputView !== view) setInputView(view)
     }
 
     override fun setInputView(view: View) {
         super.setInputView(view)
+        installedInputView = view
         val inputArea = contentView.findViewById<FrameLayout>(android.R.id.inputArea)
         inputArea.updateLayoutParams<ViewGroup.LayoutParams> {
             height = ViewGroup.LayoutParams.MATCH_PARENT

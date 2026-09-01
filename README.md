@@ -129,6 +129,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - 输入法视图可能早于 Rime 部署完成被系统请求；任何主题读取都必须先确认 `RimeRuntimeState.READY` 且 `ThemeManager.isInitialized`。准备或失败期间只能显示不依赖 Rime/主题的轻量状态页，禁止直接读取 `ThemeManager.activeTheme`。
 - 懒加载输入法视图构造期间，不得同步收集会立即发射的 `StateFlow` 并回入同一视图；状态订阅必须等根视图完成挂载后再启动，避免重复创建容器或重复挂载子视图。
 - 正常首启必须复用 `shared/build` 中与当前 librime 精确匹配的预编译词典。普通构建和启动不得展开或现场编译完整万象词库；预编译输入、版本或 SHA-256 变化时必须先重新生成固定产物。
+- 预编译清单必须覆盖默认方案的传递依赖；当前除 `haohao_pinyin` 与 `luna_pinyin_simp` 外，还必须携带 `stroke` 的 schema、table、reverse 和 prism。真机清数据首启的 Logcat 若出现 `building table`，即视为预编译集合不完整。
 - 键盘与双语候选至少在 360dp、411dp 两种模拟器宽度回归，检查按键、候选和点击区域是否重叠或错位。
 - CI 同时构建 `arm64-v8a` 与 `x86_64`，为未来 Android 真机测试保留 ARM64 产物。
 - 在真实设备条件具备前，模拟器测试作为阶段验收依据；稳定版本发布前仍必须补充真机测试。

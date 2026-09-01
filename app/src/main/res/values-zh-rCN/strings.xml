@@ -85,6 +85,11 @@
     <string name="rime_runtime_section">输入引擎</string>
     <string name="rime_runtime_preparing">正在准备离线词库…</string>
     <string name="rime_runtime_preparing_summary">首次启动可能需要一点时间，完成后即可正常输入</string>
+    <string name="rime_runtime_phase_data">正在校验离线词库…</string>
+    <string name="rime_runtime_phase_native">正在启动输入引擎…</string>
+    <string name="rime_runtime_phase_maintenance">正在准备好好拼音…</string>
+    <string name="rime_runtime_phase_schema">正在启用简体方案…</string>
+    <string name="rime_runtime_phase_theme">正在加载键盘主题…</string>
     <string name="rime_runtime_ready">输入引擎正常</string>
     <string name="rime_runtime_ready_summary">好好拼音 · 简体中文 · 本地离线</string>
     <string name="rime_runtime_failed">输入引擎未就绪</string>
@@ -94,6 +99,7 @@
     <string name="rime_runtime_copy_diagnostics">复制诊断信息</string>
     <string name="rime_runtime_diagnostics_label">好好输入法诊断信息</string>
     <string name="rime_runtime_diagnostics_copied">诊断信息已复制</string>
+    <string name="optional_feature_unavailable">此可选功能暂时不可用</string>
     <string name="setup__enable_before_select">请先在系统设置中启用好好输入法</string>
     <string name="periodic_background_sync">后台定时同步</string>
     <string name="periodic_background_sync_status">上次同步时间（状态）：%1$s（%2$s）</string>

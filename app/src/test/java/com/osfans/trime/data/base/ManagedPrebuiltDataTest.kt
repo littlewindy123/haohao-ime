@@ -119,6 +119,29 @@ class ManagedPrebuiltDataTest :
             shouldUpdateManagedChecksums(current, DataChecksums("next", emptyMap()), repairedPrebuiltFiles = 0) shouldBe true
         }
 
+        "prebuilt installation reserves the payload plus sixteen MiB" {
+            val payload = 50L * 1024L * 1024L
+
+            hasEnoughPrebuiltSpace(payload + PREBUILT_FREE_SPACE_RESERVE_BYTES, payload) shouldBe true
+            hasEnoughPrebuiltSpace(payload + PREBUILT_FREE_SPACE_RESERVE_BYTES - 1L, payload) shouldBe false
+        }
+
+        "legacy managed cleanup removes only the old prebuilt build directory" {
+            val root = Files.createTempDirectory("haohao-legacy-prebuilt-cleanup").toFile()
+            val oldShared = root.resolve("shared").apply { mkdirs() }
+            oldShared.resolve("build/dictionary.bin").apply {
+                parentFile.mkdirs()
+                writeText("managed")
+            }
+            val unrelated = oldShared.resolve("user-theme.yaml").apply { writeText("keep") }
+
+            cleanupLegacyManagedPrebuilt(oldShared) shouldBe true
+
+            oldShared.resolve("build").exists() shouldBe false
+            unrelated.readText() shouldBe "keep"
+            root.deleteRecursively()
+        }
+
         "upgraded prebuilt data invalidates only stale compiled user data" {
             val root = Files.createTempDirectory("haohao-stale-user-build").toFile()
             val userData = root.resolve("user").apply { mkdirs() }

@@ -5,7 +5,6 @@
 package com.osfans.trime.data.base
 
 import android.content.res.AssetManager
-import android.os.Build
 import android.os.Environment
 import com.osfans.trime.data.prefs.AppPrefs
 import com.osfans.trime.util.FileUtils
@@ -15,6 +14,7 @@ import com.osfans.trime.util.appContext
 import kotlinx.serialization.json.Json
 import timber.log.Timber
 import java.io.File
+import java.security.MessageDigest
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -147,6 +147,25 @@ internal data class DataSyncStats(
     val reusedPrebuilt: Boolean,
 )
 
+internal const val PREBUILT_FREE_SPACE_RESERVE_BYTES = 16L * 1024L * 1024L
+
+internal fun hasEnoughPrebuiltSpace(
+    availableBytes: Long,
+    payloadBytes: Long,
+): Boolean = availableBytes >= payloadBytes + PREBUILT_FREE_SPACE_RESERVE_BYTES
+
+internal fun cleanupLegacyManagedPrebuilt(legacySharedDataDir: File?): Boolean {
+    val buildDir = legacySharedDataDir?.resolve("build") ?: return false
+    if (!buildDir.exists()) return false
+    check(buildDir.deleteRecursively()) { "Failed to remove legacy managed Rime data: $buildDir" }
+    return true
+}
+
+internal class InsufficientRimeStorageException(
+    val availableBytes: Long,
+    val requiredBytes: Long,
+) : IllegalStateException("Insufficient storage for Rime data: $availableBytes < $requiredBytes")
+
 internal fun prepareManagedPrebuiltAssets(
     sharedDataDir: File,
     checksums: DataChecksums,
@@ -272,20 +291,15 @@ object DataManager {
 
     private fun deserializeDataChecksums(raw: String): DataChecksums = json.decodeFromString<DataChecksums>(raw)
 
-    // If Android version supports direct boot, we put the hierarchy in device encrypted storage
-    // instead of credential encrypted storage so that data can be accessed before user unlock
-    private val dataDir: File =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            Timber.d("Using device protected storage")
-            appContext.createDeviceProtectedStorageContext().dataDir
-        } else {
-            File(appContext.applicationInfo.dataDir)
-        }
+    private data class ChecksumsAsset(
+        val checksums: DataChecksums,
+        val bytes: ByteArray,
+    )
 
-    private fun AssetManager.dataChecksums(): DataChecksums = open(DATA_CHECKSUMS_NAME)
-        .bufferedReader()
-        .use { it.readText() }
-        .let { deserializeDataChecksums(it) }
+    private fun AssetManager.dataChecksums(): ChecksumsAsset = open(DATA_CHECKSUMS_NAME).use { input ->
+        val bytes = input.readBytes()
+        ChecksumsAsset(deserializeDataChecksums(bytes.toString(Charsets.UTF_8)), bytes)
+    }
 
     private fun AssetManager.prebuiltExpectedSizes(): Map<String, Long> {
         val metadataPath = "$PREBUILT_ASSET_PREFIX$PREBUILT_METADATA_FILE_NAME"
@@ -305,13 +319,18 @@ object DataManager {
     private val prefs by lazy { AppPrefs.defaultInstance() }
 
     private val privateUserDataDir = File(appContext.filesDir, "rime")
+    private val managedDataDir = File(appContext.noBackupFilesDir, "rime").also { it.mkdirs() }
+    private val managedChecksumsFile = managedDataDir.resolve(DATA_CHECKSUMS_NAME)
 
     val defaultDataDir: File
         get() = privateUserDataDir
 
     val legacyDefaultDataDir = File(Environment.getExternalStorageDirectory(), "rime")
 
-    val sharedDataDir = File(appContext.getExternalFilesDir(null), "shared").also { it.mkdirs() }
+    val sharedDataDir = managedDataDir.resolve("shared").also { it.mkdirs() }
+
+    private val legacyManagedSharedDataDir: File?
+        get() = appContext.getExternalFilesDir(null)?.resolve("shared")
 
     val userDataDir
         get() = privateUserDataDir.also { it.mkdirs() }
@@ -346,8 +365,17 @@ object DataManager {
     internal fun repairManagedData(): ManagedRimeRepairResult = lock.withLock {
         val backupName = SimpleDateFormat("yyyyMMdd-HHmmss-SSS", Locale.US).format(Date())
         repairManagedRimeData(userDataDir, backupName).also {
-            invalidatePrebuiltRimeData(prebuiltDataDir, dataDir.resolve(DATA_CHECKSUMS_NAME))
+            invalidatePrebuiltRimeData(prebuiltDataDir, managedChecksumsFile)
         }
+    }
+
+    internal fun cleanupLegacyManagedDataAfterReady() {
+        runCatching { cleanupLegacyManagedPrebuilt(legacyManagedSharedDataDir) }
+            .onSuccess { removed ->
+                if (removed) Timber.i("Removed legacy external prebuilt Rime data")
+            }.onFailure { error ->
+                Timber.w(error, "Unable to remove legacy external prebuilt Rime data")
+            }
     }
 
     /**
@@ -369,13 +397,14 @@ object DataManager {
 
     internal fun sync(): DataSyncStats = lock.withLock {
         migrateLegacyDataIfNeeded()
-        val oldChecksumsFile = File(dataDir, DATA_CHECKSUMS_NAME)
+        val oldChecksumsFile = managedChecksumsFile
         val oldChecksums =
             oldChecksumsFile
                 .runCatching { deserializeDataChecksums(bufferedReader().use { it.readText() }) }
                 .getOrElse { DataChecksums("", emptyMap()) }
 
-        val newChecksums = appContext.assets.dataChecksums()
+        val checksumsAsset = appContext.assets.dataChecksums()
+        val newChecksums = checksumsAsset.checksums
         val expectedPrebuiltSizes = appContext.assets.prebuiltExpectedSizes()
         val diffs = DataDiff.diff(oldChecksums, newChecksums).sortedByDescending { it.ordinal }
         val changedPrebuiltPaths =
@@ -389,6 +418,21 @@ object DataManager {
             }.toSet()
         var copiedFiles = 0
         var copiedBytes = 0L
+
+        val prebuiltNeedsInstall = expectedPrebuiltSizes.any { (assetPath, expectedBytes) ->
+            val destination = managedDataDir.resolve(assetPath)
+            assetPath in changedPrebuiltPaths || !destination.isFile || destination.length() != expectedBytes
+        }
+        if (prebuiltNeedsInstall) {
+            val payloadBytes = expectedPrebuiltSizes.values.sum()
+            val availableBytes = managedDataDir.usableSpace
+            if (!hasEnoughPrebuiltSpace(availableBytes, payloadBytes)) {
+                throw InsufficientRimeStorageException(
+                    availableBytes = availableBytes,
+                    requiredBytes = payloadBytes + PREBUILT_FREE_SPACE_RESERVE_BYTES,
+                )
+            }
+        }
 
         diffs.forEach {
             Timber.d("Diff: $it")
@@ -426,7 +470,16 @@ object DataManager {
         }
 
         if (shouldUpdateManagedChecksums(oldChecksums, newChecksums, prebuilt.copiedFiles)) {
-            ResourceUtils.copyFile(DATA_CHECKSUMS_NAME, dataDir.resolve(DATA_CHECKSUMS_NAME).absolutePath).getOrThrow()
+            val expectedSha256 =
+                MessageDigest
+                    .getInstance("SHA-256")
+                    .digest(checksumsAsset.bytes)
+                    .joinToString("") { "%02x".format(it) }
+            com.osfans.trime.util.copyVerifiedStream(
+                checksumsAsset.bytes.inputStream(),
+                managedChecksumsFile,
+                expectedSha256,
+            )
         }
 
         listOf(

@@ -27,18 +27,18 @@ object ThemeManager {
         return sharedThemes + userThemes
     }
 
-    private lateinit var _activeTheme: Theme
+    private var _activeTheme: Theme? = null
 
     val activeThemeOrNull: Theme?
-        get() = if (::_activeTheme.isInitialized) _activeTheme else null
+        get() = _activeTheme
 
     val isInitialized: Boolean
-        get() = ::_activeTheme.isInitialized
+        get() = _activeTheme != null
 
     var activeTheme: Theme
-        get() = _activeTheme
+        get() = checkNotNull(_activeTheme) { "ThemeManager is not initialized" }
         private set(value) {
-            if (::_activeTheme.isInitialized && _activeTheme == value) return
+            if (_activeTheme == value) return
             _activeTheme = value
             fireChange()
         }
@@ -125,8 +125,9 @@ object ThemeManager {
     }
 
     fun init(configuration: Configuration) {
-        _activeTheme = evaluateActiveTheme()
+        val theme = evaluateActiveTheme()
         ColorManager.init(configuration)
+        _activeTheme = theme
     }
 
     fun selectTheme(configId: String) {

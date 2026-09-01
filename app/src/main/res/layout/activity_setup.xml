@@ -82,20 +82,56 @@
             tools:text="1 / 3" />
     </androidx.constraintlayout.widget.ConstraintLayout>
 
-    <TextView
-        android:id="@+id/engine_status_text"
+    <LinearLayout
+        android:id="@+id/engine_status_bar"
         android:layout_width="0dp"
-        android:layout_height="48dp"
+        android:layout_height="56dp"
         android:background="@color/haohao_surface"
-        android:gravity="center"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
         android:paddingStart="18dp"
-        android:paddingEnd="18dp"
-        android:text="@string/rime_runtime_preparing"
-        android:textColor="@color/haohao_cocoa_secondary"
-        android:textSize="14sp"
+        android:paddingEnd="8dp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/brand_header" />
+        app:layout_constraintTop_toBottomOf="@id/brand_header">
+
+        <TextView
+            android:id="@+id/engine_status_text"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:gravity="center_vertical"
+            android:maxLines="2"
+            android:text="@string/rime_runtime_preparing"
+            android:textColor="@color/haohao_cocoa_secondary"
+            android:textSize="14sp" />
+
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/repair_engine_button"
+            android:layout_width="wrap_content"
+            android:layout_height="48dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:minWidth="76dp"
+            android:stateListAnimator="@null"
+            android:text="@string/rime_runtime_repair"
+            android:textAllCaps="false"
+            android:textColor="@color/haohao_cocoa"
+            android:textSize="13sp"
+            android:visibility="gone" />
+
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/copy_diagnostics_button"
+            android:layout_width="wrap_content"
+            android:layout_height="48dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:minWidth="96dp"
+            android:stateListAnimator="@null"
+            android:text="@string/rime_runtime_copy_diagnostics"
+            android:textAllCaps="false"
+            android:textColor="@color/haohao_cocoa"
+            android:textSize="13sp"
+            android:visibility="gone" />
+    </LinearLayout>
 
     <androidx.viewpager2.widget.ViewPager2
         android:id="@+id/viewpager"
@@ -105,7 +141,7 @@
         app:layout_constraintBottom_toTopOf="@id/setup_footer"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/engine_status_text" />
+        app:layout_constraintTop_toBottomOf="@id/engine_status_bar" />
 
     <LinearLayout
         android:id="@+id/setup_footer"

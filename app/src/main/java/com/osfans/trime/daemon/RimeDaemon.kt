@@ -16,6 +16,7 @@ import com.osfans.trime.core.Rime
 import com.osfans.trime.core.RimeApi
 import com.osfans.trime.core.RimeLifecycle
 import com.osfans.trime.core.RimeMessage
+import com.osfans.trime.core.RimeRuntimeDiagnostics
 import com.osfans.trime.core.RimeRuntimeState
 import com.osfans.trime.core.RimeUnavailableException
 import com.osfans.trime.core.lifecycleScope
@@ -30,10 +31,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.withContext
 import splitties.systemservices.notificationManager
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
+import kotlinx.coroutines.sync.withLock as withSuspendLock
 
 /**
  * Manage the singleton instance of [Rime]
@@ -50,6 +54,7 @@ import kotlin.concurrent.withLock
  * Adapted from [fcitx5-android/FcitxDaemon.kt](https://github.com/fcitx5-android/fcitx5-android/blob/364afb44dcf0d9e3db3d43a21a32601b2190cbdf/app/src/main/java/org/fcitx/fcitx5/android/daemon/FcitxDaemon.kt)
  */
 object RimeDaemon {
+    private const val SETUP_PREWARM_SESSION = "haohao-setup-prewarm"
     private val realRime by lazy { Rime() }
 
     private val rimeImpl by lazy { object : RimeApi by realRime {} }
@@ -57,6 +62,8 @@ object RimeDaemon {
     private val sessions = mutableMapOf<String, RimeSession>()
 
     private val lock = ReentrantLock()
+    private val lifecycleOperationLock = Mutex()
+    private val repairInProgress = AtomicBoolean(false)
 
     private fun establish(name: String) = object : RimeSession {
         private inline fun <T> ensureEstablished(block: () -> T) = if (name in sessions) {
@@ -104,13 +111,30 @@ object RimeDaemon {
         return@withLock session
     }
 
-    fun destroySession(name: String): Unit = lock.withLock {
-        if (name !in sessions) {
-            return
+    fun acquireSetupPrewarm() {
+        createSession(SETUP_PREWARM_SESSION)
+    }
+
+    fun releaseSetupPrewarm() {
+        destroySession(SETUP_PREWARM_SESSION)
+    }
+
+    fun destroySession(name: String) {
+        val shouldStop = lock.withLock {
+            if (name !in sessions) return
+            sessions -= name
+            sessions.isEmpty()
         }
-        sessions -= name
-        if (sessions.isEmpty()) {
-            realRime.finalize()
+        if (!shouldStop) return
+        TrimeApplication.getInstance().coroutineScope.launch {
+            lifecycleOperationLock.withSuspendLock {
+                withContext(Dispatchers.IO) { realRime.finalize() }
+                lock.withLock {
+                    if (sessions.isNotEmpty() && realRime.lifecycle.currentState == RimeLifecycle.State.STOPPED) {
+                        realRime.startup()
+                    }
+                }
+            }
         }
     }
 
@@ -124,7 +148,14 @@ object RimeDaemon {
     private var restartId = 0
 
     val runtimeState get() = realRime.runtimeState
+    internal val runtimeSnapshot get() = realRime.runtimeSnapshot
     val lastFailure get() = realRime.lastFailure
+
+    fun markThemeInitializing() = realRime.markThemeInitializing()
+
+    fun markThemeReady() = realRime.markThemeReady()
+
+    fun markThemeFailed(error: Throwable) = realRime.markThemeFailed(error)
 
     init {
         createNotificationChannel(
@@ -153,7 +184,7 @@ object RimeDaemon {
     /**
      * Restart Rime instance to deploy while keep the session
      */
-    fun restartRime(fullCheck: Boolean = false) = lock.withLock {
+    fun restartRime(fullCheck: Boolean = false) {
         val id = restartId++
         if (!fullCheck) {
             sendNotification(id) {
@@ -165,40 +196,63 @@ object RimeDaemon {
                 setPriority(NotificationCompat.PRIORITY_HIGH)
             }
         }
-        realRime.finalize()
-        realRime.startup(fullCheck)
         TrimeApplication.getInstance().coroutineScope.launch {
-            realRime.runtimeState.first { it != RimeRuntimeState.PREPARING }
-            notificationManager.cancel(id)
-        }
-    }
-
-    fun repairRime() {
-        TrimeApplication.getInstance().coroutineScope.launch(Dispatchers.IO) {
-            lock.withLock {
-                realRime.finalize()
-                runCatching { DataManager.repairManagedData() }
-                    .onSuccess { realRime.startup(fullCheck = false) }
-                    .onFailure(realRime::markFailed)
+            lifecycleOperationLock.withSuspendLock {
+                try {
+                    withContext(Dispatchers.IO) { realRime.finalize() }
+                    val started = lock.withLock {
+                        if (sessions.isNotEmpty()) {
+                            realRime.startup(fullCheck)
+                            true
+                        } else {
+                            false
+                        }
+                    }
+                    if (started) realRime.runtimeState.first { it != RimeRuntimeState.PREPARING }
+                } finally {
+                    notificationManager.cancel(id)
+                }
             }
         }
     }
 
-    fun diagnosticText(): String = buildString {
-        appendLine("HaoHao IME ${BuildConfig.VERSION_NAME} (${BuildConfig.BUILD_VERSION_NAME})")
-        appendLine("Device: ${Build.MANUFACTURER} ${Build.MODEL}")
-        appendLine("Android: ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})")
-        appendLine("ABI: ${Build.SUPPORTED_ABIS.joinToString()}")
-        appendLine("Engine: ${runtimeState.value}")
-        appendLine("Schema: ${realRime.schemaCached.schemaId}")
-        realRime.lastDataSyncStats?.let { stats ->
-            appendLine(
-                "Data preparation: ${realRime.lastDataPreparationMillis} ms " +
-                    "(copied=${stats.copiedFiles}, bytes=${stats.copiedBytes}, reused=${stats.reusedPrebuilt})",
-            )
-        } ?: appendLine("Data preparation: not run")
-        appendLine("Native startup: ${realRime.lastNativeStartupMillis.takeIf { it >= 0 }?.let { "$it ms" } ?: "not run"}")
-        append("Last failure: ${lastFailure ?: "none"}")
+    fun repairRime() {
+        if (!repairInProgress.compareAndSet(false, true)) return
+        TrimeApplication.getInstance().coroutineScope.launch {
+            try {
+                lifecycleOperationLock.withSuspendLock {
+                    withContext(Dispatchers.IO) {
+                        realRime.finalize()
+                        runCatching { DataManager.repairManagedData() }
+                    }.onSuccess {
+                        lock.withLock {
+                            if (sessions.isNotEmpty()) realRime.startup(fullCheck = false)
+                        }
+                    }.onFailure(realRime::markRepairFailed)
+                }
+            } finally {
+                repairInProgress.set(false)
+            }
+        }
+    }
+
+    fun diagnosticText(): String = RimeRuntimeDiagnostics.read().ifBlank {
+        buildString {
+            appendLine("HaoHao IME ${BuildConfig.VERSION_NAME} (${BuildConfig.BUILD_VERSION_NAME})")
+            appendLine("Device: ${Build.MANUFACTURER} ${Build.MODEL}")
+            appendLine("Android: ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})")
+            appendLine("ABI: ${Build.SUPPORTED_ABIS.joinToString()}")
+            appendLine("Engine: ${runtimeState.value}")
+            appendLine("Schema: ${realRime.schemaCached.schemaId}")
+            realRime.lastDataSyncStats?.let { stats ->
+                appendLine(
+                    "Data preparation: ${realRime.lastDataPreparationMillis} ms " +
+                        "(copied=${stats.copiedFiles}, bytes=${stats.copiedBytes}, reused=${stats.reusedPrebuilt})",
+                )
+            } ?: appendLine("Data preparation: not run")
+            appendLine("Native startup: ${realRime.lastNativeStartupMillis.takeIf { it >= 0 }?.let { "$it ms" } ?: "not run"}")
+            append("Last failure: ${lastFailure ?: "none"}")
+        }
     }
 
     private suspend fun handleRimeMessage(it: RimeMessage<*>) {

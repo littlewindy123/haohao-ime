@@ -4,9 +4,16 @@
 
 package com.osfans.trime.util
 
+import android.os.Build
+import androidx.annotation.RequiresApi
 import timber.log.Timber
+import java.io.BufferedOutputStream
 import java.io.File
+import java.io.FileOutputStream
 import java.io.InputStream
+import java.nio.file.AtomicMoveNotSupportedException
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import java.security.MessageDigest
 
 internal data class VerifiedAssetCopy(
@@ -25,7 +32,8 @@ internal fun copyVerifiedStream(
     return try {
         val digest = MessageDigest.getInstance("SHA-256")
         var copiedBytes = 0L
-        temporary.outputStream().buffered().use { output ->
+        FileOutputStream(temporary).use { fileOutput ->
+            val output = BufferedOutputStream(fileOutput)
             val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
             while (true) {
                 val count = input.read(buffer)
@@ -34,19 +42,60 @@ internal fun copyVerifiedStream(
                 digest.update(buffer, 0, count)
                 copiedBytes += count
             }
+            output.flush()
+            fileOutput.fd.sync()
         }
         val actualSha256 = digest.digest().joinToString("") { "%02x".format(it) }
         check(actualSha256 == expectedSha256) {
             "Asset checksum mismatch for ${target.name}: $actualSha256 != $expectedSha256"
         }
         check(temporary.length() == copiedBytes) { "Incomplete asset copy for ${target.name}" }
-        if (!temporary.renameTo(target)) {
-            check(!target.exists() || target.delete()) { "Unable to replace ${target.name}" }
-            check(temporary.renameTo(target)) { "Unable to install ${target.name}" }
-        }
+        replaceVerifiedFile(temporary, target)
         VerifiedAssetCopy(copiedBytes, actualSha256)
     } finally {
         temporary.delete()
+    }
+}
+
+private fun replaceVerifiedFile(
+    source: File,
+    destination: File,
+) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        replaceVerifiedFileWithNio(source, destination)
+        return
+    }
+    if (source.renameTo(destination)) return
+    val parent = requireNotNull(destination.parentFile)
+    val backup = File.createTempFile(destination.name, ".bak", parent)
+    check(backup.delete()) { "Unable to prepare ${backup.absolutePath}" }
+    val hadDestination = destination.exists()
+    if (hadDestination) {
+        check(destination.renameTo(backup)) { "Unable to back up ${destination.absolutePath}" }
+    }
+    try {
+        check(source.renameTo(destination)) { "Unable to replace ${destination.absolutePath}" }
+        check(!backup.exists() || backup.delete()) { "Unable to delete ${backup.absolutePath}" }
+    } catch (error: Throwable) {
+        if (hadDestination && !destination.exists()) backup.renameTo(destination)
+        throw error
+    }
+}
+
+@RequiresApi(Build.VERSION_CODES.O)
+private fun replaceVerifiedFileWithNio(
+    source: File,
+    destination: File,
+) {
+    try {
+        Files.move(
+            source.toPath(),
+            destination.toPath(),
+            StandardCopyOption.ATOMIC_MOVE,
+            StandardCopyOption.REPLACE_EXISTING,
+        )
+    } catch (_: AtomicMoveNotSupportedException) {
+        Files.move(source.toPath(), destination.toPath(), StandardCopyOption.REPLACE_EXISTING)
     }
 }
 

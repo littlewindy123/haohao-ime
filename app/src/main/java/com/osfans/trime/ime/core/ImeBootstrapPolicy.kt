@@ -21,4 +21,10 @@ internal object ImeBootstrapPolicy {
         runtimeState == RimeRuntimeState.READY && hasTheme -> ImeBootstrapState.READY
         else -> ImeBootstrapState.PREPARING
     }
+
+    fun shouldInstallReadyView(
+        renderedAttemptId: Long,
+        currentAttemptId: Long,
+        readyViewInstalled: Boolean,
+    ): Boolean = renderedAttemptId != currentAttemptId || !readyViewInstalled
 }
