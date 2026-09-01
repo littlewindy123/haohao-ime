@@ -12,7 +12,9 @@ import android.view.View
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.widget.SwitchCompat
+import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
+import androidx.core.widget.TextViewCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.lifecycleScope
@@ -89,13 +91,13 @@ class PinyinFuzzyFragment : Fragment(R.layout.fragment_pinyin_fuzzy) {
                 addView(
                     TextView(context).apply {
                         setText(metadata.title)
-                        setTextAppearance(R.style.TextAppearance_HaoHao_SettingTitle)
+                        TextViewCompat.setTextAppearance(this, R.style.TextAppearance_HaoHao_SettingTitle)
                     },
                 )
                 addView(
                     TextView(context).apply {
                         text = getString(R.string.pinyin_fuzzy_example, metadata.example)
-                        setTextColor(resources.getColor(R.color.haohao_cocoa_secondary, context.theme))
+                        setTextColor(ContextCompat.getColor(context, R.color.haohao_cocoa_secondary))
                         setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
                     },
                 )
@@ -116,7 +118,9 @@ class PinyinFuzzyFragment : Fragment(R.layout.fragment_pinyin_fuzzy) {
             }
             binding.fuzzyOptions.addView(row)
             binding.fuzzyOptions.addView(
-                View(requireContext()).apply { setBackgroundColor(resources.getColor(R.color.haohao_divider, context.theme)) },
+                View(requireContext()).apply {
+                    setBackgroundColor(ContextCompat.getColor(context, R.color.haohao_divider))
+                },
                 LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(1)),
             )
         }

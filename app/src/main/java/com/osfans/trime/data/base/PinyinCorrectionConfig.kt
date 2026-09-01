@@ -5,9 +5,13 @@
 
 package com.osfans.trime.data.base
 
+import android.os.Build
+import androidx.annotation.RequiresApi
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import timber.log.Timber
 import java.io.File
+import java.io.FileOutputStream
 import java.nio.charset.StandardCharsets
 import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
@@ -116,15 +120,18 @@ internal suspend fun applyManagedPinyinCorrectionConfig(
         if (previous?.trim() == next.trim()) return@runCatching pinyinCorrectionSha256(next)
 
         writeUtf8Atomically(configFile, next)
-        val deployed = runCatching { deploy() }.getOrDefault(false)
+        val deployed = runCatching { deploy() }
+            .onFailure { Timber.e(it, "Pinyin correction deployment failed") }
+            .getOrDefault(false)
         if (deployed) return@runCatching pinyinCorrectionSha256(next)
 
         if (previous == null) {
-            Files.deleteIfExists(configFile.toPath())
+            deleteFileIfExists(configFile)
         } else {
             writeUtf8Atomically(configFile, previous)
         }
         runCatching { deploy() }
+            .onFailure { Timber.e(it, "Pinyin correction rollback deployment failed") }
         error("Unable to apply Pinyin correction settings")
     }
 }
@@ -133,21 +140,65 @@ private fun writeUtf8Atomically(
     destination: File,
     content: String,
 ) {
-    val parent = requireNotNull(destination.parentFile).apply { mkdirs() }
-    val temporary = Files.createTempFile(parent.toPath(), destination.name, ".tmp")
+    val parent = requireNotNull(destination.parentFile)
+    check(parent.isDirectory || parent.mkdirs()) { "Unable to create ${parent.absolutePath}" }
+    val temporary = File.createTempFile(destination.name, ".tmp", parent)
     try {
-        Files.write(temporary, content.toByteArray(StandardCharsets.UTF_8))
-        try {
-            Files.move(
-                temporary,
-                destination.toPath(),
-                StandardCopyOption.ATOMIC_MOVE,
-                StandardCopyOption.REPLACE_EXISTING,
-            )
-        } catch (_: AtomicMoveNotSupportedException) {
-            Files.move(temporary, destination.toPath(), StandardCopyOption.REPLACE_EXISTING)
+        FileOutputStream(temporary).use { output ->
+            output.write(content.toByteArray(StandardCharsets.UTF_8))
+            output.fd.sync()
         }
+        replaceFile(temporary, destination)
     } finally {
-        Files.deleteIfExists(temporary)
+        deleteFileIfExists(temporary)
     }
+}
+
+private fun replaceFile(
+    source: File,
+    destination: File,
+) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        replaceFileWithNio(source, destination)
+        return
+    }
+
+    // Android's File.renameTo() uses rename(2) on these releases, so a same-directory move
+    // replaces the target atomically. Keep a defensive fallback for non-Android test hosts.
+    if (source.renameTo(destination)) return
+    val parent = requireNotNull(destination.parentFile)
+    val backup = File.createTempFile(destination.name, ".bak", parent)
+    check(backup.delete()) { "Unable to prepare ${backup.absolutePath}" }
+    val hadDestination = destination.exists()
+    if (hadDestination) {
+        check(destination.renameTo(backup)) { "Unable to back up ${destination.absolutePath}" }
+    }
+    try {
+        check(source.renameTo(destination)) { "Unable to replace ${destination.absolutePath}" }
+        deleteFileIfExists(backup)
+    } catch (error: Throwable) {
+        if (hadDestination && !destination.exists()) backup.renameTo(destination)
+        throw error
+    }
+}
+
+@RequiresApi(Build.VERSION_CODES.O)
+private fun replaceFileWithNio(
+    source: File,
+    destination: File,
+) {
+    try {
+        Files.move(
+            source.toPath(),
+            destination.toPath(),
+            StandardCopyOption.ATOMIC_MOVE,
+            StandardCopyOption.REPLACE_EXISTING,
+        )
+    } catch (_: AtomicMoveNotSupportedException) {
+        Files.move(source.toPath(), destination.toPath(), StandardCopyOption.REPLACE_EXISTING)
+    }
+}
+
+private fun deleteFileIfExists(file: File) {
+    check(!file.exists() || file.delete()) { "Unable to delete ${file.absolutePath}" }
 }
