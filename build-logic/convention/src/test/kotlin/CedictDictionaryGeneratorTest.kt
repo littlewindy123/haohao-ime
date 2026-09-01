@@ -60,12 +60,11 @@ class CedictDictionaryGeneratorTest :
             CedictDictionaryGenerator.readForTesting(first).entries.shouldContainExactly(
                 CedictDictionaryGenerator.GeneratedEntry("中古", "medieval", "/\u02ccmidi\u02c8iv\u0259l/"),
                 CedictDictionaryGenerator.GeneratedEntry("中国", "China", "/\u02c8t\u0283a\u026an\u0259/"),
-                CedictDictionaryGenerator.GeneratedEntry("倪", "to look askance", "/tu l\u028ak \u0259\u02c8sk\u00e6ns/"),
                 CedictDictionaryGenerator.GeneratedEntry("天气", "weather", "/\u02c8w\u025b\u00f0\u0259\u0279/"),
                 CedictDictionaryGenerator.GeneratedEntry("学习", "study", "/\u02c8st\u028cdi/"),
-                CedictDictionaryGenerator.GeneratedEntry("比", "to compare", "/tu k\u0259m\u02c8p\u025b\u0279/"),
+                CedictDictionaryGenerator.GeneratedEntry("比", "compare", "/k\u0259m\u02c8p\u025b\u0279/"),
                 CedictDictionaryGenerator.GeneratedEntry("电视", "television", "/\u02c8t\u025bl\u0259\u02ccv\u026a\u0292\u0259n/"),
-                CedictDictionaryGenerator.GeneratedEntry("看", "to look", "/tu l\u028ak/"),
+                CedictDictionaryGenerator.GeneratedEntry("看", "look", "/l\u028ak/"),
                 CedictDictionaryGenerator.GeneratedEntry("重复", "first", "/\u02c8f\u025d\u02d0st/"),
                 CedictDictionaryGenerator.GeneratedEntry("铌", "niobium", "/na\u026a\u02c8o\u028abi\u0259m/"),
             )
@@ -85,6 +84,31 @@ class CedictDictionaryGeneratorTest :
             dictionary.release shouldBe "2026-08-24"
             dictionary.entries.shouldContainExactly(
                 CedictDictionaryGenerator.GeneratedEntry("电脑", "computer", "/k\u0259m\u02c8pjut\u0259\u0279/"),
+            )
+        }
+
+        "generator keeps only lexical words and normalizes simple definition prefixes" {
+            val source =
+                """
+                嘆 叹 [tan4] /to sigh/to lament/
+                電腦 电脑 [dian4 nao3] /a computer/
+                太陽 太阳 [tai4 yang2] /the sun/
+                倪 倪 [Ni2] /to look askance/
+                回家 回家 [hui2 jia1] /go home/
+                瞥 瞥 [pie1] /to look briefly/glance/
+                """.trimIndent()
+
+            CedictDictionaryGenerator.readForTesting(
+                generate(
+                    source,
+                    "",
+                    "sigh\t/sa\u026a/\ncomputer\t/k\u0259m\u02c8pjut\u0259\u0279/\nsun\t/s\u028cn/\nglance\t/\u0261l\u00e6ns/",
+                ),
+            ).entries.shouldContainExactly(
+                CedictDictionaryGenerator.GeneratedEntry("叹", "sigh", "/sa\u026a/"),
+                CedictDictionaryGenerator.GeneratedEntry("太阳", "sun", "/s\u028cn/"),
+                CedictDictionaryGenerator.GeneratedEntry("电脑", "computer", "/k\u0259m\u02c8pjut\u0259\u0279/"),
+                CedictDictionaryGenerator.GeneratedEntry("瞥", "glance", "/\u0261l\u00e6ns/"),
             )
         }
 
@@ -115,7 +139,6 @@ class CedictDictionaryGeneratorTest :
 
             dictionary.entries.shouldContainExactly(
                 CedictDictionaryGenerator.GeneratedEntry("条目", "entry", "/\u02c8\u025bntri/"),
-                CedictDictionaryGenerator.GeneratedEntry("词", "plain word", "/ple\u026an w\u025d\u02d0d/"),
             )
             dictionary.entries.forEach { (_, translation, _) ->
                 translation.contains('(') shouldBe false
@@ -145,9 +168,6 @@ class CedictDictionaryGeneratorTest :
             CedictDictionaryGenerator.readForTesting(
                 generate(source, "", pronunciations),
             ).entries.shouldContainExactly(
-                CedictDictionaryGenerator.GeneratedEntry("复合", "well-known word", "/w\u025bl no\u028an w\u025d\u02d0d/"),
-                CedictDictionaryGenerator.GeneratedEntry("缺失", "known missing", null),
-                CedictDictionaryGenerator.GeneratedEntry("输入法", "input method", "/\u02c8\u026an\u02ccp\u028at \u02c8m\u025b\u03b8\u0259d/"),
                 CedictDictionaryGenerator.GeneratedEntry("问候", "hello", "/h\u0259\u02c8\u026bo\u028a/"),
             )
         }

@@ -184,6 +184,36 @@ class CloudTranslationTest :
             cache.lookup("provider-a", "乙") shouldBe null
         }
 
+        "candidate cache keeps words, normalizes infinitives and rejects phrases" {
+            val cache = CloudCandidateTranslationCache(
+                storage = object : CloudCandidateCacheStorage {
+                    override fun load(): List<CloudCandidateCacheEntry> = listOf(
+                        CloudCandidateCacheEntry("provider", "旧叹", "to sigh", 900L),
+                        CloudCandidateCacheEntry("provider", "旧回家", "go home", 900L),
+                    )
+
+                    override fun save(entries: List<CloudCandidateCacheEntry>) = Unit
+                },
+                nowMillis = { 1_000L },
+            )
+
+            cache.put(
+                "provider",
+                mapOf(
+                    "叹" to "to sigh",
+                    "电脑" to "computer",
+                    "回家" to "go home",
+                ),
+            )
+
+            cache.lookup("provider", "叹")?.translation shouldBe "sigh"
+            cache.lookup("provider", "电脑")?.translation shouldBe "computer"
+            cache.lookup("provider", "回家") shouldBe null
+            cache.shouldRequest("provider", "回家") shouldBe false
+            cache.lookup("provider", "旧叹")?.translation shouldBe "sigh"
+            cache.lookup("provider", "旧回家") shouldBe null
+        }
+
         "negative candidate cache retries only after eight minutes" {
             var now = 5_000L
             val cache = CloudCandidateTranslationCache(

@@ -32,6 +32,8 @@ internal object CedictDictionaryGenerator {
     private val BRACKETED_METADATA = Regex("\\s*\\[[^]]*]\\s*")
     private val WHITESPACE = Regex("\\s+")
     private val ACRONYM = Regex("^[A-Z][A-Z0-9.-]*$")
+    private val ENGLISH_WORD = Regex("[A-Za-z]+(?:['\u2019-][A-Za-z]+)*")
+    private val SIMPLE_DEFINITION_PREFIX = Regex("(?:to|a|an|the)\\s+(.+)", RegexOption.IGNORE_CASE)
     private val ENGLISH_TOKEN = Regex("[a-z]+(?:['-][a-z]+)*")
 
     private data class DefinitionChoice(
@@ -175,8 +177,15 @@ internal object CedictDictionaryGenerator {
             .trim(' ', ',', ';', ':', '-', '\u2013', '\u2014')
         if (normalized.isEmpty() || !LATIN_LETTER.containsMatchIn(normalized)) return null
         if (normalized.any { it == '(' || it == ')' || it == '[' || it == ']' }) return null
-        if (normalized.codePointCount(0, normalized.length) > MAX_DEFINITION_CODE_POINTS) return null
-        return normalized
+        val word = when {
+            ENGLISH_WORD.matches(normalized) -> normalized
+            else -> SIMPLE_DEFINITION_PREFIX.matchEntire(normalized)
+                ?.groupValues
+                ?.get(1)
+                ?.takeIf(ENGLISH_WORD::matches)
+        } ?: return null
+        if (word.codePointCount(0, word.length) > MAX_DEFINITION_CODE_POINTS) return null
+        return word
     }
 
     internal fun readPronunciations(source: InputStream): Map<String, String> = buildMap {

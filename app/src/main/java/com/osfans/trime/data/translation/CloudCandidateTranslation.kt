@@ -33,6 +33,9 @@ internal const val CLOUD_CANDIDATE_CACHE_MAX_ENTRIES = 4_096
 internal const val CLOUD_CANDIDATE_POSITIVE_TTL_MS = 30L * 24 * 60 * 60 * 1_000
 internal const val CLOUD_CANDIDATE_NEGATIVE_TTL_MS = 8L * 60 * 1_000
 private const val CLOUD_CANDIDATE_DEBOUNCE_MS = 300L
+private const val CLOUD_CANDIDATE_MAX_WORD_CODE_POINTS = 18
+private val CLOUD_CANDIDATE_WORD = Regex("[A-Za-z]+(?:['\u2019-][A-Za-z]+)*")
+private val CLOUD_CANDIDATE_SIMPLE_PREFIX = Regex("(?:to|a|an|the)\\s+(.+)", RegexOption.IGNORE_CASE)
 
 @Serializable
 internal data class CloudCandidateCacheEntry(
@@ -77,13 +80,20 @@ internal class CloudCandidateTranslationCache(
 
     init {
         val now = nowMillis()
-        storage.load()
+        val loaded = storage.load()
+        val reusable = loaded
             .asSequence()
             .filter { now - it.storedAtMillis in 0 until CLOUD_CANDIDATE_POSITIVE_TTL_MS }
+            .mapNotNull { entry ->
+                sanitizeCandidateTranslation(entry.translation)?.let { translation ->
+                    entry.copy(translation = translation)
+                }
+            }
             .sortedBy(CloudCandidateCacheEntry::storedAtMillis)
             .toList()
             .takeLast(maximumEntries)
-            .forEach { positive[cacheKey(it.providerFingerprint, it.text)] = it }
+        reusable.forEach { positive[cacheKey(it.providerFingerprint, it.text)] = it }
+        if (reusable != loaded) persistLocked()
     }
 
     fun lookup(
@@ -121,8 +131,13 @@ internal class CloudCandidateTranslationCache(
     ) = synchronized(lock) {
         val storedAt = nowMillis()
         values.forEach { (text, rawTranslation) ->
-            val translation = sanitizeCandidateTranslation(rawTranslation) ?: return@forEach
             val key = cacheKey(providerFingerprint, text)
+            val translation = sanitizeCandidateTranslation(rawTranslation)
+            if (translation == null) {
+                positive.remove(key)
+                negativeUntil[key] = storedAt + CLOUD_CANDIDATE_NEGATIVE_TTL_MS
+                return@forEach
+            }
             positive.remove(key)
             positive[key] = CloudCandidateCacheEntry(providerFingerprint, text, translation, storedAt)
             negativeUntil.remove(key)
@@ -155,8 +170,15 @@ internal class CloudCandidateTranslationCache(
 
 private fun sanitizeCandidateTranslation(value: String): String? {
     val translation = value.replace(Regex("\\s+"), " ").trim()
-    if (translation.isEmpty() || translation.codePointCount(0, translation.length) > 80) return null
-    return translation
+    val word = when {
+        CLOUD_CANDIDATE_WORD.matches(translation) -> translation
+        else -> CLOUD_CANDIDATE_SIMPLE_PREFIX.matchEntire(translation)
+            ?.groupValues
+            ?.get(1)
+            ?.takeIf(CLOUD_CANDIDATE_WORD::matches)
+    } ?: return null
+    if (word.codePointCount(0, word.length) > CLOUD_CANDIDATE_MAX_WORD_CODE_POINTS) return null
+    return word
 }
 
 internal object CloudCandidateTranslationRepository : CandidateTranslationRepository {

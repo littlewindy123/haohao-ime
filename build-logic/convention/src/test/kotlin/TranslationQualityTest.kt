@@ -10,6 +10,13 @@ import java.nio.file.Path
 
 class TranslationQualityTest :
     StringSpec({
+        "runtime translations are single lexical English words" {
+            TranslationQuality.translationIssues("computer") shouldBe emptyList()
+            TranslationQuality.translationIssues("good-looking") shouldBe emptyList()
+            TranslationQuality.translationIssues("to sigh") shouldBe listOf("not a single English word")
+            TranslationQuality.translationIssues("input method") shouldBe listOf("not a single English word")
+        }
+
         "manual regression set has fixed quotas and traces every override" {
             val cases = repoFile("app/dictionary/cc-cedict/translation_quality_zh_en.tsv")
                 .toFile().reader(Charsets.UTF_8).use(TranslationQuality::parseRegression)

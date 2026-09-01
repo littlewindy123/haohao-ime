@@ -5,7 +5,7 @@
 中	middle	single
 国	country	single
 人	person	single
-是	to be	single
+是	be	single
 时	time	single
 事	matter	single
 市	city	single
@@ -60,7 +60,7 @@
 生活	life	word
 世界	world	word
 输入	input	word
-输入法	input method	word
+输入法	-	word
 天气	weather	word
 电脑	computer	word
 意思	meaning	word
@@ -94,17 +94,17 @@
 母亲	mother	word
 爸爸	dad	word
 妈妈	mom	word
-哥哥	older brother	word
-姐姐	older sister	word
-弟弟	younger brother	word
-妹妹	younger sister	word
+哥哥	brother	word
+姐姐	sister	word
+弟弟	brother	word
+妹妹	sister	word
 医生	doctor	word
 医院	hospital	word
 吃饭	eat	word
-喝水	drink water	word
-回家	go home	word
-上班	go to work	word
-下班	leave work	word
+喝水	drink	word
+回家	-	word
+上班	work	word
+下班	-	word
 开始	start	word
 结束	end	word
 喜欢	like	word
@@ -117,43 +117,43 @@
 谢谢	thanks	word
 对不起	sorry	word
 再见	goodbye	word
-没事	it's okay	word
+没事	okay	word
 见面	meet	word
-没关系	no problem	phrase
-早上好	good morning	phrase
-晚上好	good evening	phrase
-晚安	good night	phrase
+没关系	okay	phrase
+早上好	morning	phrase
+晚上好	evening	phrase
+晚安	goodnight	phrase
 欢迎	welcome	phrase
-不客气	you're welcome	phrase
-辛苦了	much appreciated	phrase
-请问	excuse me	phrase
-稍等	please wait	phrase
-等一下	hold on	phrase
-没问题	no problem	phrase
-不知道	I don't know	phrase
-我知道	I know	phrase
-我觉得	I think	phrase
-我喜欢	I like it	phrase
-我需要	I need it	phrase
-我可以	I can	phrase
-可以吗	may I	phrase
-怎么样	how is it	phrase
+不客气	welcome	phrase
+辛苦了	thanks	phrase
+请问	-	phrase
+稍等	wait	phrase
+等一下	wait	phrase
+没问题	okay	phrase
+不知道	-	phrase
+我知道	know	phrase
+我觉得	think	phrase
+我喜欢	like	phrase
+我需要	need	phrase
+我可以	can	phrase
+可以吗	-	phrase
+怎么样	how	phrase
 为什么	why	phrase
 什么时候	when	phrase
 在哪里	where	phrase
-怎么办	what to do	phrase
-没办法	no way	phrase
-不要紧	it's okay	phrase
-小心点	be careful	phrase
-慢一点	slow down	phrase
-快一点	hurry up	phrase
-看一下	take a look	phrase
-听一下	have a listen	phrase
-说一下	say it	phrase
-试一下	give it a try	phrase
-很好看	looks great	phrase
+怎么办	-	phrase
+没办法	-	phrase
+不要紧	okay	phrase
+小心点	careful	phrase
+慢一点	slower	phrase
+快一点	hurry	phrase
+看一下	look	phrase
+听一下	listen	phrase
+说一下	say	phrase
+试一下	try	phrase
+很好看	beautiful	phrase
 太好了	great	phrase
-回头见	see you later	phrase
+回头见	goodbye	phrase
 塔斯汀	Tastien	modern
 库迪	Cotti	modern
 小红书	REDnote	modern
@@ -164,18 +164,18 @@
 微信	WeChat	modern
 支付宝	Alipay	modern
 淘宝	Taobao	modern
-京东	JD.com	modern
+京东	JD	modern
 抖音	Douyin	modern
 快手	Kuaishou	modern
 美团	Meituan	modern
 高德地图	Amap	modern
 人工智能	AI	modern
-大模型	AI model	modern
+大模型	LLM	modern
 提示词	prompt	modern
-智能体	AI agent	modern
-云计算	cloud computing	modern
+智能体	agent	modern
+云计算	-	modern
 数据库	database	modern
-开源	open source	modern
+开源	open-source	modern
 程序员	programmer	modern
 代码	code	modern
 应用程序	app	modern
@@ -183,19 +183,19 @@
 伲	-	risk
 我去	damn	risk
 只有	only	risk
-即可	that will do	risk
-有没有	is there	risk
+即可	enough	risk
+有没有	-	risk
 地	ground	risk
 得	get	risk
 着	-	risk
-难道	could it be	risk
+难道	-	risk
 要	want	risk
-及其	and its or their	risk
+及其	-	risk
 给	give	risk
 过	pass	risk
-还不如	better to	risk
+还不如	-	risk
 要看	depends	risk
 就	then	risk
-称之为	call it	risk
-足以	enough to	risk
-与其	rather than	risk
+称之为	call	risk
+足以	enough	risk
+与其	-	risk

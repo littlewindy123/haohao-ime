@@ -11,6 +11,7 @@ internal object TranslationQuality {
     private val REPEATED_WHITESPACE = Regex("\\s{2,}")
     private val ABNORMAL_PUNCTUATION = Regex("[!?.,]{2,}")
     private val ALLOWED_TRANSLATION = Regex("[A-Za-z0-9][A-Za-z0-9 .,&+'\u2019?!-]*")
+    private val SINGLE_ENGLISH_WORD = Regex("[A-Za-z]+(?:['\u2019-][A-Za-z]+)*")
     private val REJECTED_MARKERS =
         listOf(
             "CL:",
@@ -163,6 +164,7 @@ internal object TranslationQuality {
         if (!ALLOWED_TRANSLATION.matches(translation)) add("unexpected characters")
         if (translation.any { it == '(' || it == ')' || it == '[' || it == ']' }) add("metadata brackets")
         if (REJECTED_MARKERS.any { translation.contains(it, ignoreCase = true) }) add("structural metadata")
+        if (!SINGLE_ENGLISH_WORD.matches(translation)) add("not a single English word")
     }
 
     private val BEST_FIRST = Comparator<WeightedHeadword> { left, right ->
