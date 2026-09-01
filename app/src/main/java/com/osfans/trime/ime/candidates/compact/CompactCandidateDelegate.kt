@@ -12,6 +12,7 @@ import android.text.TextPaint
 import android.util.TypedValue
 import android.view.View
 import androidx.annotation.Keep
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.flexbox.FlexWrap
 import com.google.android.flexbox.FlexboxLayoutManager
@@ -21,7 +22,6 @@ import com.osfans.trime.core.CandidateProto
 import com.osfans.trime.core.Candidates
 import com.osfans.trime.core.CompositionProto
 import com.osfans.trime.daemon.RimeSession
-import com.osfans.trime.daemon.launchOnReady
 import com.osfans.trime.data.prefs.AppPrefs
 import com.osfans.trime.data.prefs.PreferenceDelegate
 import com.osfans.trime.data.theme.FontManager
@@ -39,9 +39,13 @@ import com.osfans.trime.ime.candidates.unrolled.toDisplayableUnrolledCandidates
 import com.osfans.trime.ime.core.InputView
 import com.osfans.trime.ime.core.TrimeInputMethodService
 import com.osfans.trime.ime.dependency.InputDependencyManager
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.kodein.di.instance
 import splitties.dimensions.dp
 import splitties.views.dsl.recyclerview.recyclerView
@@ -247,21 +251,34 @@ class CompactCandidateDelegate : InputBroadcastReceiver {
     private val cloudCandidateController: CloudCandidateTranslationController by di.instance()
 
     private var latestCandidates: Candidates.Bulk? = null
+    private var latestCandidatePresentationVersion = 0L
+    private var renderedCandidatePresentationVersion = 0L
     private var currentPreedit: String? = null
+    private var renderJob: Job? = null
+    private var renderGeneration = 0L
+    private val candidateWidthCache =
+        object : LinkedHashMap<CandidateWidthCacheKey, CompactCandidateWidthBounds>(64, 0.75f, true) {
+            override fun removeEldestEntry(
+                eldest: MutableMap.MutableEntry<CandidateWidthCacheKey, CompactCandidateWidthBounds>,
+            ): Boolean = size > WIDTH_CACHE_LIMIT
+        }
 
     @Keep
     private val translationModeListener =
         PreferenceDelegate.OnChangeListener<CompactTranslationMode> { _, _ ->
+            clearWidthCache()
             view.width.takeIf { it > 0 }?.let(::renderCandidates)
         }
 
     @Keep
     private val translationEnabledListener =
         PreferenceDelegate.OnChangeListener<Boolean> { _, _ ->
+            clearWidthCache()
             view.width.takeIf { it > 0 }?.let(::renderCandidates)
         }
 
     private val cloudTranslationListener: () -> Unit = {
+        clearWidthCache()
         view.width.takeIf { it > 0 }?.let(::renderCandidates)
     }
 
@@ -327,6 +344,17 @@ class CompactCandidateDelegate : InputBroadcastReceiver {
         translationHint: CompactTranslationHint?,
     ): CompactCandidateWidthBounds {
         val candidate = item.candidate
+        val cacheKey =
+            CandidateWidthCacheKey(
+                text = candidate.text,
+                comment = candidate.comment,
+                mode = mode,
+                translation = translationHint?.text,
+                translationWidth = translationHint?.requiredWidth ?: 0,
+            )
+        synchronized(candidateWidthCache) {
+            candidateWidthCache[cacheKey]?.let { return it }
+        }
         val textWidth = candidateTextPaint.measureText(candidate.text).roundToInt()
         val commentWidth = commentTextPaint.measureText(candidate.comment).roundToInt()
         val contentWidth = when (theme.generalStyle.commentPosition) {
@@ -350,6 +378,11 @@ class CompactCandidateDelegate : InputBroadcastReceiver {
         )
         return CompactCandidateWidthBounds(minimum, preferred)
             .withCompactTranslationWidth(mode, translationHint)
+            .also { measured ->
+                synchronized(candidateWidthCache) {
+                    candidateWidthCache[cacheKey] = measured
+                }
+            }
     }
 
     private fun translationWidthLimits(mode: CompactTranslationMode): CompactTranslationWidthLimits? {
@@ -398,30 +431,50 @@ class CompactCandidateDelegate : InputBroadcastReceiver {
 
     private fun renderCandidates(availableWidth: Int) {
         val data = latestCandidates ?: return
-        val targetCount = targetCandidateCount()
-        val candidates = data.candidates.toCompactCandidateItems(targetCount, prioritizedPreedit())
-        val translationMode = candidatePreferences.compactTranslationMode.getValue()
-        val translationHints = candidates.associateWith { translationHintFor(it, translationMode) }
-        val cells = fitCompactCandidateRow(
-            candidates = candidates,
-            targetCount = targetCount,
-            availableWidth = availableWidth,
-            translationLimits = translationWidthLimits(translationMode),
-            widthOf = { item ->
-                measureCandidateWidth(item, translationMode, translationHints[item])
-            },
-        ).map { cell ->
-            cell.copy(
-                compactTranslation = compactTranslationTextForCell(
-                    translationHints[cell.item],
-                    cell.width,
-                ),
-            )
+        val preedit = prioritizedPreedit()
+        val generation = ++renderGeneration
+        renderJob?.cancel()
+        renderJob = service.lifecycleScope.launch(Dispatchers.Default) {
+            val startedAt = System.nanoTime()
+            val targetCount = targetCandidateCount()
+            val candidates = data.candidates.toCompactCandidateItems(targetCount, preedit)
+            val translationMode = candidatePreferences.compactTranslationMode.getValue()
+            val translationHints = candidates.associateWith { translationHintFor(it, translationMode) }
+            val cells = fitCompactCandidateRow(
+                candidates = candidates,
+                targetCount = targetCount,
+                availableWidth = availableWidth,
+                translationLimits = translationWidthLimits(translationMode),
+                widthOf = { item ->
+                    measureCandidateWidth(item, translationMode, translationHints[item])
+                },
+            ).map { cell ->
+                cell.copy(
+                    compactTranslation = compactTranslationTextForCell(
+                        translationHints[cell.item],
+                        cell.width,
+                    ),
+                )
+            }
+            val elapsedNanos = System.nanoTime() - startedAt
+            withContext(Dispatchers.Main) {
+                if (
+                    generation != renderGeneration ||
+                    latestCandidates != data
+                ) {
+                    return@withContext
+                }
+                service.recordCandidateModelBuild(elapsedNanos)
+                adapter.updateCandidates(cells, data.total, data.highlighted)
+                renderedCandidatePresentationVersion = latestCandidatePresentationVersion
+                cloudCandidateController.requestVisible(cells.map { it.item.candidate.text })
+                if (cells.isEmpty()) refreshUnrolled(0)
+            }
         }
+    }
 
-        adapter.updateCandidates(cells, data.total, data.highlighted)
-        cloudCandidateController.requestVisible(cells.map { it.item.candidate.text })
-        if (cells.isEmpty()) refreshUnrolled(0)
+    private fun clearWidthCache() {
+        synchronized(candidateWidthCache) { candidateWidthCache.clear() }
     }
 
     private val _unrolledCandidateOffset =
@@ -445,7 +498,11 @@ class CompactCandidateDelegate : InputBroadcastReceiver {
         CompactCandidateViewAdapter(theme).apply {
             setOnItemClickListener { _, _, position ->
                 val globalIndex = items.getOrNull(position)?.item?.globalIndex ?: return@setOnItemClickListener
-                rime.launchOnReady { it.selectCandidate(globalIndex, global = true) }
+                service.selectCandidateFromPresentation(
+                    renderedCandidatePresentationVersion,
+                    globalIndex,
+                    global = true,
+                )
             }
             setOnItemLongClickListener { _, view, position ->
                 val item = items.getOrNull(position)?.item ?: return@setOnItemLongClickListener false
@@ -454,6 +511,7 @@ class CompactCandidateDelegate : InputBroadcastReceiver {
                     item.candidate.text,
                     view,
                     global = true,
+                    presentationVersion = renderedCandidatePresentationVersion,
                 )
                 true
             }
@@ -503,6 +561,9 @@ class CompactCandidateDelegate : InputBroadcastReceiver {
                         candidatePreferences.compactTranslationMode
                             .unregisterOnChangeListener(translationModeListener)
                         CloudCandidateTranslationRepository.removeListener(cloudTranslationListener)
+                        renderGeneration += 1
+                        renderJob?.cancel()
+                        renderJob = null
                     }
                 },
             )
@@ -514,7 +575,17 @@ class CompactCandidateDelegate : InputBroadcastReceiver {
     }
 
     override fun onCandidateListUpdate(data: Candidates.Bulk) {
+        val presentationVersion = inputView.currentPresentationVersion
+        if (latestCandidates == data) {
+            latestCandidates = data
+            latestCandidatePresentationVersion = presentationVersion
+            if (renderJob?.isActive != true) {
+                renderedCandidatePresentationVersion = presentationVersion
+            }
+            return
+        }
         latestCandidates = data
+        latestCandidatePresentationVersion = presentationVersion
         val measuredWidth = view.width
         val estimatedWidth = compactCandidateAvailableWidth(
             totalWidth = context.resources.displayMetrics.widthPixels,
@@ -526,5 +597,14 @@ class CompactCandidateDelegate : InputBroadcastReceiver {
 
     private companion object {
         const val SIMPLIFIED_PINYIN_SCHEMA = "luna_pinyin_simp"
+        const val WIDTH_CACHE_LIMIT = 256
     }
 }
+
+private data class CandidateWidthCacheKey(
+    val text: String,
+    val comment: String,
+    val mode: CompactTranslationMode,
+    val translation: String?,
+    val translationWidth: Int,
+)

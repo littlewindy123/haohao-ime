@@ -23,8 +23,10 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.updateLayoutParams
 import androidx.lifecycle.lifecycleScope
 import com.osfans.trime.R
+import com.osfans.trime.core.Candidates
 import com.osfans.trime.core.CompositionProto
 import com.osfans.trime.core.RimeMessage
+import com.osfans.trime.core.RimePresentationSnapshot
 import com.osfans.trime.daemon.RimeSession
 import com.osfans.trime.data.prefs.AppPrefs
 import com.osfans.trime.data.theme.ColorManager
@@ -388,6 +390,10 @@ class InputView(
         translationController.deactivate()
     }
 
+    fun onRimeKeyQueued() {
+        broadcaster.onRimeKeyInput()
+    }
+
     fun updateEnterKeyLabel(info: EditorInfo) {
         enterKeyDisplay.updateLabelOnEditorInfo(info)
     }
@@ -423,6 +429,22 @@ class InputView(
             }
             else -> {}
         }
+        broadcastKeyAppearanceUpdate()
+    }
+
+    override fun handleRimePresentation(snapshot: RimePresentationSnapshot) {
+        val composition =
+            if (candidatesMode == PopupCandidatesMode.ALWAYS_SHOW) {
+                CompositionProto()
+            } else {
+                snapshot.composition
+            }
+        broadcaster.onCompositionUpdate(composition)
+        when (val candidates = snapshot.candidates) {
+            is Candidates.Bulk -> broadcaster.onCandidateListUpdate(candidates)
+            is Candidates.Paged -> Unit
+        }
+        broadcaster.onInputStatusUpdate(snapshot.status)
         broadcastKeyAppearanceUpdate()
     }
 

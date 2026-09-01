@@ -16,6 +16,8 @@ import com.osfans.trime.ime.window.BoardWindow
 interface InputBroadcastReceiver {
     fun onStartInput(info: EditorInfo) {}
 
+    fun onRimeKeyInput() {}
+
     fun onSelectionUpdate(start: Int, end: Int) {}
 
     fun onRimeSchemaUpdated(schema: SchemaItem) {}

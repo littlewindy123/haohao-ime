@@ -285,6 +285,10 @@ internal class CloudCandidateTranslationController : InputBroadcastReceiver {
         cancelPending()
     }
 
+    override fun onRimeKeyInput() {
+        cancelPending()
+    }
+
     fun requestVisible(texts: List<String>) {
         if (!cloudAllowedForEditor || !prefs.cloudTranslation.candidateFallback.getValue()) {
             cancelPending()

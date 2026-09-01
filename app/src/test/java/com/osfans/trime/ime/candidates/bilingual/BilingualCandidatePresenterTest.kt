@@ -151,10 +151,15 @@ class BilingualCandidatePresenterTest :
                 CandidateProto(text = "恋", comment = "", label = ""),
             )
 
-            val visible = candidates.toDisplayableUnrolledCandidates(startIndex = 12)
+            val visible =
+                candidates.toDisplayableUnrolledCandidates(
+                    startIndex = 12,
+                    presentationVersion = 37,
+                )
 
             visible.map { it.candidate.text } shouldBe listOf("炼", "恋")
             visible.map { it.globalIndex } shouldBe listOf(12, 14)
+            visible.map { it.presentationVersion } shouldBe listOf(37L, 37L)
         }
 
         "compact candidate targets use honest portrait and landscape ranges" {

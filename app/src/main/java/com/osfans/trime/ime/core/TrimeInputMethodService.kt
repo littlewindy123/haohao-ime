@@ -43,18 +43,19 @@ import androidx.lifecycle.lifecycleScope
 import com.osfans.trime.R
 import com.osfans.trime.core.KeyModifiers
 import com.osfans.trime.core.KeyValue
+import com.osfans.trime.core.RIME_NO_PERSONALIZED_LEARNING_OPTION
 import com.osfans.trime.core.RimeApi
+import com.osfans.trime.core.RimeCommitEvent
 import com.osfans.trime.core.RimeKeyMapping
 import com.osfans.trime.core.RimeMessage
-import com.osfans.trime.core.RIME_NO_PERSONALIZED_LEARNING_OPTION
 import com.osfans.trime.core.RimeRuntimeSnapshot
 import com.osfans.trime.core.RimeRuntimeState
 import com.osfans.trime.core.statusTextRes
 import com.osfans.trime.daemon.RimeDaemon
 import com.osfans.trime.daemon.RimeSession
 import com.osfans.trime.data.base.DEFAULT_SCHEMA_ID
-import com.osfans.trime.data.footprints.InputFootprintRecorder
 import com.osfans.trime.data.footprints.InputFootprintPolicy
+import com.osfans.trime.data.footprints.InputFootprintRecorder
 import com.osfans.trime.data.prefs.AppPrefs
 import com.osfans.trime.data.prefs.PreferenceDelegate
 import com.osfans.trime.data.prefs.PreferenceDelegateProvider
@@ -70,22 +71,19 @@ import com.osfans.trime.util.forceShowSelf
 import com.osfans.trime.util.monitorCursorAnchor
 import com.osfans.trime.util.styledFloat
 import com.osfans.trime.util.toast
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.CoroutineStart
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.channels.consumeEach
 import kotlinx.coroutines.launch
 import splitties.bitflags.hasFlag
 import splitties.systemservices.clipboardManager
 import splitties.systemservices.inputMethodManager
 import timber.log.Timber
+import java.util.concurrent.atomic.AtomicLong
 
 /** [輸入法][InputMethodService]主程序  */
 
 open class TrimeInputMethodService : LifecycleInputMethodService() {
     private lateinit var rime: RimeSession
-    private val jobs = Channel<Job>(capacity = Channel.UNLIMITED)
+    private lateinit var inputPipeline: RimeInputPipeline
+    private var activeInputSessionId = 0L
 
     private val prefs = AppPrefs.defaultInstance()
     private lateinit var decorView: View
@@ -168,23 +166,79 @@ open class TrimeInputMethodService : LifecycleInputMethodService() {
             }
         }
 
-    private fun postJob(
-        scope: CoroutineScope,
-        block: suspend () -> Unit,
-    ): Job {
-        val job = scope.launch(start = CoroutineStart.LAZY) { block() }
-        jobs.trySend(job)
-        return job
+    /**
+     * Post a Rime barrier operation to the ordered input pipeline.
+     *
+     * Candidate selection, paging, composition clearing and editor changes use barriers so they
+     * always observe all keys queued before them.
+     */
+    fun postRimeJob(block: suspend RimeApi.() -> Unit): Boolean {
+        val inputSessionId = activeInputSessionId
+        return inputPipeline.postBarrier {
+            rime.runOnReady {
+                setCommitSessionId(inputSessionId)
+                block()
+            }
+        }
     }
 
-    /**
-     * Post a rime operation to [jobs] to be executed
-     *
-     * Unlike `rime.runOnReady` or `rime.launchOnReady` where
-     * subsequent operations can start if the prior operation is not finished (suspended),
-     * [postRimeJob] ensures that operations are executed sequentially.
-     */
-    fun postRimeJob(block: suspend RimeApi.() -> Unit) = postJob(rime.lifecycleScope) { rime.runOnReady(block) }
+    /** Post one lossless key command. Consecutive keys may share one presentation refresh. */
+    fun postRimeKey(block: suspend RimeApi.() -> Unit): Boolean {
+        val inputSessionId = activeInputSessionId
+        return inputPipeline.postKey {
+            rime.runOnReady {
+                setCommitSessionId(inputSessionId)
+                block()
+            }
+        }
+    }
+
+    fun selectCandidateFromCurrentPresentation(
+        index: Int,
+        global: Boolean,
+    ) {
+        val version = rime.run { presentationFlow.value.version }
+        selectCandidateFromPresentation(version, index, global)
+    }
+
+    fun selectCandidateFromPresentation(
+        expectedVersion: Long,
+        index: Int,
+        global: Boolean,
+    ) {
+        postCandidateOperation(expectedVersion) {
+            selectCandidate(index, global)
+        }
+    }
+
+    fun deleteCandidateFromPresentation(
+        expectedVersion: Long,
+        index: Int,
+        global: Boolean,
+    ) {
+        postCandidateOperation(expectedVersion) {
+            deleteCandidate(index, global)
+        }
+    }
+
+    private fun postCandidateOperation(
+        expectedVersion: Long,
+        operation: suspend RimeApi.() -> Unit,
+    ) {
+        postRimeJob {
+            val currentVersion = presentationFlow.value.version
+            if (!isCurrentPresentation(expectedVersion, currentVersion)) {
+                inputPipeline.recordStaleCandidateSelection()
+                refreshPresentation()
+                return@postRimeJob
+            }
+            operation()
+        }
+    }
+
+    fun recordCandidateModelBuild(elapsedNanos: Long) {
+        inputPipeline.recordCandidateModelBuild(elapsedNanos)
+    }
 
     private suspend fun updateRimeOption(api: RimeApi) {
         try {
@@ -226,12 +280,25 @@ open class TrimeInputMethodService : LifecycleInputMethodService() {
     override fun onCreate() {
         super.onCreate()
         rime = RimeDaemon.createSession(javaClass.name)
-        lifecycleScope.launch {
-            jobs.consumeEach { it.join() }
-        }
+        TypingPerformanceMonitor.reset()
+        inputPipeline =
+            RimeInputPipeline(
+                scope = lifecycleScope,
+                flushPresentation = { rime.runOnReady { refreshPresentation() } },
+                onKeyQueued = { inputView?.onRimeKeyQueued() },
+                onFailure = { Timber.e(it, "Rime input command failed") },
+            )
         lifecycleScope.launch {
             rime.run { messageFlow }.collect {
                 handleRimeMessage(it)
+            }
+        }
+        lifecycleScope.launch {
+            rime.run { commitFlow }.collect(::handleRimeCommit)
+        }
+        lifecycleScope.launch {
+            rime.run { presentationFlow }.collect { snapshot ->
+                updateComposingText(snapshot.inlinePreedit)
             }
         }
         recreateInputViewPrefs.forEach {
@@ -280,11 +347,7 @@ open class TrimeInputMethodService : LifecycleInputMethodService() {
     private fun handleRimeMessage(it: RimeMessage<*>) {
         when (it) {
             is RimeMessage.CommitTextMessage -> {
-                if (!it.data.text.isNullOrEmpty() && currentInputConnection != null) {
-                    if (commitText(it.data.text)) {
-                        InputFootprintRecorder.record(it.data.text, currentInputEditorInfo)
-                    }
-                }
+                handleRimeCommit(RimeCommitEvent(it.data, activeInputSessionId))
             }
             is RimeMessage.InlinePreeditMessage -> {
                 updateComposingText(it.data)
@@ -349,6 +412,15 @@ open class TrimeInputMethodService : LifecycleInputMethodService() {
         }
     }
 
+    private fun handleRimeCommit(event: RimeCommitEvent) {
+        if (!isCurrentInputSession(event.inputSessionId, activeInputSessionId)) return
+        val text = event.commit.text
+        if (text.isNullOrEmpty() || currentInputConnection == null) return
+        if (commitText(text)) {
+            InputFootprintRecorder.record(text, currentInputEditorInfo)
+        }
+    }
+
     private fun replaceInputView(theme: Theme): InputView {
         val newInputView = InputView(this, rime, theme)
         setInputView(newInputView)
@@ -402,6 +474,7 @@ open class TrimeInputMethodService : LifecycleInputMethodService() {
             unregisterReceiver(rimeIntentReceiver)
             receiverRegistered = false
         }
+        if (::inputPipeline.isInitialized) inputPipeline.close()
         if (::rime.isInitialized) RimeDaemon.destroySession(javaClass.name)
         super.onDestroy()
     }
@@ -738,6 +811,9 @@ open class TrimeInputMethodService : LifecycleInputMethodService() {
         attribute: EditorInfo,
         restarting: Boolean,
     ) {
+        if (!restarting || activeInputSessionId == 0L) {
+            activeInputSessionId = nextInputSessionId.incrementAndGet()
+        }
         composingText = ""
         currentSelectionStart = attribute.initialSelStart
         currentSelectionEnd = attribute.initialSelEnd
@@ -955,8 +1031,8 @@ open class TrimeInputMethodService : LifecycleInputMethodService() {
         val keyVal = KeyValue.fromKeyEvent(event)
         if (keyVal.value != RimeKeyMapping.RimeKey_VoidSymbol) {
             val modifiers = KeyModifiers.fromKeyEvent(event)
-            postRimeJob {
-                processKey(keyVal, modifiers, isVirtual = false)
+            postRimeKey {
+                processKeyDeferred(keyVal, modifiers, isVirtual = false)
             }
             return true
         }
@@ -1232,5 +1308,9 @@ open class TrimeInputMethodService : LifecycleInputMethodService() {
         }
         dialog.show()
         showingDialog = dialog
+    }
+
+    private companion object {
+        val nextInputSessionId = AtomicLong(0)
     }
 }

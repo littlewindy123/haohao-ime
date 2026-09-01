@@ -10,6 +10,7 @@ class CandidateViewHolder(
     val ui: CandidateItemUi,
 ) : RecyclerView.ViewHolder(ui.root) {
     var idx = -1
+    var presentationVersion = 0L
     var text = ""
     var comment = ""
 }

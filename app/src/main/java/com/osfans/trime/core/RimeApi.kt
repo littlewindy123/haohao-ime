@@ -5,12 +5,18 @@
 
 package com.osfans.trime.core
 
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
 
 internal const val RIME_NO_PERSONALIZED_LEARNING_OPTION = "_haohao_no_personalized_learning"
 
 interface RimeApi {
     val messageFlow: SharedFlow<RimeMessage<*>>
+
+    val commitFlow: Flow<RimeCommitEvent>
+
+    val presentationFlow: StateFlow<RimePresentationSnapshot>
 
     val isReady: Boolean
 
@@ -43,6 +49,22 @@ interface RimeApi {
         modifiers: KeyModifiers,
         isVirtual: Boolean = true,
     ): Boolean
+
+    suspend fun processKeyDeferred(
+        value: Int,
+        modifiers: UInt = 0u,
+        isVirtual: Boolean = true,
+    ): Boolean
+
+    suspend fun processKeyDeferred(
+        value: KeyValue,
+        modifiers: KeyModifiers,
+        isVirtual: Boolean = true,
+    ): Boolean
+
+    suspend fun refreshPresentation()
+
+    suspend fun setCommitSessionId(inputSessionId: Long)
 
     suspend fun simulateKeySequence(
         sequence: String,

@@ -61,5 +61,6 @@ open class PagingCandidateViewAdapter(
         holder.text = candidate.text
         holder.comment = candidate.comment
         holder.idx = idx
+        holder.presentationVersion = item.presentationVersion
     }
 }

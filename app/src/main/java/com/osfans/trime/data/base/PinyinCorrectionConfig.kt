@@ -46,8 +46,7 @@ internal data class PinyinCorrectionSettings(
 }
 
 @Suppress("UNUSED_PARAMETER")
-internal fun renderPinyinCorrectionPatch(settings: PinyinCorrectionSettings): String =
-    SIMPLIFIED_SCHEMA_CUSTOM_PATCH.trimIndent()
+internal fun renderPinyinCorrectionPatch(settings: PinyinCorrectionSettings): String = SIMPLIFIED_SCHEMA_CUSTOM_PATCH.trimIndent()
 
 internal fun pinyinCorrectionSha256(content: String): String = MessageDigest.getInstance("SHA-256")
     .digest(content.toByteArray(StandardCharsets.UTF_8))

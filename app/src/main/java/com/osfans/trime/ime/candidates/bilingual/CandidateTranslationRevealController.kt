@@ -103,6 +103,12 @@ internal class CandidateTranslationRevealController(
         restartReveal()
     }
 
+    override fun onRimeKeyInput() {
+        hasCandidates = false
+        cancelPendingReveal()
+        publish(CandidateTranslationRevealState.HIDDEN)
+    }
+
     override fun onCandidateListUpdate(data: Candidates.Bulk) {
         hasCandidates = data.candidates.isNotEmpty()
         restartReveal()

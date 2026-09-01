@@ -17,7 +17,9 @@ import androidx.core.text.color
 import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
 import com.osfans.trime.R
+import com.osfans.trime.core.Candidates
 import com.osfans.trime.core.RimeMessage
+import com.osfans.trime.core.RimePresentationSnapshot
 import com.osfans.trime.daemon.RimeSession
 import com.osfans.trime.data.footprints.InputFootprintPolicy
 import com.osfans.trime.data.footprints.InputFootprints
@@ -44,13 +46,34 @@ abstract class BaseInputView(
 ) : ConstraintLayout(service) {
     protected abstract fun handleRimeMessage(it: RimeMessage<*>)
 
+    internal var currentPresentationVersion = 0L
+        private set
+
+    protected open fun handleRimePresentation(snapshot: RimePresentationSnapshot) {
+        handleRimeMessage(RimeMessage.InlinePreeditMessage(snapshot.inlinePreedit))
+        handleRimeMessage(RimeMessage.CompositionMessage(snapshot.composition))
+        when (val candidates = snapshot.candidates) {
+            is Candidates.Paged -> handleRimeMessage(RimeMessage.PagedCandidatesMessage(candidates))
+            is Candidates.Bulk -> handleRimeMessage(RimeMessage.BulkCandidatesMessage(candidates))
+        }
+        handleRimeMessage(RimeMessage.StatusMessage(snapshot.status))
+    }
+
     private var messageHandlerJob: Job? = null
+    private var presentationHandlerJob: Job? = null
 
     private fun setupRimeMessageHandler() {
         messageHandlerJob =
             service.lifecycleScope.launch {
                 rime.run { messageFlow }.collect {
                     handleRimeMessage(it)
+                }
+            }
+        presentationHandlerJob =
+            service.lifecycleScope.launch {
+                rime.run { presentationFlow }.collect {
+                    currentPresentationVersion = it.version
+                    handleRimePresentation(it)
                 }
             }
     }
@@ -65,6 +88,8 @@ abstract class BaseInputView(
             } else {
                 messageHandlerJob?.cancel()
                 messageHandlerJob = null
+                presentationHandlerJob?.cancel()
+                presentationHandlerJob = null
             }
         }
 
@@ -72,7 +97,13 @@ abstract class BaseInputView(
 
     private var candidateActionMenu: PopupMenu? = null
 
-    fun showCandidateActionMenu(idx: Int, text: String, view: View, global: Boolean) {
+    fun showCandidateActionMenu(
+        idx: Int,
+        text: String,
+        view: View,
+        global: Boolean,
+        presentationVersion: Long = currentPresentationVersion,
+    ) {
         candidateActionMenu?.dismiss()
         candidateActionMenu = null
         val highlightColor = ColorManager.getColor("hilited_candidate_text_color")
@@ -123,7 +154,11 @@ abstract class BaseInputView(
                         }
                     }
                     menu.add(R.string.forget_this_word).setOnMenuItemClickListener {
-                        rime.runIfReady { deleteCandidate(idx, global) }
+                        service.deleteCandidateFromPresentation(
+                            presentationVersion,
+                            idx,
+                            global,
+                        )
                         true
                     }
                     setOnDismissListener {
@@ -132,6 +167,13 @@ abstract class BaseInputView(
                     show()
                 }
         }
+    }
+
+    fun selectCandidateFromCurrentPresentation(
+        index: Int,
+        global: Boolean,
+    ) {
+        service.selectCandidateFromPresentation(currentPresentationVersion, index, global)
     }
 
     private val navBarBackground by ThemeManager.prefs.navbarBackground

@@ -39,6 +39,10 @@ class InputBroadcaster : InputBroadcastReceiver {
         receivers.forEach { it.onStartInput(info) }
     }
 
+    override fun onRimeKeyInput() {
+        receivers.forEach { it.onRimeKeyInput() }
+    }
+
     override fun onSelectionUpdate(
         start: Int,
         end: Int,

@@ -22,7 +22,6 @@ import com.osfans.trime.core.Candidates
 import com.osfans.trime.core.CompositionProto
 import com.osfans.trime.core.RimeMessage
 import com.osfans.trime.daemon.RimeSession
-import com.osfans.trime.daemon.launchOnReady
 import com.osfans.trime.data.prefs.AppPrefs
 import com.osfans.trime.data.theme.ColorManager
 import com.osfans.trime.data.theme.Theme
@@ -92,17 +91,17 @@ class CandidatesView(
             ctx,
             theme,
             setupPreeditView = { setPaddingDp(3, 1, 3, 1) },
-            onMoveCursor = { pos -> rime.launchOnReady { it.moveCursorPos(pos) } },
+            onMoveCursor = { pos -> service.postRimeJob { moveCursorPos(pos) } },
         )
 
     private val candidatesUi =
         PagedCandidatesUi(
             ctx,
             theme,
-            onCandidateClick = { index -> rime.launchOnReady { it.selectCandidate(index, global = false) } },
+            onCandidateClick = { index -> selectCandidateFromCurrentPresentation(index, global = false) },
             onCandidateAction = { index, text, view -> showCandidateActionMenu(index, text, view, global = false) },
-            onPrevPage = { rime.launchOnReady { it.changeCandidatePage(true) } },
-            onNextPage = { rime.launchOnReady { it.changeCandidatePage(false) } },
+            onPrevPage = { service.postRimeJob { changeCandidatePage(true) } },
+            onNextPage = { service.postRimeJob { changeCandidatePage(false) } },
         )
 
     private val touchEventReceiverWindow = TouchEventReceiverWindow(this)

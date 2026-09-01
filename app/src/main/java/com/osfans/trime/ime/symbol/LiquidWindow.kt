@@ -10,8 +10,6 @@ import androidx.core.content.ContextCompat
 import com.google.android.flexbox.FlexDirection
 import com.google.android.flexbox.FlexWrap
 import com.google.android.flexbox.FlexboxLayoutManager
-import com.osfans.trime.daemon.RimeSession
-import com.osfans.trime.daemon.launchOnReady
 import com.osfans.trime.data.SymbolHistory
 import com.osfans.trime.data.theme.Theme
 import com.osfans.trime.data.theme.model.LiquidKeyboard
@@ -29,7 +27,6 @@ class LiquidWindow :
     override val showTitle = false
 
     private val service: TrimeInputMethodService by di.instance()
-    private val rime: RimeSession by di.instance()
     private val theme: Theme by di.instance()
     private val windowManager: BoardWindowManager by di.instance()
     private val commonKeyboardActionListener: CommonKeyboardActionListener by di.instance()
@@ -112,13 +109,13 @@ class LiquidWindow :
     }
 
     private fun triggerSymbolInput(symbol: String) {
-        rime.launchOnReady {
-            val (isAsciiMode, isAsciiPunch) = it.statusCached.run { isAsciiMode to isAsciiPunct }
-            if (isAsciiMode) it.setRuntimeOption("ascii_mode", false)
-            if (isAsciiPunch) it.setRuntimeOption("ascii_punch", false)
-            it.clearComposition()
-            it.simulateKeySequence(symbol)
-            if (isAsciiPunch) it.setRuntimeOption("ascii_punch", true)
+        service.postRimeJob {
+            val (isAsciiMode, isAsciiPunch) = statusCached.run { isAsciiMode to isAsciiPunct }
+            if (isAsciiMode) setRuntimeOption("ascii_mode", false)
+            if (isAsciiPunch) setRuntimeOption("ascii_punch", false)
+            clearComposition()
+            simulateKeySequence(symbol)
+            if (isAsciiPunch) setRuntimeOption("ascii_punch", true)
             ContextCompat.getMainExecutor(service).execute {
                 windowManager.attachWindow(KeyboardWindow)
             }

@@ -21,12 +21,15 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import timber.log.Timber
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * Rime JNI and instance methods
@@ -46,6 +49,12 @@ class Rime :
     override val lifecycle get() = lifecycleRegistry
 
     override val messageFlow = messageFlow_.asSharedFlow()
+    private val losslessCommitFlow = LosslessRimeCommitFlow()
+    override val commitFlow = losslessCommitFlow.flow
+    private val presentationVersion = AtomicLong(0)
+    private val mutablePresentationFlow = MutableStateFlow(RimePresentationSnapshot())
+    override val presentationFlow = mutablePresentationFlow.asStateFlow()
+    private var commitSessionId = 0L
 
     override val isReady: Boolean
         get() =
@@ -176,7 +185,7 @@ class Rime :
         modifiers: UInt,
         isVirtual: Boolean,
     ): Boolean = withRimeContext {
-        processKeyInner(value, modifiers.toInt(), isVirtual)
+        processKeyInner(value, modifiers.toInt(), isVirtual, deferPresentation = false)
     }
 
     override suspend fun processKey(
@@ -184,7 +193,31 @@ class Rime :
         modifiers: KeyModifiers,
         isVirtual: Boolean,
     ): Boolean = withRimeContext {
-        processKeyInner(value.value, modifiers.toInt(), isVirtual)
+        processKeyInner(value.value, modifiers.toInt(), isVirtual, deferPresentation = false)
+    }
+
+    override suspend fun processKeyDeferred(
+        value: Int,
+        modifiers: UInt,
+        isVirtual: Boolean,
+    ): Boolean = withRimeContext {
+        processKeyInner(value, modifiers.toInt(), isVirtual, deferPresentation = true)
+    }
+
+    override suspend fun processKeyDeferred(
+        value: KeyValue,
+        modifiers: KeyModifiers,
+        isVirtual: Boolean,
+    ): Boolean = withRimeContext {
+        processKeyInner(value.value, modifiers.toInt(), isVirtual, deferPresentation = true)
+    }
+
+    override suspend fun refreshPresentation() = withRimeContext {
+        emitResponse()
+    }
+
+    override suspend fun setCommitSessionId(inputSessionId: Long) = withRimeContext {
+        commitSessionId = inputSessionId
     }
 
     override suspend fun simulateKeySequence(sequence: String): Boolean = withRimeContext {
@@ -414,10 +447,20 @@ class Rime :
         schemaCached = RimeSchema(DEFAULT_SCHEMA_ID)
     }
 
-    private fun processKeyInner(value: Int, modifiers: Int, isVirtual: Boolean): Boolean {
-        lastAsciiTipsText = asciiTipsText(getRimeStatus())
+    private fun processKeyInner(
+        value: Int,
+        modifiers: Int,
+        isVirtual: Boolean,
+        deferPresentation: Boolean,
+    ): Boolean {
+        lastAsciiTipsText = asciiTipsText(statusCached)
         val handled = processRimeKey(value, modifiers)
-        emitResponse()
+        getRimeStatus().also { status ->
+            statusCached = status
+            updateSchemaCached(status)
+        }
+        publishCommit(getRimeCommit())
+        if (!deferPresentation) emitPresentation()
         if (!handled) {
             handleRimeMessage(
                 10, // RimeMessage.MessageType.Key,
@@ -436,19 +479,52 @@ class Rime :
 
     private fun emitResponse(commit: CommitProto? = null) {
         val response = getRimeResponse(pagingMode)
-        handleRimeMessage(4, arrayOf(commit ?: response.commit))
-        handlePreedit(response.composition)
+        publishCommit(commit ?: response.commit)
+        publishPresentation(response)
         if (response.composition.length <= 0 && lastAsciiTipsText != asciiTipsText(response.status)) {
             showAsciiSwitchTips(response.status)
         }
-        when (val candidates = response.candidates) {
-            is Candidates.Paged -> handleRimeMessage(7, arrayOf(candidates))
-            is Candidates.Bulk -> handleRimeMessage(9, arrayOf(candidates))
-        }
-        handleRimeMessage(8, arrayOf(response.status))
     }
 
-    private fun handlePreedit(composition: CompositionProto) {
+    private fun emitPresentation() {
+        val response = getRimeResponse(pagingMode)
+        publishCommit(response.commit)
+        publishPresentation(response)
+        if (response.composition.length <= 0 && lastAsciiTipsText != asciiTipsText(response.status)) {
+            showAsciiSwitchTips(response.status)
+        }
+    }
+
+    private fun publishCommit(commit: CommitProto) {
+        if (!losslessCommitFlow.publish(commit, commitSessionId)) {
+            Timber.e("Unable to enqueue lossless Rime commit")
+        }
+    }
+
+    private fun publishPresentation(response: RimeResponse) {
+        val (inlinePreedit, visibleComposition) = visiblePreedit(response.composition)
+        val snapshot =
+            RimePresentationSnapshot(
+                version = presentationVersion.incrementAndGet(),
+                inlinePreedit = inlinePreedit,
+                composition = visibleComposition,
+                candidates = response.candidates,
+                status = response.status,
+            )
+        compositionCached = visibleComposition
+        when (val candidates = response.candidates) {
+            is Candidates.Paged -> {
+                paging = candidates.hasPrevPage
+                hasMenu = candidates.candidates.isNotEmpty()
+            }
+            is Candidates.Bulk -> hasMenu = candidates.candidates.isNotEmpty()
+        }
+        statusCached = response.status
+        updateSchemaCached(response.status)
+        mutablePresentationFlow.value = snapshot
+    }
+
+    private fun visiblePreedit(composition: CompositionProto): Pair<String, CompositionProto> {
         val mode = if (isNullInputType) {
             InlinePreeditMode.DISABLE
         } else {
@@ -464,8 +540,7 @@ class Rime :
         } else {
             composition
         }
-        handleRimeMessage(5, arrayOf(inlinePreedit))
-        handleRimeMessage(6, arrayOf(composition))
+        return inlinePreedit to composition
     }
 
     private fun handleRimeMessage(it: RimeMessage<*>) {

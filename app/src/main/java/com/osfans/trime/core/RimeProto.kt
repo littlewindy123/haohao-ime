@@ -9,6 +9,11 @@ data class CommitProto(
     val text: String?,
 )
 
+data class RimeCommitEvent(
+    val commit: CommitProto,
+    val inputSessionId: Long,
+)
+
 data class CandidateProto(
     val text: String,
     val comment: String,
@@ -142,4 +147,18 @@ data class RimeResponse(
     val composition: CompositionProto,
     val candidates: Candidates,
     val status: StatusProto,
+)
+
+/**
+ * Versioned, atomic presentation state for one Rime response.
+ *
+ * Commits deliberately travel on a separate lossless channel. This snapshot may be conflated when
+ * typing outruns rendering, because only the newest composition and candidate list are useful.
+ */
+data class RimePresentationSnapshot(
+    val version: Long = 0,
+    val inlinePreedit: String = "",
+    val composition: CompositionProto = CompositionProto(),
+    val candidates: Candidates = Candidates.Bulk(),
+    val status: StatusProto = StatusProto(),
 )

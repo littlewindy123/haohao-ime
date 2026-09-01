@@ -85,17 +85,17 @@ class CommonKeyboardActionListener {
     }
 
     private fun showThemePicker() {
-        showDialog { api ->
+        showDialog {
             ThemePickerDialog.build(service.lifecycleScope, context) {
-                api.commitComposition()
+                service.postRimeJob { commitComposition() }
             }
         }
     }
 
     private fun showColorPicker() {
-        showDialog { api ->
+        showDialog {
             ColorPickerDialog.build(service.lifecycleScope, context) {
-                api.commitComposition()
+                service.postRimeJob { commitComposition() }
             }
         }
     }
@@ -200,16 +200,14 @@ class CommonKeyboardActionListener {
             private fun handleSwitchCharset(action: KeyAction) {
                 val option = action.toggle.ifEmpty { return }
 
-                rime.launchOnReady { api ->
-                    service.lifecycleScope.launch {
-                        val isEnabled = api.getRuntimeOption(option)
-                        val isComposing = api.statusCached.isComposing
-                        api.setRuntimeOption(option, !isEnabled)
-                        if (option == "ascii_mode" && isComposing) {
-                            api.getRawInput().takeIf { it.isNotEmpty() }?.let {
-                                service.commitText(it)
-                                api.clearComposition()
-                            }
+                service.postRimeJob {
+                    val isEnabled = getRuntimeOption(option)
+                    val isComposing = statusCached.isComposing
+                    setRuntimeOption(option, !isEnabled)
+                    if (option == "ascii_mode" && isComposing) {
+                        getRawInput().takeIf { it.isNotEmpty() }?.let {
+                            service.commitText(it)
+                            clearComposition()
                         }
                     }
                 }
@@ -425,11 +423,7 @@ class CommonKeyboardActionListener {
 
             private fun handleSelectCandidate(arg: String) {
                 val index = arg.toIntOrNull() ?: return
-                rime.launchOnReady { api ->
-                    service.lifecycleScope.launch {
-                        api.selectCandidate(index, false)
-                    }
-                }
+                service.selectCandidateFromCurrentPresentation(index, global = false)
             }
 
             private fun switchHideKeySymbol() {
@@ -525,18 +519,18 @@ class CommonKeyboardActionListener {
                     metaState
                 }
                 val modifiers = KeyModifiers.fromMetaState(m).modifiers
-                service.postRimeJob {
+                service.postRimeKey {
                     if (service.hookKeyboard(keyEventCode, m)) {
                         Timber.d("handleKey: hook")
-                        return@postRimeJob
+                        return@postRimeKey
                     }
-                    if (processKey(value, modifiers)) {
+                    if (processKeyDeferred(value, modifiers)) {
                         Timber.d("handleKey: processKey")
-                        return@postRimeJob
+                        return@postRimeKey
                     }
                     if (AppUtils.launchKeyCategory(service, keyEventCode)) {
                         Timber.d("handleKey: openCategory")
-                        return@postRimeJob
+                        return@postRimeKey
                     }
                     // other special cases
                     if (keyEventCode == KeyEvent.KEYCODE_BACK) {

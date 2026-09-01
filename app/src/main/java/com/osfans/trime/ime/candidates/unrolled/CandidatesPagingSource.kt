@@ -14,6 +14,7 @@ import timber.log.Timber
 data class UnrolledCandidateItem(
     val globalIndex: Int,
     val candidate: CandidateProto,
+    val presentationVersion: Long = 0L,
 )
 
 private fun Int.isRareCjkCodePoint(): Boolean = this in 0x3400..0x4DBF ||
@@ -41,16 +42,18 @@ private fun String.containsRareCjkCodePoint(): Boolean {
 
 internal fun Array<CandidateProto>.toDisplayableUnrolledCandidates(
     startIndex: Int,
+    presentationVersion: Long = 0L,
 ): List<UnrolledCandidateItem> = mapIndexedNotNull { relativeIndex, candidate ->
     candidate
         .takeUnless { it.text.containsRareCjkCodePoint() }
-        ?.let { UnrolledCandidateItem(startIndex + relativeIndex, it) }
+        ?.let { UnrolledCandidateItem(startIndex + relativeIndex, it, presentationVersion) }
 }
 
 class CandidatesPagingSource(
     val rime: RimeSession,
     val total: Int,
     val offset: Int,
+    val presentationVersion: Long = 0L,
 ) : PagingSource<Int, UnrolledCandidateItem>() {
     override suspend fun load(params: LoadParams<Int>): LoadResult<Int, UnrolledCandidateItem> {
         // use candidate index for key, null means load from beginning (including offset)
@@ -61,7 +64,8 @@ class CandidatesPagingSource(
             rime.runOnReady {
                 getCandidates(startIndex, pageSize)
             }
-        val displayableCandidates = candidates.toDisplayableUnrolledCandidates(startIndex)
+        val displayableCandidates =
+            candidates.toDisplayableUnrolledCandidates(startIndex, presentationVersion)
         val prevKey = if (startIndex >= pageSize) startIndex - pageSize else null
         val nextKey = if (total > 0) {
             if (startIndex + pageSize + 1 >= total) null else startIndex + pageSize

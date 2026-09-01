@@ -10,12 +10,11 @@ import android.graphics.drawable.GradientDrawable
 import android.view.View
 import android.view.ViewOutlineProvider
 import com.osfans.trime.core.CompositionProto
-import com.osfans.trime.daemon.RimeSession
-import com.osfans.trime.daemon.launchOnReady
 import com.osfans.trime.data.theme.ColorManager
 import com.osfans.trime.data.theme.Theme
 import com.osfans.trime.ime.broadcast.InputBroadcastReceiver
 import com.osfans.trime.ime.core.TouchEventReceiverWindow
+import com.osfans.trime.ime.core.TrimeInputMethodService
 import com.osfans.trime.ime.dependency.InputDependencyManager
 import org.kodein.di.instance
 import splitties.dimensions.dp
@@ -25,7 +24,7 @@ class PreeditDelegate : InputBroadcastReceiver {
 
     private val context: Context by InputDependencyManager.getInstance().di.instance()
     private val theme: Theme by InputDependencyManager.getInstance().di.instance()
-    private val rime: RimeSession by InputDependencyManager.getInstance().di.instance()
+    private val service: TrimeInputMethodService by InputDependencyManager.getInstance().di.instance()
 
     val ui =
         PreeditUi(
@@ -47,7 +46,7 @@ class PreeditDelegate : InputBroadcastReceiver {
                 outlineProvider = ViewOutlineProvider.BACKGROUND
                 horizontalPadding = dp(theme.preedit.horizontalPadding)
             },
-            onMoveCursor = { pos -> rime.launchOnReady { it.moveCursorPos(pos) } },
+            onMoveCursor = { pos -> service.postRimeJob { moveCursorPos(pos) } },
         ).apply {
             root.alpha = theme.preedit.alpha
             root.visibility = View.INVISIBLE

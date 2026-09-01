@@ -21,6 +21,7 @@ import com.osfans.trime.core.RimeRuntimeState
 import com.osfans.trime.core.RimeUnavailableException
 import com.osfans.trime.core.lifecycleScope
 import com.osfans.trime.data.base.DataManager
+import com.osfans.trime.ime.core.TypingPerformanceMonitor
 import com.osfans.trime.ui.main.LogActivity
 import com.osfans.trime.util.appContext
 import com.osfans.trime.util.createNotificationChannel
@@ -236,23 +237,37 @@ object RimeDaemon {
         }
     }
 
-    fun diagnosticText(): String = RimeRuntimeDiagnostics.read().ifBlank {
-        buildString {
-            appendLine("HaoHao IME ${BuildConfig.VERSION_NAME} (${BuildConfig.BUILD_VERSION_NAME})")
-            appendLine("Device: ${Build.MANUFACTURER} ${Build.MODEL}")
-            appendLine("Android: ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})")
-            appendLine("ABI: ${Build.SUPPORTED_ABIS.joinToString()}")
-            appendLine("Engine: ${runtimeState.value}")
-            appendLine("Schema: ${realRime.schemaCached.schemaId}")
-            realRime.lastDataSyncStats?.let { stats ->
-                appendLine(
-                    "Data preparation: ${realRime.lastDataPreparationMillis} ms " +
-                        "(copied=${stats.copiedFiles}, bytes=${stats.copiedBytes}, reused=${stats.reusedPrebuilt})",
-                )
-            } ?: appendLine("Data preparation: not run")
-            appendLine("Native startup: ${realRime.lastNativeStartupMillis.takeIf { it >= 0 }?.let { "$it ms" } ?: "not run"}")
-            append("Last failure: ${lastFailure ?: "none"}")
-        }
+    fun diagnosticText(): String {
+        val runtime =
+            RimeRuntimeDiagnostics.read().ifBlank {
+                buildString {
+                    appendLine("HaoHao IME ${BuildConfig.VERSION_NAME} (${BuildConfig.BUILD_VERSION_NAME})")
+                    appendLine("Device: ${Build.MANUFACTURER} ${Build.MODEL}")
+                    appendLine("Android: ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})")
+                    appendLine("ABI: ${Build.SUPPORTED_ABIS.joinToString()}")
+                    appendLine("Engine: ${runtimeState.value}")
+                    appendLine("Schema: ${realRime.schemaCached.schemaId}")
+                    realRime.lastDataSyncStats?.let { stats ->
+                        appendLine(
+                            "Data preparation: ${realRime.lastDataPreparationMillis} ms " +
+                                "(copied=${stats.copiedFiles}, bytes=${stats.copiedBytes}, " +
+                                "reused=${stats.reusedPrebuilt})",
+                        )
+                    } ?: appendLine("Data preparation: not run")
+                    appendLine(
+                        "Native startup: " +
+                            (
+                                realRime.lastNativeStartupMillis.takeIf { it >= 0 }?.let { "$it ms" }
+                                    ?: "not run"
+                                ),
+                    )
+                    append("Last failure: ${lastFailure ?: "none"}")
+                }
+            }
+        return buildString {
+            appendLine(runtime.trimEnd())
+            append(TypingPerformanceMonitor.snapshot.value.diagnosticText())
+        }.trim()
     }
 
     private suspend fun handleRimeMessage(it: RimeMessage<*>) {

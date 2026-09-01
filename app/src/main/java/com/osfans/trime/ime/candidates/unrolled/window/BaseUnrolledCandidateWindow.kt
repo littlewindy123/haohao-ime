@@ -14,7 +14,6 @@ import androidx.paging.PagingConfig
 import androidx.recyclerview.widget.RecyclerView
 import com.osfans.trime.core.Candidates
 import com.osfans.trime.daemon.RimeSession
-import com.osfans.trime.daemon.launchOnReady
 import com.osfans.trime.data.theme.Theme
 import com.osfans.trime.ime.bar.InputBarDelegate
 import com.osfans.trime.ime.bar.UnrollButtonStateMachine
@@ -50,6 +49,7 @@ abstract class BaseUnrolledCandidateWindow :
     private lateinit var candidateLayout: UnrolledCandidateLayout
     private var totalCandidates = 0
     private var hasCandidates = false
+    private var presentationVersion = 0L
 
     abstract fun onCreateCandidateLayout(): UnrolledCandidateLayout
 
@@ -78,6 +78,7 @@ abstract class BaseUnrolledCandidateWindow :
                     rime,
                     total = totalCandidates,
                     offset = adapter.offset,
+                    presentationVersion = presentationVersion,
                 )
             },
         )
@@ -90,6 +91,7 @@ abstract class BaseUnrolledCandidateWindow :
         bar.setUnrolledCandidatesVisible(true)
         bar.unrollButtonStateMachine.push(UnrollButtonStateMachine.TransitionEvent.UnrolledCandidatesAttached)
         totalCandidates = compactCandidate.adapter.total
+        presentationVersion = inputView.currentPresentationVersion
         hasCandidates = totalCandidates != 0
         adapter.refreshWith(
             offset = UNROLLED_CANDIDATE_START_INDEX,
@@ -105,6 +107,7 @@ abstract class BaseUnrolledCandidateWindow :
 
     override fun onCandidateListUpdate(data: Candidates.Bulk) {
         totalCandidates = data.total
+        presentationVersion = inputView.currentPresentationVersion
         hasCandidates = data.candidates.isNotEmpty()
         if (!hasCandidates) {
             windowManager.attachWindow(KeyboardWindow)
@@ -120,10 +123,20 @@ abstract class BaseUnrolledCandidateWindow :
     fun bindCandidateUiViewHolder(holder: CandidateViewHolder) {
         holder.itemView.run {
             setOnClickListener { _ ->
-                rime.launchOnReady { it.selectCandidate(holder.idx, global = true) }
+                service.selectCandidateFromPresentation(
+                    holder.presentationVersion,
+                    holder.idx,
+                    global = true,
+                )
             }
             setOnLongClickListener { view ->
-                inputView.showCandidateActionMenu(holder.idx, holder.text, view, global = true)
+                inputView.showCandidateActionMenu(
+                    holder.idx,
+                    holder.text,
+                    view,
+                    global = true,
+                    presentationVersion = holder.presentationVersion,
+                )
                 true
             }
         }
