@@ -19,23 +19,51 @@ const (
 func main() {
 	accessKeyID := os.Getenv("ALIYUN_ACCESS_KEY_ID")
 	accessKeySecret := os.Getenv("ALIYUN_ACCESS_KEY_SECRET")
-	if accessKeyID == "" || accessKeySecret == "" {
-		log.Fatal("ALIYUN_ACCESS_KEY_ID and ALIYUN_ACCESS_KEY_SECRET are required")
+	baiduAPIKey := os.Getenv("BAIDU_API_KEY")
+	baiduSecretKey := os.Getenv("BAIDU_SECRET_KEY")
+	if accessKeyID == "" || accessKeySecret == "" || baiduAPIKey == "" || baiduSecretKey == "" {
+		log.Fatal("Alibaba Cloud and Baidu Cloud translation credentials are required")
 	}
 
-	translator, err := newAliyunTranslator(accessKeyID, accessKeySecret)
+	aliyun, err := newAliyunTranslator(accessKeyID, accessKeySecret)
 	if err != nil {
 		log.Fatalf("initialize Alibaba Cloud translator: %v", err)
 	}
+	baidu, err := newBaiduTranslator(baiduAPIKey, baiduSecretKey, &http.Client{Timeout: upstreamRequestTimeout}, time.Now)
+	if err != nil {
+		log.Fatalf("initialize Baidu Cloud translator: %v", err)
+	}
+	limits := defaultQuotaLimits()
+	limits.DailyRequests = environmentInt("HAOHAO_DAILY_REQUEST_LIMIT", limits.DailyRequests)
+	limits.DailyCharacters = environmentInt("HAOHAO_DAILY_CHARACTER_LIMIT", limits.DailyCharacters)
+	limits.AliyunMonthlyCharacters = environmentIntWithLegacy(
+		"HAOHAO_ALIYUN_MONTHLY_CHARACTER_LIMIT",
+		"HAOHAO_MONTHLY_CHARACTER_LIMIT",
+		limits.AliyunMonthlyCharacters,
+	)
+	limits.BaiduLifetimeCharacters = environmentInt("HAOHAO_BAIDU_LIFETIME_CHARACTER_LIMIT", limits.BaiduLifetimeCharacters)
 	quota, err := newQuotaStore(
-		environmentInt("HAOHAO_DAILY_REQUEST_LIMIT", 50),
-		environmentInt("HAOHAO_MONTHLY_CHARACTER_LIMIT", 900_000),
+		limits,
 		environmentString("HAOHAO_QUOTA_FILE", defaultQuotaFile),
 		time.Now,
 	)
 	if err != nil {
 		log.Fatalf("initialize quota store: %v", err)
 	}
+	translator := newProviderRouter(
+		providerRoute{
+			name:       providerAliyun,
+			translator: aliyun,
+			limiter:    newFixedWindowLimiter(environmentInt("HAOHAO_ALIYUN_QPS", 20), time.Now),
+		},
+		providerRoute{
+			name:       providerBaidu,
+			translator: baidu,
+			limiter:    newFixedWindowLimiter(environmentInt("HAOHAO_BAIDU_QPS", 8), time.Now),
+		},
+		quota,
+		log.Default(),
+	)
 
 	address := environmentString("HAOHAO_GATEWAY_ADDR", defaultListenAddress)
 	server := &http.Server{
@@ -65,4 +93,11 @@ func environmentInt(name string, fallback int) int {
 		return fallback
 	}
 	return value
+}
+
+func environmentIntWithLegacy(name, legacyName string, fallback int) int {
+	if value := environmentInt(name, 0); value > 0 {
+		return value
+	}
+	return environmentInt(legacyName, fallback)
 }

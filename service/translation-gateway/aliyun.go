@@ -5,21 +5,11 @@ package main
 
 import (
 	"context"
-	"errors"
 	"strings"
 
 	alimt "github.com/alibabacloud-go/alimt-20181012/v2/client"
 	openapi "github.com/alibabacloud-go/darabonba-openapi/v2/utils"
 )
-
-var (
-	errUpstreamTimeout = errors.New("upstream timeout")
-	errUpstreamFailure = errors.New("upstream failure")
-)
-
-type translator interface {
-	Translate(context.Context, string, string, string) (string, error)
-}
 
 type aliyunTranslator struct {
 	client *alimt.Client
@@ -55,7 +45,7 @@ func (a *aliyunTranslator) Translate(ctx context.Context, text, sourceLanguage, 
 			SetTargetLanguage(targetLanguage)
 		value, err := a.client.TranslateGeneral(request)
 		if err != nil {
-			result <- response{err: errUpstreamFailure}
+			result <- response{err: classifyAliyunError(err)}
 			return
 		}
 		if value == nil || value.Body == nil || value.Body.Code == nil || *value.Body.Code != 200 ||
@@ -76,5 +66,23 @@ func (a *aliyunTranslator) Translate(ctx context.Context, text, sourceLanguage, 
 		return "", errUpstreamTimeout
 	case value := <-result:
 		return value.translation, value.err
+	}
+}
+
+func classifyAliyunError(err error) error {
+	message := strings.ToLower(err.Error())
+	switch {
+	case strings.Contains(message, "timeout"), strings.Contains(message, "deadline"):
+		return errUpstreamTimeout
+	case strings.Contains(message, "throttl"), strings.Contains(message, "qps"), strings.Contains(message, "rate limit"):
+		return errProviderRateLimited
+	case strings.Contains(message, "accesskey"), strings.Contains(message, "unauthorized"), strings.Contains(message, "forbidden"), strings.Contains(message, "permission"):
+		return errProviderAuthentication
+	case strings.Contains(message, "sensitive"):
+		return errProviderRejected
+	case strings.Contains(message, "invalidparameter"), strings.Contains(message, "missingparameter"):
+		return errProviderInvalidRequest
+	default:
+		return errUpstreamFailure
 	}
 }

@@ -11,6 +11,7 @@ import (
 	"log"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -61,41 +62,51 @@ func TestDailyLimitAndNoPlaintextLogs(t *testing.T) {
 	}
 }
 
-func TestMonthlyQuotaBoundary(t *testing.T) {
+func TestDailyCharacterLimitBoundary(t *testing.T) {
 	handler, _, _ := testHandler(t, 50, 4)
 	if status := sendTranslation(handler, "a", []string{"测试"}, "sentence").Code; status != http.StatusOK {
 		t.Fatalf("first status = %d", status)
 	}
-	if status := sendTranslation(handler, "b", []string{"输入"}, "sentence").Code; status != http.StatusOK {
+	if status := sendTranslation(handler, "a", []string{"输入"}, "sentence").Code; status != http.StatusOK {
 		t.Fatalf("boundary status = %d", status)
 	}
-	response := sendTranslation(handler, "c", []string{"超"}, "sentence")
-	if response.Code != http.StatusTooManyRequests || !strings.Contains(response.Body.String(), errorMonthlyQuota) {
-		t.Fatalf("monthly response = %d %s", response.Code, response.Body.String())
+	response := sendTranslation(handler, "a", []string{"超"}, "sentence")
+	if response.Code != http.StatusTooManyRequests || !strings.Contains(response.Body.String(), errorDailyLimit) {
+		t.Fatalf("daily character response = %d %s", response.Code, response.Body.String())
 	}
 }
 
 func TestQuotaPersistsAcrossRestart(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "quota.json")
 	now := func() time.Time { return time.Date(2026, 8, 31, 12, 0, 0, 0, time.UTC) }
-	first, err := newQuotaStore(1, 10, path, now)
+	limits := defaultQuotaLimits()
+	limits.DailyRequests = 1
+	first, err := newQuotaStore(limits, path, now)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := first.reserve("installation", 2); err != nil {
+	if err := first.reserveInstallation("installation", 2); err != nil {
 		t.Fatal(err)
 	}
-	second, err := newQuotaStore(1, 10, path, now)
+	if err := first.reserveProvider(providerBaidu, 2); err != nil {
+		t.Fatal(err)
+	}
+	second, err := newQuotaStore(limits, path, now)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !errors.Is(second.reserve("installation", 1), errDailyLimit) {
+	if !errors.Is(second.reserveInstallation("installation", 1), errDailyLimit) {
 		t.Fatal("restarted quota store did not preserve daily count")
+	}
+	if second.state.BaiduLifetimeCharacters != 2 {
+		t.Fatalf("Baidu lifetime characters = %d", second.state.BaiduLifetimeCharacters)
 	}
 }
 
 func TestConcurrentDailyQuota(t *testing.T) {
-	store, err := newQuotaStore(50, 900_000, filepath.Join(t.TempDir(), "quota.json"), time.Now)
+	limits := defaultQuotaLimits()
+	limits.DailyRequests = 50
+	store, err := newQuotaStore(limits, filepath.Join(t.TempDir(), "quota.json"), time.Now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -105,7 +116,7 @@ func TestConcurrentDailyQuota(t *testing.T) {
 		wait.Add(1)
 		go func() {
 			defer wait.Done()
-			if store.reserve("same-install", 1) == nil {
+			if store.reserveInstallation("same-install", 1) == nil {
 				accepted.Add(1)
 			}
 		}()
@@ -113,6 +124,78 @@ func TestConcurrentDailyQuota(t *testing.T) {
 	wait.Wait()
 	if accepted.Load() != 50 {
 		t.Fatalf("accepted = %d", accepted.Load())
+	}
+}
+
+func TestProviderQuotasResetAliyunButKeepBaiduLifetime(t *testing.T) {
+	now := time.Date(2026, 9, 30, 23, 59, 0, 0, time.UTC)
+	limits := defaultQuotaLimits()
+	limits.AliyunMonthlyCharacters = 2
+	limits.BaiduLifetimeCharacters = 2
+	store, err := newQuotaStore(limits, filepath.Join(t.TempDir(), "quota.json"), func() time.Time { return now })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.reserveProvider(providerAliyun, 2); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.reserveProvider(providerBaidu, 2); err != nil {
+		t.Fatal(err)
+	}
+	if !errors.Is(store.reserveProvider(providerAliyun, 1), errProviderQuota) ||
+		!errors.Is(store.reserveProvider(providerBaidu, 1), errProviderQuota) {
+		t.Fatal("provider caps were not enforced")
+	}
+	now = now.Add(2 * time.Minute)
+	if err := store.reserveProvider(providerAliyun, 1); err != nil {
+		t.Fatalf("Aliyun did not reset: %v", err)
+	}
+	if !errors.Is(store.reserveProvider(providerBaidu, 1), errProviderQuota) {
+		t.Fatal("Baidu lifetime cap unexpectedly reset")
+	}
+}
+
+func TestConcurrentProviderQuotaNeverExceedsBudget(t *testing.T) {
+	limits := defaultQuotaLimits()
+	limits.BaiduLifetimeCharacters = 25
+	store, err := newQuotaStore(limits, filepath.Join(t.TempDir(), "quota.json"), time.Now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var accepted atomic.Int32
+	var wait sync.WaitGroup
+	for index := 0; index < 80; index++ {
+		wait.Add(1)
+		go func() {
+			defer wait.Done()
+			if store.reserveProvider(providerBaidu, 1) == nil {
+				accepted.Add(1)
+			}
+		}()
+	}
+	wait.Wait()
+	if accepted.Load() != 25 || store.state.BaiduLifetimeCharacters != 25 {
+		t.Fatalf("accepted = %d, state = %d", accepted.Load(), store.state.BaiduLifetimeCharacters)
+	}
+}
+
+func TestQuotaStateMigratesVersionOne(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "quota.json")
+	legacy := `{"month":"2026-09","monthly_characters":7,"daily_requests":{"2026-09-02":{"hash":3}}}`
+	if err := os.WriteFile(path, []byte(legacy), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	store, err := newQuotaStore(defaultQuotaLimits(), path, func() time.Time {
+		return time.Date(2026, 9, 2, 12, 0, 0, 0, time.UTC)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if store.state.Version != quotaStateVersion || store.state.AliyunMonthlyCharacters != 7 {
+		t.Fatalf("state = %#v", store.state)
+	}
+	if store.state.DailyUsage["2026-09-02"]["hash"].Requests != 3 {
+		t.Fatalf("daily usage = %#v", store.state.DailyUsage)
 	}
 }
 
@@ -136,9 +219,13 @@ func TestUpstreamErrorsAreMapped(t *testing.T) {
 	}{
 		{errUpstreamTimeout, http.StatusGatewayTimeout, errorUpstreamTimeoutCode},
 		{errUpstreamFailure, http.StatusBadGateway, errorUpstreamFailureCode},
+		{errProviderQuota, http.StatusTooManyRequests, errorProviderQuota},
+		{errProviderRateLimited, http.StatusTooManyRequests, errorProviderRateLimit},
+		{errProviderInvalidRequest, http.StatusBadRequest, errorInvalidRequest},
+		{errProviderRejected, http.StatusUnprocessableEntity, errorContentRejected},
 	} {
 		translator := &fakeTranslator{err: test.err}
-		quota, err := newQuotaStore(50, 900_000, filepath.Join(t.TempDir(), "quota.json"), time.Now)
+		quota, err := newQuotaStore(defaultQuotaLimits(), filepath.Join(t.TempDir(), "quota.json"), time.Now)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -152,7 +239,10 @@ func TestUpstreamErrorsAreMapped(t *testing.T) {
 
 func testHandler(t *testing.T, dailyLimit, monthlyLimit int) (http.Handler, *fakeTranslator, *bytes.Buffer) {
 	t.Helper()
-	quota, err := newQuotaStore(dailyLimit, monthlyLimit, filepath.Join(t.TempDir(), "quota.json"), func() time.Time {
+	limits := defaultQuotaLimits()
+	limits.DailyRequests = dailyLimit
+	limits.DailyCharacters = monthlyLimit
+	quota, err := newQuotaStore(limits, filepath.Join(t.TempDir(), "quota.json"), func() time.Time {
 		return time.Date(2026, 8, 31, 12, 0, 0, 0, time.UTC)
 	})
 	if err != nil {
