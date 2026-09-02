@@ -22,6 +22,7 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import java.net.HttpURLConnection
@@ -308,15 +309,18 @@ internal class AliyunTranslationProvider(
             } catch (error: Exception) {
                 return CloudTranslationResult.Failure(CloudTranslationResult.Failure.Kind.NETWORK, error.message)
             }
-            if (response.statusCode == 401 || response.statusCode == 403) {
-                return CloudTranslationResult.Failure(CloudTranslationResult.Failure.Kind.AUTHENTICATION)
+            when (response.statusCode) {
+                401, 403 -> return CloudTranslationResult.Failure(CloudTranslationResult.Failure.Kind.AUTHENTICATION)
+                429 -> return CloudTranslationResult.Failure(CloudTranslationResult.Failure.Kind.RATE_LIMITED)
             }
             val translated = parseAliyunTranslation(response.body)
                 ?: return CloudTranslationResult.Failure(
-                    if (response.body.contains("10009") || response.body.contains("10010")) {
-                        CloudTranslationResult.Failure.Kind.AUTHENTICATION
-                    } else {
-                        CloudTranslationResult.Failure.Kind.UPSTREAM
+                    when {
+                        listOf("10004", "10005", "10008").any(response.body::contains) ->
+                            CloudTranslationResult.Failure.Kind.INVALID_REQUEST
+                        listOf("10009", "10010", "10013").any(response.body::contains) ->
+                            CloudTranslationResult.Failure.Kind.AUTHENTICATION
+                        else -> CloudTranslationResult.Failure.Kind.UPSTREAM
                     },
                 )
             translations += translated
@@ -327,6 +331,169 @@ internal class AliyunTranslationProvider(
     private companion object {
         const val ALIYUN_ENDPOINT = "https://mt.cn-hangzhou.aliyuncs.com/"
     }
+}
+
+internal class BaiduTranslationProvider(
+    private val apiKey: String,
+    private val secretKey: String,
+    private val transport: TranslationHttpTransport = UrlConnectionTranslationTransport,
+) : CloudTranslationProvider {
+    override suspend fun translate(request: CloudTranslationRequest): CloudTranslationResult {
+        if (apiKey.isBlank() || secretKey.isBlank()) {
+            return CloudTranslationResult.Failure(CloudTranslationResult.Failure.Kind.NOT_CONFIGURED)
+        }
+        val normalized = normalizeTranslationRequest(request) ?: return CloudTranslationResult.Failure(
+            CloudTranslationResult.Failure.Kind.INVALID_REQUEST,
+        )
+        val token = fetchAccessToken()
+        if (token is CloudTranslationResult.Failure) return token
+        token as CloudTranslationResult.Success
+        val accessToken = token.translations.single()
+        val translations = mutableListOf<String>()
+        for (text in normalized.texts) {
+            coroutineContext.ensureActive()
+            val payload = JsonObject(
+                mapOf(
+                    "q" to kotlinx.serialization.json.JsonPrimitive(text),
+                    "from" to kotlinx.serialization.json.JsonPrimitive(normalized.sourceLanguage),
+                    "to" to kotlinx.serialization.json.JsonPrimitive(normalized.targetLanguage),
+                ),
+            )
+            val response = try {
+                transport.post(
+                    TranslationHttpRequest(
+                        url = "$BAIDU_TRANSLATE_ENDPOINT?access_token=${AliyunRpcSigner.percentEncode(accessToken)}",
+                        body = JSON.encodeToString(JsonObject.serializer(), payload)
+                            .toByteArray(StandardCharsets.UTF_8),
+                        contentType = "application/json; charset=utf-8",
+                    ),
+                )
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                return CloudTranslationResult.Failure(CloudTranslationResult.Failure.Kind.NETWORK, error.message)
+            }
+            when (response.statusCode) {
+                401, 403 -> return CloudTranslationResult.Failure(CloudTranslationResult.Failure.Kind.AUTHENTICATION)
+                429 -> return CloudTranslationResult.Failure(CloudTranslationResult.Failure.Kind.RATE_LIMITED)
+            }
+            val translated = parseBaiduTranslation(response.body)
+                ?: return CloudTranslationResult.Failure(baiduFailureKind(response.body))
+            translations += translated
+        }
+        return CloudTranslationResult.Success(translations)
+    }
+
+    private suspend fun fetchAccessToken(): CloudTranslationResult {
+        val response = try {
+            transport.post(
+                TranslationHttpRequest(
+                    url = "$BAIDU_TOKEN_ENDPOINT?grant_type=client_credentials" +
+                        "&client_id=${AliyunRpcSigner.percentEncode(apiKey)}" +
+                        "&client_secret=${AliyunRpcSigner.percentEncode(secretKey)}",
+                    body = ByteArray(0),
+                    contentType = "application/x-www-form-urlencoded; charset=utf-8",
+                ),
+            )
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            return CloudTranslationResult.Failure(CloudTranslationResult.Failure.Kind.NETWORK, error.message)
+        }
+        if (response.statusCode == 429) {
+            return CloudTranslationResult.Failure(CloudTranslationResult.Failure.Kind.RATE_LIMITED)
+        }
+        val token = parseBaiduAccessToken(response.body)
+        return if (response.statusCode in 200..299 && token != null) {
+            CloudTranslationResult.Success(listOf(token))
+        } else {
+            CloudTranslationResult.Failure(baiduFailureKind(response.body))
+        }
+    }
+
+    private companion object {
+        const val BAIDU_TOKEN_ENDPOINT = "https://aip.baidubce.com/oauth/2.0/token"
+        const val BAIDU_TRANSLATE_ENDPOINT = "https://aip.baidubce.com/rpc/2.0/mt/texttrans/v1"
+    }
+}
+
+internal class DirectDualCloudTranslationProvider(
+    private val primary: CloudTranslationProvider,
+    private val fallback: CloudTranslationProvider,
+) : CloudTranslationProvider {
+    override suspend fun translate(request: CloudTranslationRequest): CloudTranslationResult {
+        val primaryResult = primary.translate(request)
+        return if (
+            primaryResult is CloudTranslationResult.Failure &&
+            primaryResult.kind in FALLBACK_FAILURES
+        ) {
+            fallback.translate(request)
+        } else {
+            primaryResult
+        }
+    }
+
+    private companion object {
+        val FALLBACK_FAILURES = setOf(
+            CloudTranslationResult.Failure.Kind.NETWORK,
+            CloudTranslationResult.Failure.Kind.AUTHENTICATION,
+            CloudTranslationResult.Failure.Kind.RATE_LIMITED,
+            CloudTranslationResult.Failure.Kind.QUOTA_EXCEEDED,
+            CloudTranslationResult.Failure.Kind.UPSTREAM,
+            CloudTranslationResult.Failure.Kind.INVALID_RESPONSE,
+        )
+    }
+}
+
+internal fun isInternalTestCloudConfigured(nowMillis: Long = System.currentTimeMillis()): Boolean = isInternalTestCloudConfigurationValid(
+    enabled = BuildConfig.INTERNAL_CLOUD_ENABLED,
+    aliyunAccessKeyId = BuildConfig.INTERNAL_CLOUD_ALIYUN_ACCESS_KEY_ID,
+    aliyunAccessKeySecret = BuildConfig.INTERNAL_CLOUD_ALIYUN_ACCESS_KEY_SECRET,
+    baiduApiKey = BuildConfig.INTERNAL_CLOUD_BAIDU_API_KEY,
+    baiduSecretKey = BuildConfig.INTERNAL_CLOUD_BAIDU_SECRET_KEY,
+    expiresAt = BuildConfig.INTERNAL_CLOUD_EXPIRES_AT,
+    nowMillis = nowMillis,
+)
+
+internal fun isInternalTestCloudConfigurationValid(
+    enabled: Boolean,
+    aliyunAccessKeyId: String,
+    aliyunAccessKeySecret: String,
+    baiduApiKey: String,
+    baiduSecretKey: String,
+    expiresAt: String,
+    nowMillis: Long,
+): Boolean {
+    if (
+        !enabled ||
+        listOf(aliyunAccessKeyId, aliyunAccessKeySecret, baiduApiKey, baiduSecretKey).any(String::isBlank)
+    ) {
+        return false
+    }
+    val expiryStart = SimpleDateFormat("yyyy-MM-dd", Locale.ROOT).apply {
+        isLenient = false
+        timeZone = TimeZone.getTimeZone("UTC")
+    }.parse(expiresAt)?.time ?: return false
+    return nowMillis < expiryStart + 86_400_000L
+}
+
+internal fun internalTestCloudProvider(
+    transport: TranslationHttpTransport = UrlConnectionTranslationTransport,
+    nowMillis: Long = System.currentTimeMillis(),
+): CloudTranslationProvider? {
+    if (!isInternalTestCloudConfigured(nowMillis)) return null
+    return DirectDualCloudTranslationProvider(
+        primary = AliyunTranslationProvider(
+            BuildConfig.INTERNAL_CLOUD_ALIYUN_ACCESS_KEY_ID,
+            BuildConfig.INTERNAL_CLOUD_ALIYUN_ACCESS_KEY_SECRET,
+            transport,
+        ),
+        fallback = BaiduTranslationProvider(
+            BuildConfig.INTERNAL_CLOUD_BAIDU_API_KEY,
+            BuildConfig.INTERNAL_CLOUD_BAIDU_SECRET_KEY,
+            transport,
+        ),
+    )
 }
 
 internal object AliyunRpcSigner {
@@ -519,7 +686,15 @@ internal class CloudTranslationConfigStore(
 
     fun providerFingerprint(): String {
         val raw = when (activeProvider()) {
-            CloudTranslationProviderType.HAOHAO -> "haohao:${BuildConfig.HAOHAO_TRANSLATION_BASE_URL}"
+            CloudTranslationProviderType.HAOHAO -> if (isInternalTestCloudConfigured()) {
+                "haohao-internal:${BuildConfig.INTERNAL_CLOUD_ALIYUN_ACCESS_KEY_ID}:" +
+                    "${BuildConfig.INTERNAL_CLOUD_ALIYUN_ACCESS_KEY_SECRET}:" +
+                    "${BuildConfig.INTERNAL_CLOUD_BAIDU_API_KEY}:" +
+                    "${BuildConfig.INTERNAL_CLOUD_BAIDU_SECRET_KEY}:" +
+                    BuildConfig.INTERNAL_CLOUD_EXPIRES_AT
+            } else {
+                "haohao:${BuildConfig.HAOHAO_TRANSLATION_BASE_URL}"
+            }
             CloudTranslationProviderType.ALIYUN ->
                 "aliyun:${secrets.fingerprintMaterial(SECRET_ALIYUN_ACCESS_KEY_ID)}:" +
                     secrets.fingerprintMaterial(SECRET_ALIYUN_ACCESS_KEY_SECRET)
@@ -557,6 +732,7 @@ internal class CloudTranslationManager(
         }
         return when (config.activeProvider()) {
             CloudTranslationProviderType.HAOHAO -> if (
+                !isInternalTestCloudConfigured() &&
                 !isAllowedTranslationEndpoint(BuildConfig.HAOHAO_TRANSLATION_BASE_URL, BuildConfig.DEBUG)
             ) {
                 CloudTranslationResult.Failure(CloudTranslationResult.Failure.Kind.NOT_CONFIGURED)
@@ -579,7 +755,7 @@ internal class CloudTranslationManager(
     suspend fun translate(request: CloudTranslationRequest): CloudTranslationResult {
         status()?.let { return it }
         val provider = when (config.activeProvider()) {
-            CloudTranslationProviderType.HAOHAO -> HaoHaoTranslationProvider(
+            CloudTranslationProviderType.HAOHAO -> internalTestCloudProvider(transport) ?: HaoHaoTranslationProvider(
                 BuildConfig.HAOHAO_TRANSLATION_BASE_URL,
                 config.installId(),
                 transport,
@@ -647,6 +823,39 @@ private fun parseAliyunTranslation(body: String): String? = runCatching {
     if (code != "200") return@runCatching null
     root["Data"]?.jsonObject?.get("Translated")?.jsonPrimitive?.content?.trim()?.takeIf(String::isNotEmpty)
 }.getOrNull()
+
+private fun parseBaiduAccessToken(body: String): String? = runCatching {
+    JSON.parseToJsonElement(body).jsonObject["access_token"]
+        ?.jsonPrimitive
+        ?.content
+        ?.trim()
+        ?.takeIf(String::isNotEmpty)
+}.getOrNull()
+
+private fun parseBaiduTranslation(body: String): String? = runCatching {
+    val root = JSON.parseToJsonElement(body).jsonObject
+    root["result"]?.jsonObject
+        ?.get("trans_result")?.jsonArray
+        ?.firstOrNull()?.jsonObject
+        ?.get("dst")?.jsonPrimitive
+        ?.content
+        ?.trim()
+        ?.takeIf(String::isNotEmpty)
+}.getOrNull()
+
+private fun baiduFailureKind(body: String): CloudTranslationResult.Failure.Kind {
+    val code = runCatching {
+        JSON.parseToJsonElement(body).jsonObject["error_code"]?.jsonPrimitive?.content
+    }.getOrNull()
+    return when (code) {
+        "6", "100", "110", "111" -> CloudTranslationResult.Failure.Kind.AUTHENTICATION
+        "4", "18", "31104" -> CloudTranslationResult.Failure.Kind.RATE_LIMITED
+        "19", "31005" -> CloudTranslationResult.Failure.Kind.QUOTA_EXCEEDED
+        "20003", "31103", "31105", "31106", "31201", "31202", "31203", "282003", "282004" ->
+            CloudTranslationResult.Failure.Kind.INVALID_REQUEST
+        else -> CloudTranslationResult.Failure.Kind.UPSTREAM
+    }
+}
 
 private fun aliyunTimestamp(): String = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).run {
     timeZone = TimeZone.getTimeZone("UTC")

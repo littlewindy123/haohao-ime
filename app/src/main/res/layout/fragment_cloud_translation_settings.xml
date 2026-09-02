@@ -95,6 +95,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
             android:orientation="vertical">
 
             <TextView
+                android:id="@+id/public_status"
                 android:layout_width="match_parent"
                 android:layout_height="64dp"
                 android:gravity="center_vertical"

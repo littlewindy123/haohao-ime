@@ -326,4 +326,106 @@ class CloudTranslationTest :
             requests.all { "testsecret" !in it.body.toString(Charsets.UTF_8) } shouldBe true
             requests.all { it.headers.isEmpty() } shouldBe true
         }
+
+        "baidu obtains a token and parses text translation" {
+            val requests = mutableListOf<TranslationHttpRequest>()
+            val provider = BaiduTranslationProvider(
+                apiKey = "test-api-key",
+                secretKey = "test-secret-key",
+                transport = TranslationHttpTransport { request ->
+                    requests += request
+                    if ("/oauth/2.0/token" in request.url) {
+                        TranslationHttpResponse(200, "{\"access_token\":\"test-token\",\"expires_in\":2592000}")
+                    } else {
+                        TranslationHttpResponse(
+                            200,
+                            "{\"result\":{\"trans_result\":[{\"src\":\"你好\",\"dst\":\"Hello\"}]}}",
+                        )
+                    }
+                },
+            )
+
+            runBlocking {
+                provider.translate(CloudTranslationRequest(listOf("你好"), TranslationPurpose.SENTENCE))
+            } shouldBe CloudTranslationResult.Success(listOf("Hello"))
+            requests.size shouldBe 2
+            ("client_secret=test-secret-key" in requests.first().url) shouldBe true
+            ("access_token=test-token" in requests.last().url) shouldBe true
+        }
+
+        "direct dual cloud falls back only for transient provider failures" {
+            var fallbackCalls = 0
+            val fallback = CloudTranslationProvider {
+                fallbackCalls += 1
+                CloudTranslationResult.Success(listOf("fallback"))
+            }
+            val request = CloudTranslationRequest(listOf("你好"), TranslationPurpose.SENTENCE)
+
+            val transient = DirectDualCloudTranslationProvider(
+                primary = CloudTranslationProvider {
+                    CloudTranslationResult.Failure(CloudTranslationResult.Failure.Kind.NETWORK)
+                },
+                fallback = fallback,
+            )
+            runBlocking { transient.translate(request) } shouldBe
+                CloudTranslationResult.Success(listOf("fallback"))
+
+            val deterministic = DirectDualCloudTranslationProvider(
+                primary = CloudTranslationProvider {
+                    CloudTranslationResult.Failure(CloudTranslationResult.Failure.Kind.INVALID_REQUEST)
+                },
+                fallback = fallback,
+            )
+            runBlocking { deterministic.translate(request) } shouldBe
+                CloudTranslationResult.Failure(CloudTranslationResult.Failure.Kind.INVALID_REQUEST)
+            fallbackCalls shouldBe 1
+        }
+
+        "baidu errors distinguish rate limits quotas and deterministic requests" {
+            fun provider(errorCode: String) = BaiduTranslationProvider(
+                apiKey = "test-api-key",
+                secretKey = "test-secret-key",
+                transport = TranslationHttpTransport { request ->
+                    if ("/oauth/2.0/token" in request.url) {
+                        TranslationHttpResponse(200, "{\"access_token\":\"test-token\"}")
+                    } else {
+                        TranslationHttpResponse(200, "{\"error_code\":$errorCode}")
+                    }
+                },
+            )
+            val request = CloudTranslationRequest(listOf("你好"), TranslationPurpose.SENTENCE)
+
+            runBlocking { provider("31104").translate(request) } shouldBe
+                CloudTranslationResult.Failure(CloudTranslationResult.Failure.Kind.RATE_LIMITED)
+            runBlocking { provider("31005").translate(request) } shouldBe
+                CloudTranslationResult.Failure(CloudTranslationResult.Failure.Kind.QUOTA_EXCEEDED)
+            runBlocking { provider("31103").translate(request) } shouldBe
+                CloudTranslationResult.Failure(CloudTranslationResult.Failure.Kind.INVALID_REQUEST)
+        }
+
+        "internal test cloud requires complete credentials and stops after expiry" {
+            val configured: (Long) -> Boolean = { now ->
+                isInternalTestCloudConfigurationValid(
+                    enabled = true,
+                    aliyunAccessKeyId = "aliyun-id",
+                    aliyunAccessKeySecret = "aliyun-secret",
+                    baiduApiKey = "baidu-key",
+                    baiduSecretKey = "baidu-secret",
+                    expiresAt = "1970-01-01",
+                    nowMillis = now,
+                )
+            }
+
+            configured(0L) shouldBe true
+            configured(86_400_000L) shouldBe false
+            isInternalTestCloudConfigurationValid(
+                enabled = true,
+                aliyunAccessKeyId = "",
+                aliyunAccessKeySecret = "aliyun-secret",
+                baiduApiKey = "baidu-key",
+                baiduSecretKey = "baidu-secret",
+                expiresAt = "2099-01-01",
+                nowMillis = 0L,
+            ) shouldBe false
+        }
     })

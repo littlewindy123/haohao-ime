@@ -405,6 +405,7 @@
     <string name="cloud_translation_provider_aliyun">My Aliyun</string>
     <string name="cloud_translation_provider_custom">Custom API</string>
     <string name="cloud_translation_status_preparing">Public service is being prepared</string>
+    <string name="cloud_translation_internal_test_ready">Friends-only direct test is enabled: Aliyun primary, Baidu fallback; it disables automatically after expiry</string>
     <string name="cloud_translation_status_configured">Configured and ready to test</string>
     <string name="cloud_translation_status_not_configured">Complete the fields below, then test and apply</string>
     <string name="cloud_translation_status_testing">Testing “你好” securely…</string>

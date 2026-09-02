@@ -485,4 +485,5 @@ app/src/main/jni/boost/
 service/translation-gateway/.env
 service/translation-gateway/.env.*
 service/translation-gateway/data/
+internal-cloud-secrets.properties
 

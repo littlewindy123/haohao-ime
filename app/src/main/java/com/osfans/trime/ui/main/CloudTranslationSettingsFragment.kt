@@ -27,7 +27,9 @@ import com.osfans.trime.data.translation.CustomTranslationProvider
 import com.osfans.trime.data.translation.HaoHaoTranslationProvider
 import com.osfans.trime.data.translation.TRANSLATION_REQUEST_TIMEOUT_MS
 import com.osfans.trime.data.translation.TranslationPurpose
+import com.osfans.trime.data.translation.internalTestCloudProvider
 import com.osfans.trime.data.translation.isAllowedTranslationEndpoint
+import com.osfans.trime.data.translation.isInternalTestCloudConfigured
 import com.osfans.trime.databinding.FragmentCloudTranslationSettingsBinding
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.launch
@@ -87,15 +89,22 @@ class CloudTranslationSettingsFragment : Fragment(R.layout.fragment_cloud_transl
         binding.publicSection.isVisible = selectedProvider == CloudTranslationProviderType.HAOHAO
         binding.aliyunSection.isVisible = selectedProvider == CloudTranslationProviderType.ALIYUN
         binding.customSection.isVisible = selectedProvider == CloudTranslationProviderType.CUSTOM
+        binding.publicStatus.setText(
+            if (isInternalTestCloudConfigured()) {
+                R.string.cloud_translation_internal_test_ready
+            } else {
+                R.string.cloud_translation_status_preparing
+            },
+        )
         binding.testApplyButton.isEnabled = !testing && (
             selectedProvider != CloudTranslationProviderType.HAOHAO ||
-                BuildConfig.HAOHAO_TRANSLATION_BASE_URL.isNotBlank()
+                publicTranslationConfigured()
             )
         binding.statusText.setText(
             when {
                 testing -> R.string.cloud_translation_status_testing
                 selectedProvider == CloudTranslationProviderType.HAOHAO &&
-                    BuildConfig.HAOHAO_TRANSLATION_BASE_URL.isBlank() -> R.string.cloud_translation_status_preparing
+                    !publicTranslationConfigured() -> R.string.cloud_translation_status_preparing
                 selectedProvider == config.activeProvider() && providerIsConfigured(selectedProvider) ->
                     R.string.cloud_translation_status_configured
                 else -> R.string.cloud_translation_status_not_configured
@@ -104,10 +113,13 @@ class CloudTranslationSettingsFragment : Fragment(R.layout.fragment_cloud_transl
     }
 
     private fun providerIsConfigured(provider: CloudTranslationProviderType): Boolean = when (provider) {
-        CloudTranslationProviderType.HAOHAO -> BuildConfig.HAOHAO_TRANSLATION_BASE_URL.isNotBlank()
+        CloudTranslationProviderType.HAOHAO -> publicTranslationConfigured()
         CloudTranslationProviderType.ALIYUN -> config.aliyun() != null
         CloudTranslationProviderType.CUSTOM -> config.custom() != null
     }
+
+    private fun publicTranslationConfigured(): Boolean = isInternalTestCloudConfigured() ||
+        isAllowedTranslationEndpoint(BuildConfig.HAOHAO_TRANSLATION_BASE_URL, BuildConfig.DEBUG)
 
     private fun ensureConsent(action: () -> Unit) {
         if (prefs.cloudTranslation.consentGranted.getValue()) {
@@ -171,12 +183,17 @@ class CloudTranslationSettingsFragment : Fragment(R.layout.fragment_cloud_transl
     private fun buildCandidateProvider(): CandidateProvider? = when (selectedProvider) {
         CloudTranslationProviderType.HAOHAO -> {
             val url = BuildConfig.HAOHAO_TRANSLATION_BASE_URL
-            if (url.isBlank()) {
+            val provider = internalTestCloudProvider() ?: url.takeIf {
+                isAllowedTranslationEndpoint(it, BuildConfig.DEBUG)
+            }?.let {
+                HaoHaoTranslationProvider(it, config.installId())
+            }
+            if (provider == null) {
                 binding.statusText.setText(R.string.cloud_translation_status_preparing)
                 null
             } else {
                 CandidateProvider(
-                    provider = HaoHaoTranslationProvider(url, config.installId()),
+                    provider = provider,
                     apply = config::selectPublic,
                 )
             }
@@ -252,7 +269,7 @@ class CloudTranslationSettingsFragment : Fragment(R.layout.fragment_cloud_transl
         binding.providerAliyun.isSelected = selectedProvider == CloudTranslationProviderType.ALIYUN
         binding.providerCustom.isSelected = selectedProvider == CloudTranslationProviderType.CUSTOM
         binding.testApplyButton.isEnabled = selectedProvider != CloudTranslationProviderType.HAOHAO ||
-            BuildConfig.HAOHAO_TRANSLATION_BASE_URL.isNotBlank()
+            publicTranslationConfigured()
     }
 
     private fun errorMessage(kind: CloudTranslationResult.Failure.Kind): Int = when (kind) {

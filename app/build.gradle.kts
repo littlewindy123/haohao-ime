@@ -4,6 +4,8 @@
  */
 @file:Suppress("UnstableApiUsage")
 
+import java.util.Properties
+
 plugins {
     id("com.osfans.trime.app-convention")
     id("com.osfans.trime.native-app-convention")
@@ -18,6 +20,31 @@ plugins {
     alias(libs.plugins.kotlin.parcelize)
     alias(libs.plugins.ksp)
 }
+
+val embedInternalCloudSecrets =
+    providers.gradleProperty("embedInternalCloudSecrets").orElse("false").get().toBoolean()
+val internalCloudSecrets = Properties()
+val internalCloudSecretsFile = rootProject.file("internal-cloud-secrets.properties")
+
+if (embedInternalCloudSecrets) {
+    require(internalCloudSecretsFile.isFile) {
+        "Missing internal-cloud-secrets.properties; refusing to build a cloud-enabled APK"
+    }
+    internalCloudSecretsFile.inputStream().use(internalCloudSecrets::load)
+    listOf(
+        "ALIYUN_ACCESS_KEY_ID",
+        "ALIYUN_ACCESS_KEY_SECRET",
+        "BAIDU_API_KEY",
+        "BAIDU_SECRET_KEY",
+        "TEST_CLOUD_EXPIRES_AT",
+    ).forEach { key ->
+        require(!internalCloudSecrets.getProperty(key).isNullOrBlank()) {
+            "Missing $key in internal-cloud-secrets.properties"
+        }
+    }
+}
+
+fun buildConfigString(value: String): String = "\"${value.replace("\\", "\\\\").replace("\"", "\\\"")}\""
 
 android {
     namespace = "com.osfans.trime"
@@ -40,6 +67,12 @@ android {
         buildConfigField("String", "BUILD_VERSION_NAME", "\"${project.buildVersionName}\"")
         val translationBaseUrl = providers.gradleProperty("haohaoTranslationBaseUrl").orElse("").get()
         buildConfigField("String", "HAOHAO_TRANSLATION_BASE_URL", "\"$translationBaseUrl\"")
+        buildConfigField("boolean", "INTERNAL_CLOUD_ENABLED", "false")
+        buildConfigField("String", "INTERNAL_CLOUD_ALIYUN_ACCESS_KEY_ID", "\"\"")
+        buildConfigField("String", "INTERNAL_CLOUD_ALIYUN_ACCESS_KEY_SECRET", "\"\"")
+        buildConfigField("String", "INTERNAL_CLOUD_BAIDU_API_KEY", "\"\"")
+        buildConfigField("String", "INTERNAL_CLOUD_BAIDU_SECRET_KEY", "\"\"")
+        buildConfigField("String", "INTERNAL_CLOUD_EXPIRES_AT", "\"\"")
     }
 
     base {
@@ -75,6 +108,35 @@ android {
         }
         debug {
             applicationIdSuffix = ".debug"
+
+            if (embedInternalCloudSecrets) {
+                buildConfigField("boolean", "INTERNAL_CLOUD_ENABLED", "true")
+                buildConfigField(
+                    "String",
+                    "INTERNAL_CLOUD_ALIYUN_ACCESS_KEY_ID",
+                    buildConfigString(internalCloudSecrets.getProperty("ALIYUN_ACCESS_KEY_ID").trim()),
+                )
+                buildConfigField(
+                    "String",
+                    "INTERNAL_CLOUD_ALIYUN_ACCESS_KEY_SECRET",
+                    buildConfigString(internalCloudSecrets.getProperty("ALIYUN_ACCESS_KEY_SECRET").trim()),
+                )
+                buildConfigField(
+                    "String",
+                    "INTERNAL_CLOUD_BAIDU_API_KEY",
+                    buildConfigString(internalCloudSecrets.getProperty("BAIDU_API_KEY").trim()),
+                )
+                buildConfigField(
+                    "String",
+                    "INTERNAL_CLOUD_BAIDU_SECRET_KEY",
+                    buildConfigString(internalCloudSecrets.getProperty("BAIDU_SECRET_KEY").trim()),
+                )
+                buildConfigField(
+                    "String",
+                    "INTERNAL_CLOUD_EXPIRES_AT",
+                    buildConfigString(internalCloudSecrets.getProperty("TEST_CLOUD_EXPIRES_AT").trim()),
+                )
+            }
 
             resValue("string", "trime_app_name", "@string/app_name_debug")
         }

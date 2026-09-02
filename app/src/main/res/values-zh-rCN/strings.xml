@@ -396,6 +396,7 @@
     <string name="cloud_translation_provider_aliyun">我的阿里云</string>
     <string name="cloud_translation_provider_custom">自定义接口</string>
     <string name="cloud_translation_status_preparing">公共服务准备中，域名与 HTTPS 就绪后开放</string>
+    <string name="cloud_translation_internal_test_ready">朋友内测直连已启用：阿里云主用，百度备用；到期后自动停用</string>
     <string name="cloud_translation_status_configured">已配置，可测试连接</string>
     <string name="cloud_translation_status_not_configured">填写下方信息后测试并应用</string>
     <string name="cloud_translation_status_testing">正在安全测试“你好”…</string>
