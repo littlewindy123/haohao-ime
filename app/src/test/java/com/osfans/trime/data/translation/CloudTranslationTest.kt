@@ -156,6 +156,74 @@ class CloudTranslationTest :
             ).shouldContainExactly("鸡", "天气", "输入法", "塔斯汀", "豆包")
         }
 
+        "candidate source mode migrates legacy fallback and otherwise defaults to local" {
+            resolveCandidateTranslationSourceMode(null, legacyFallbackEnabled = false) shouldBe
+                CandidateTranslationSourceMode.LOCAL_ONLY
+            resolveCandidateTranslationSourceMode(null, legacyFallbackEnabled = true) shouldBe
+                CandidateTranslationSourceMode.LOCAL_THEN_CLOUD
+            resolveCandidateTranslationSourceMode(
+                CandidateTranslationSourceMode.CLOUD_ONLY,
+                legacyFallbackEnabled = false,
+            ) shouldBe CandidateTranslationSourceMode.CLOUD_ONLY
+        }
+
+        "candidate source modes select local and cloud translations without hidden fallback" {
+            val offline = CandidateTranslationEntry("offline", null)
+            val cloud = CandidateTranslationEntry("cloud", null)
+            lookupCandidateTranslation("词", CandidateTranslationSourceMode.LOCAL_ONLY, { offline }, { cloud }) shouldBe offline
+            lookupCandidateTranslation("词", CandidateTranslationSourceMode.CLOUD_ONLY, { offline }, { cloud }) shouldBe cloud
+            lookupCandidateTranslation("词", CandidateTranslationSourceMode.LOCAL_THEN_CLOUD, { offline }, { cloud }) shouldBe offline
+            lookupCandidateTranslation("词", CandidateTranslationSourceMode.LOCAL_THEN_CLOUD, { null }, { cloud }) shouldBe cloud
+        }
+
+        "cloud-only uploads all visible candidates while hybrid uploads only offline misses" {
+            val texts = listOf("你好", "鸡", "鸡", "电脑", "天气", "输入法", "塔斯汀", "豆包")
+            val offline = setOf("你好", "电脑")
+            val lookup: (String) -> CandidateTranslationEntry? = { text ->
+                CandidateTranslationEntry("offline", null).takeIf { text in offline }
+            }
+            selectCloudCandidates(
+                CandidateTranslationSourceMode.CLOUD_ONLY,
+                texts,
+                lookup,
+                shouldRequest = { true },
+            ).shouldContainExactly("你好", "鸡", "电脑", "天气", "输入法")
+            selectCloudCandidates(
+                CandidateTranslationSourceMode.LOCAL_THEN_CLOUD,
+                texts,
+                lookup,
+                shouldRequest = { true },
+            ).shouldContainExactly("鸡", "天气", "输入法", "塔斯汀", "豆包")
+            selectCloudCandidates(
+                CandidateTranslationSourceMode.LOCAL_ONLY,
+                texts,
+                lookup,
+                shouldRequest = { true },
+            ) shouldBe emptyList()
+        }
+
+        "only cloud candidate modes require consent and use the 800 ms debounce" {
+            CandidateTranslationSourceMode.LOCAL_ONLY.requiresCloudConsent shouldBe false
+            CandidateTranslationSourceMode.CLOUD_ONLY.requiresCloudConsent shouldBe true
+            CandidateTranslationSourceMode.LOCAL_THEN_CLOUD.requiresCloudConsent shouldBe true
+            CLOUD_CANDIDATE_DEBOUNCE_MS shouldBe 800L
+        }
+
+        "public gateway maps provider capacity to quota exceeded" {
+            val provider = HaoHaoTranslationProvider(
+                baseUrl = "https://translate.example.com",
+                installId = "test-install",
+                transport = TranslationHttpTransport {
+                    TranslationHttpResponse(429, "{\"code\":\"PROVIDER_QUOTA\"}")
+                },
+                allowLoopbackHttp = false,
+            )
+
+            runBlocking {
+                provider.translate(CloudTranslationRequest(listOf("你好"), TranslationPurpose.SENTENCE))
+            } shouldBe CloudTranslationResult.Failure(CloudTranslationResult.Failure.Kind.QUOTA_EXCEEDED)
+        }
+
         "candidate cache isolates providers, expires entries and keeps only the newest values" {
             var now = 1_000L
             val saved = mutableListOf<CloudCandidateCacheEntry>()

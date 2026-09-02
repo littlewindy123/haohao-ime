@@ -185,7 +185,10 @@ internal class HaoHaoTranslationProvider(
                     in 200..299 -> parseGatewayResponse(response.body, normalized.texts.size)
                     401, 403 -> CloudTranslationResult.Failure(CloudTranslationResult.Failure.Kind.AUTHENTICATION)
                     429 -> CloudTranslationResult.Failure(
-                        if (response.body.contains("MONTHLY_QUOTA", ignoreCase = true)) {
+                        if (
+                            response.body.contains("PROVIDER_QUOTA", ignoreCase = true) ||
+                            response.body.contains("MONTHLY_QUOTA", ignoreCase = true)
+                        ) {
                             CloudTranslationResult.Failure.Kind.QUOTA_EXCEEDED
                         } else {
                             CloudTranslationResult.Failure.Kind.RATE_LIMITED

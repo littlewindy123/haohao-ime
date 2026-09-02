@@ -202,39 +202,59 @@ SPDX-License-Identifier: GPL-3.0-or-later
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:minHeight="76dp"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
+            android:orientation="vertical"
+            android:paddingTop="16dp"
+            android:paddingBottom="8dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/cloud_translation_candidate_source"
+                android:textAppearance="@style/TextAppearance.HaoHao.SettingTitle" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:text="@string/cloud_translation_candidate_source_summary"
+                android:textColor="@color/haohao_cocoa_secondary"
+                android:textSize="13sp" />
 
             <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:orientation="vertical">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/cloud_translation_candidate_fallback"
-                    android:textAppearance="@style/TextAppearance.HaoHao.SettingTitle" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="3dp"
-                    android:text="@string/cloud_translation_candidate_fallback_summary"
-                    android:textColor="@color/haohao_cocoa_secondary"
-                    android:textSize="13sp" />
-            </LinearLayout>
-
-            <androidx.appcompat.widget.SwitchCompat
-                android:id="@+id/candidate_fallback_switch"
-                android:layout_width="wrap_content"
+                android:layout_width="match_parent"
                 android:layout_height="48dp"
-                android:gravity="center"
-                android:minWidth="48dp"
-                app:thumbTint="@color/haohao_switch_thumb"
-                app:trackTint="@color/haohao_switch_track" />
+                android:layout_marginTop="12dp"
+                android:orientation="horizontal">
+
+                <androidx.appcompat.widget.AppCompatButton
+                    android:id="@+id/candidate_source_local"
+                    style="@style/Widget.HaoHao.SegmentButton"
+                    android:layout_width="0dp"
+                    android:layout_height="48dp"
+                    android:layout_weight="1"
+                    android:maxLines="1"
+                    android:text="@string/cloud_translation_source_local" />
+
+                <androidx.appcompat.widget.AppCompatButton
+                    android:id="@+id/candidate_source_cloud"
+                    style="@style/Widget.HaoHao.SegmentButton"
+                    android:layout_width="0dp"
+                    android:layout_height="48dp"
+                    android:layout_marginStart="4dp"
+                    android:layout_weight="1"
+                    android:maxLines="1"
+                    android:text="@string/cloud_translation_source_cloud" />
+
+                <androidx.appcompat.widget.AppCompatButton
+                    android:id="@+id/candidate_source_hybrid"
+                    style="@style/Widget.HaoHao.SegmentButton"
+                    android:layout_width="0dp"
+                    android:layout_height="48dp"
+                    android:layout_marginStart="4dp"
+                    android:layout_weight="1"
+                    android:maxLines="1"
+                    android:text="@string/cloud_translation_source_hybrid" />
+            </LinearLayout>
         </LinearLayout>
 
         <androidx.appcompat.widget.AppCompatButton

@@ -29,7 +29,7 @@ import com.osfans.trime.data.theme.Theme
 import com.osfans.trime.data.theme.model.GeneralStyle
 import com.osfans.trime.data.translation.CloudCandidateTranslationController
 import com.osfans.trime.data.translation.CloudCandidateTranslationRepository
-import com.osfans.trime.data.translation.OfflineFirstCandidateTranslationRepository
+import com.osfans.trime.data.translation.ConfiguredCandidateTranslationRepository
 import com.osfans.trime.ime.bar.InputBarDelegate
 import com.osfans.trime.ime.bar.UnrollButtonStateMachine
 import com.osfans.trime.ime.broadcast.InputBroadcastReceiver
@@ -408,7 +408,7 @@ class CompactCandidateDelegate : InputBroadcastReceiver {
         mode: CompactTranslationMode,
     ): CompactTranslationHint? {
         if (!candidatePreferences.bilingualTranslation.getValue()) return null
-        val translation = OfflineFirstCandidateTranslationRepository.lookup(item.candidate.text)?.translation
+        val translation = ConfiguredCandidateTranslationRepository.lookup(item.candidate.text)?.translation
         val requiredWidth = translation?.let {
             translationTextPaint.measureText(it).roundToInt() +
                 context.dp(theme.generalStyle.candidatePadding * 2) +

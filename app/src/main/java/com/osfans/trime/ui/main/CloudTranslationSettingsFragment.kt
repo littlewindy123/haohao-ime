@@ -16,6 +16,7 @@ import com.osfans.trime.R
 import com.osfans.trime.data.prefs.AppPrefs
 import com.osfans.trime.data.translation.AliyunTranslationCredentials
 import com.osfans.trime.data.translation.AliyunTranslationProvider
+import com.osfans.trime.data.translation.CandidateTranslationSourceMode
 import com.osfans.trime.data.translation.CloudTranslationConfigStore
 import com.osfans.trime.data.translation.CloudTranslationProvider
 import com.osfans.trime.data.translation.CloudTranslationProviderType
@@ -50,23 +51,19 @@ class CloudTranslationSettingsFragment : Fragment(R.layout.fragment_cloud_transl
         selectedProvider = config.activeProvider()
         binding.customEndpoint.setText(config.custom()?.endpoint.orEmpty())
         binding.aliyunAccessKeyId.setText(config.aliyun()?.accessKeyId.orEmpty())
-        binding.candidateFallbackSwitch.isChecked = prefs.cloudTranslation.candidateFallback.getValue()
+        renderCandidateSource(prefs.cloudTranslation.candidateSource.getValue())
         binding.providerPublic.setOnClickListener { selectProvider(CloudTranslationProviderType.HAOHAO) }
         binding.providerAliyun.setOnClickListener { selectProvider(CloudTranslationProviderType.ALIYUN) }
         binding.providerCustom.setOnClickListener { selectProvider(CloudTranslationProviderType.CUSTOM) }
         binding.testApplyButton.setOnClickListener { ensureConsent(::testAndApply) }
-        binding.candidateFallbackSwitch.setOnCheckedChangeListener { _, enabled ->
-            if (!enabled) {
-                prefs.cloudTranslation.candidateFallback.setValue(false)
-            } else if (prefs.cloudTranslation.consentGranted.getValue()) {
-                prefs.cloudTranslation.candidateFallback.setValue(true)
-            } else {
-                binding.candidateFallbackSwitch.isChecked = false
-                ensureConsent {
-                    prefs.cloudTranslation.candidateFallback.setValue(true)
-                    binding.candidateFallbackSwitch.isChecked = true
-                }
-            }
+        binding.candidateSourceLocal.setOnClickListener {
+            applyCandidateSource(CandidateTranslationSourceMode.LOCAL_ONLY)
+        }
+        binding.candidateSourceCloud.setOnClickListener {
+            ensureConsent { applyCandidateSource(CandidateTranslationSourceMode.CLOUD_ONLY) }
+        }
+        binding.candidateSourceHybrid.setOnClickListener {
+            ensureConsent { applyCandidateSource(CandidateTranslationSourceMode.LOCAL_THEN_CLOUD) }
         }
         renderProvider()
     }
@@ -126,6 +123,18 @@ class CloudTranslationSettingsFragment : Fragment(R.layout.fragment_cloud_transl
             }
             .setNegativeButton(android.R.string.cancel, null)
             .show()
+    }
+
+    private fun applyCandidateSource(mode: CandidateTranslationSourceMode) {
+        prefs.cloudTranslation.candidateSource.setValue(mode)
+        renderCandidateSource(mode)
+    }
+
+    private fun renderCandidateSource(mode: CandidateTranslationSourceMode) {
+        if (viewBinding == null) return
+        binding.candidateSourceLocal.isSelected = mode == CandidateTranslationSourceMode.LOCAL_ONLY
+        binding.candidateSourceCloud.isSelected = mode == CandidateTranslationSourceMode.CLOUD_ONLY
+        binding.candidateSourceHybrid.isSelected = mode == CandidateTranslationSourceMode.LOCAL_THEN_CLOUD
     }
 
     private fun testAndApply() {
@@ -231,7 +240,9 @@ class CloudTranslationSettingsFragment : Fragment(R.layout.fragment_cloud_transl
             binding.aliyunAccessKeySecret,
             binding.customEndpoint,
             binding.customToken,
-            binding.candidateFallbackSwitch,
+            binding.candidateSourceLocal,
+            binding.candidateSourceCloud,
+            binding.candidateSourceHybrid,
         ).forEach { it.isEnabled = enabled }
         binding.testApplyButton.isEnabled = enabled
     }

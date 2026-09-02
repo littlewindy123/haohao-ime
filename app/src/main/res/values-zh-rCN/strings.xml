@@ -401,7 +401,7 @@
     <string name="cloud_translation_status_testing">正在安全测试“你好”…</string>
     <string name="cloud_translation_status_success">连接成功 · 配置已应用</string>
     <string name="cloud_translation_status_failed">连接失败 · 已保留原有生效配置</string>
-    <string name="cloud_translation_privacy">始终先查离线词典，仅将待翻译文字发送至你选择的服务。</string>
+    <string name="cloud_translation_privacy">本地模式完全离线；开启机器翻译后，仅将待翻译文字发送至你选择的服务。</string>
     <string name="cloud_translation_aliyun_access_key_id">AccessKey ID</string>
     <string name="cloud_translation_aliyun_access_key_secret">AccessKey Secret</string>
     <string name="cloud_translation_aliyun_saved_secret">留空则继续使用已加密保存的凭据</string>
@@ -411,6 +411,11 @@
     <string name="cloud_translation_test_apply">测试并应用</string>
     <string name="cloud_translation_candidate_fallback">本地无释义时在线补全</string>
     <string name="cloud_translation_candidate_fallback_summary">默认关闭；仅发送顶部可见且离线未命中的候选，最多 5 项。</string>
+    <string name="cloud_translation_candidate_source">候选翻译来源</string>
+    <string name="cloud_translation_candidate_source_summary">默认仅使用本地词典；机器翻译和智能混合会在停顿后发送最多 5 个候选。</string>
+    <string name="cloud_translation_source_local">仅本地</string>
+    <string name="cloud_translation_source_cloud">机器翻译</string>
+    <string name="cloud_translation_source_hybrid">智能混合</string>
     <string name="cloud_translation_consent_title">开启云翻译？</string>
     <string name="cloud_translation_consent_message">仅待翻译文字会发送至你选择的服务。密码框和禁止个性化学习的输入框始终禁用云翻译。</string>
     <string name="cloud_translation_consent_confirm">我已了解，开启</string>

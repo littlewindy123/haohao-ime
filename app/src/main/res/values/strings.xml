@@ -410,7 +410,7 @@
     <string name="cloud_translation_status_testing">Testing “你好” securely…</string>
     <string name="cloud_translation_status_success">Connected · Configuration applied</string>
     <string name="cloud_translation_status_failed">Connection failed · Previous configuration kept</string>
-    <string name="cloud_translation_privacy">Offline translations are always checked first. Only text awaiting cloud translation is sent to the selected provider.</string>
+    <string name="cloud_translation_privacy">Local mode stays fully offline. When cloud translation is enabled, only text awaiting translation is sent to the selected provider.</string>
     <string name="cloud_translation_aliyun_access_key_id">AccessKey ID</string>
     <string name="cloud_translation_aliyun_access_key_secret">AccessKey Secret</string>
     <string name="cloud_translation_aliyun_saved_secret">Leave blank to keep the saved encrypted credential</string>
@@ -420,6 +420,11 @@
     <string name="cloud_translation_test_apply">Test and apply</string>
     <string name="cloud_translation_candidate_fallback">Fill missing candidate translations online</string>
     <string name="cloud_translation_candidate_fallback_summary">Off by default. At most five visible candidates without offline definitions are sent.</string>
+    <string name="cloud_translation_candidate_source">Candidate translation source</string>
+    <string name="cloud_translation_candidate_source_summary">Local dictionary is the default. Machine and smart modes send at most five candidates after typing stops.</string>
+    <string name="cloud_translation_source_local">Local</string>
+    <string name="cloud_translation_source_cloud">Machine</string>
+    <string name="cloud_translation_source_hybrid">Smart mix</string>
     <string name="cloud_translation_consent_title">Enable cloud translation?</string>
     <string name="cloud_translation_consent_message">Only text awaiting translation will be sent to the provider you selected. Password and private-learning-disabled fields are always blocked.</string>
     <string name="cloud_translation_consent_confirm">I understand, enable</string>
