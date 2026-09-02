@@ -481,3 +481,8 @@ app/src/main/jni/boost/
 # kotlin
 .kotlin
 
+# Translation gateway secrets and runtime state
+service/translation-gateway/.env
+service/translation-gateway/.env.*
+service/translation-gateway/data/
+
