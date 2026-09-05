@@ -7,13 +7,13 @@ package com.osfans.trime.ime.haohao
 
 import android.content.ClipData
 import android.content.Context
-import android.graphics.Typeface
 import android.text.TextUtils
 import android.view.Gravity
 import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.widget.Button
 import android.widget.LinearLayout
+import android.widget.PopupMenu
 import android.widget.TextView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
@@ -39,7 +39,7 @@ import java.util.concurrent.CopyOnWriteArraySet
 
 internal const val HAOHAO_TRANSLATION_ACTION = "haohao_translation"
 internal const val HAOHAO_TRANSLATION_DEBOUNCE_MS = 800L
-internal const val HAOHAO_TRANSLATION_BAR_HEIGHT_DP = 116
+internal const val HAOHAO_TRANSLATION_BAR_HEIGHT_DP = 96
 
 internal enum class HaoHaoTranslationStatus {
     IDLE,
@@ -247,10 +247,9 @@ internal class HaoHaoTranslationWindow(
         maxLines = 1
         ellipsize = TextUtils.TruncateAt.START
         gravity = Gravity.CENTER_VERTICAL
-        textSize = 17f
-        typeface = Typeface.DEFAULT_BOLD
+        textSize = 16f
         setTextColor(ColorManager.getColor("candidate_text_color"))
-        setPadding(context.dp(12), 0, context.dp(12), 0)
+        setPadding(context.dp(14), 0, context.dp(10), 0)
     }
     private val result = TextView(context).apply {
         maxLines = 1
@@ -258,28 +257,43 @@ internal class HaoHaoTranslationWindow(
         gravity = Gravity.CENTER_VERTICAL
         textSize = 14f
         setTextColor(ColorManager.getColor("comment_text_color"))
-        setPadding(context.dp(12), 0, context.dp(12), 0)
+        setPadding(context.dp(14), 0, context.dp(10), 0)
     }
-    private val commitResult = actionButton(R.string.haohao_translation_commit_result, controller::commitTranslation)
-    private val commitSource = actionButton(R.string.haohao_translation_commit_source, controller::commitSource)
-    private val copyResult = actionButton(R.string.haohao_translation_copy_result, controller::copyTranslation)
-    private val clear = actionButton(R.string.haohao_translation_clear, controller::clear)
-    private val back = actionButton(R.string.haohao_translation_back, controller::deactivate)
+    private val primaryAction = actionButton(R.string.haohao_translation_primary_commit).apply {
+        minWidth = context.dp(72)
+        setOnClickListener {
+            when (controller.state.status) {
+                HaoHaoTranslationStatus.READY -> controller.commitTranslation()
+                HaoHaoTranslationStatus.FAILED -> controller.translateNow()
+                else -> Unit
+            }
+        }
+    }
+    private val moreAction = actionButton(R.string.haohao_translation_more).apply {
+        minWidth = context.dp(48)
+        setOnClickListener(::showMoreMenu)
+    }
 
     private val listener = HaoHaoTranslationStateListener(::render)
 
     val root = LinearLayout(context).apply {
-        orientation = LinearLayout.VERTICAL
-        addView(draft, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, context.dp(34)))
-        addView(result, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, context.dp(30)))
+        orientation = LinearLayout.HORIZONTAL
         addView(
             LinearLayout(context).apply {
-                orientation = LinearLayout.HORIZONTAL
-                listOf(commitResult, commitSource, copyResult, clear, back).forEach { button ->
-                    addView(button, LinearLayout.LayoutParams(0, context.dp(48), 1f))
-                }
+                orientation = LinearLayout.VERTICAL
+                addView(draft, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, context.dp(48)))
+                addView(result, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, context.dp(48)))
             },
-            LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, context.dp(48)),
+            LinearLayout.LayoutParams(0, context.dp(96), 1f),
+        )
+        addView(
+            LinearLayout(context).apply {
+                gravity = Gravity.CENTER_VERTICAL
+                orientation = LinearLayout.HORIZONTAL
+                addView(primaryAction, LinearLayout.LayoutParams(context.dp(72), context.dp(56)))
+                addView(moreAction, LinearLayout.LayoutParams(context.dp(48), context.dp(56)))
+            },
+            LinearLayout.LayoutParams(context.dp(120), context.dp(96)),
         )
         addOnAttachStateChangeListener(
             object : View.OnAttachStateChangeListener {
@@ -294,19 +308,38 @@ internal class HaoHaoTranslationWindow(
         )
     }
 
-    private fun actionButton(
-        label: Int,
-        action: () -> Unit,
-    ): Button = Button(context).apply {
+    private fun actionButton(label: Int): Button = Button(context).apply {
         setText(label)
         textSize = 12f
         isAllCaps = false
         minWidth = 0
-        minHeight = context.dp(48)
+        minHeight = context.dp(56)
         setPadding(context.dp(2), 0, context.dp(2), 0)
         background = ContextCompat.getDrawable(context, R.drawable.haohao_segment_background)
         setTextColor(ColorManager.getColor("candidate_text_color"))
-        setOnClickListener { action() }
+    }
+
+    private fun showMoreMenu(anchor: View) {
+        val state = controller.state
+        PopupMenu(context, anchor).apply {
+            menu.add(0, MENU_COMMIT_SOURCE, 0, R.string.haohao_translation_commit_source).isEnabled =
+                state.draft.isNotEmpty()
+            menu.add(0, MENU_COPY_RESULT, 1, R.string.haohao_translation_copy_result).isEnabled =
+                !state.translation.isNullOrEmpty()
+            menu.add(0, MENU_CLEAR, 2, R.string.haohao_translation_clear).isEnabled = state.draft.isNotEmpty()
+            menu.add(0, MENU_EXIT, 3, R.string.haohao_translation_back)
+            setOnMenuItemClickListener { item ->
+                when (item.itemId) {
+                    MENU_COMMIT_SOURCE -> controller.commitSource()
+                    MENU_COPY_RESULT -> controller.copyTranslation()
+                    MENU_CLEAR -> controller.clear()
+                    MENU_EXIT -> controller.deactivate()
+                    else -> return@setOnMenuItemClickListener false
+                }
+                true
+            }
+            show()
+        }
     }
 
     private fun render(state: HaoHaoTranslationState) {
@@ -318,12 +351,20 @@ internal class HaoHaoTranslationWindow(
             HaoHaoTranslationStatus.READY -> state.translation.orEmpty()
             HaoHaoTranslationStatus.FAILED -> failureMessage(state.failure)
         }
-        val hasDraft = state.draft.isNotEmpty()
-        val hasTranslation = !state.translation.isNullOrEmpty()
-        commitResult.isEnabled = hasTranslation
-        copyResult.isEnabled = hasTranslation
-        commitSource.isEnabled = hasDraft
-        clear.isEnabled = hasDraft
+        when (state.status) {
+            HaoHaoTranslationStatus.READY -> {
+                primaryAction.setText(R.string.haohao_translation_primary_commit)
+                primaryAction.isEnabled = !state.translation.isNullOrEmpty()
+            }
+            HaoHaoTranslationStatus.FAILED -> {
+                primaryAction.setText(R.string.haohao_translation_retry)
+                primaryAction.isEnabled = state.draft.isNotEmpty()
+            }
+            else -> {
+                primaryAction.setText(R.string.haohao_translation_primary_commit)
+                primaryAction.isEnabled = false
+            }
+        }
     }
 
     private fun failureMessage(kind: CloudTranslationResult.Failure.Kind?): String = context.getString(
@@ -331,6 +372,7 @@ internal class HaoHaoTranslationWindow(
             CloudTranslationResult.Failure.Kind.AUTHENTICATION -> R.string.cloud_translation_error_auth
             CloudTranslationResult.Failure.Kind.RATE_LIMITED -> R.string.cloud_translation_error_rate
             CloudTranslationResult.Failure.Kind.QUOTA_EXCEEDED -> R.string.cloud_translation_error_quota
+            CloudTranslationResult.Failure.Kind.CONFIGURATION_EXPIRED -> R.string.cloud_translation_error_expired
             CloudTranslationResult.Failure.Kind.INVALID_RESPONSE -> R.string.cloud_translation_error_response
             CloudTranslationResult.Failure.Kind.NOT_CONFIGURED,
             CloudTranslationResult.Failure.Kind.CONSENT_REQUIRED,
@@ -338,4 +380,11 @@ internal class HaoHaoTranslationWindow(
             else -> R.string.cloud_translation_error_network
         },
     )
+
+    private companion object {
+        const val MENU_COMMIT_SOURCE = 1
+        const val MENU_COPY_RESULT = 2
+        const val MENU_CLEAR = 3
+        const val MENU_EXIT = 4
+    }
 }

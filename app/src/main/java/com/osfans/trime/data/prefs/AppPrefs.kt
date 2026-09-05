@@ -12,7 +12,9 @@ import com.osfans.trime.R
 import com.osfans.trime.data.base.DataManager
 import com.osfans.trime.data.base.PinyinCorrectionSettings
 import com.osfans.trime.data.base.PinyinFuzzyPair
+import com.osfans.trime.data.translation.CandidateTranslationSourceMode
 import com.osfans.trime.data.translation.CloudTranslationProviderType
+import com.osfans.trime.data.translation.resolveCandidateTranslationSourceMode
 import com.osfans.trime.ime.candidates.bilingual.BILINGUAL_TRANSLATION_DELAY_DEFAULT_MS
 import com.osfans.trime.ime.candidates.bilingual.BILINGUAL_TRANSLATION_DELAY_MAX_MS
 import com.osfans.trime.ime.candidates.bilingual.BILINGUAL_TRANSLATION_DELAY_MIN_MS
@@ -594,14 +596,28 @@ class AppPrefs(
         companion object {
             const val PROVIDER = "cloud_translation_provider"
             const val CANDIDATE_FALLBACK = "cloud_candidate_translation_fallback"
+            const val CANDIDATE_SOURCE = "cloud_candidate_translation_source"
             const val CONSENT_GRANTED = "cloud_translation_consent_granted"
             const val CUSTOM_ENDPOINT = "cloud_translation_custom_endpoint"
         }
 
         val provider = enum(PROVIDER, CloudTranslationProviderType.HAOHAO)
         val candidateFallback = bool(CANDIDATE_FALLBACK, false)
+        internal val candidateSource =
+            enum(CANDIDATE_SOURCE, CandidateTranslationSourceMode.LOCAL_ONLY).apply { register() }
         val consentGranted = bool(CONSENT_GRANTED, false)
         val customEndpoint = string(CUSTOM_ENDPOINT, "")
+
+        init {
+            if (!sharedPreferences.contains(CANDIDATE_SOURCE)) {
+                candidateSource.setValue(
+                    resolveCandidateTranslationSourceMode(
+                        persistedMode = null,
+                        legacyFallbackEnabled = candidateFallback.getValue(),
+                    ),
+                )
+            }
+        }
     }
 
     /**

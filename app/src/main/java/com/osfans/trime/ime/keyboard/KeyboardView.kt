@@ -16,6 +16,27 @@ import com.osfans.trime.ime.broadcast.EnterKeyDisplayDelegate
 import com.osfans.trime.ime.core.TrimeInputMethodService
 import com.osfans.trime.ime.popup.PopupDelegate
 
+internal fun calculateKeyVerticalPadding(
+    cellHeight: Int,
+    minimumVerticalGap: Int,
+    capHeight: Int,
+): Pair<Int, Int> {
+    val safeCellHeight = cellHeight.coerceAtLeast(0)
+    val safeMinimumGap = minimumVerticalGap.coerceAtLeast(0)
+    if (capHeight <= 0) {
+        val halfGap = safeMinimumGap / 2
+        return halfGap to halfGap
+    }
+
+    val totalPadding =
+        maxOf(
+            safeMinimumGap,
+            safeCellHeight - capHeight.coerceAtLeast(0),
+        ).coerceIn(0, safeCellHeight)
+    val paddingTop = totalPadding / 2
+    return paddingTop to (totalPadding - paddingTop)
+}
+
 // TODO: move layout calculation responsibilities from Keyboard to KeyboardView using ConstraintLayout
 @SuppressLint("ViewConstructor")
 class KeyboardView(
@@ -63,11 +84,17 @@ class KeyboardView(
         translationX = (key.x - key.extraWidthLeft).toFloat()
         translationY = key.y.toFloat()
 
+        val (paddingTop, paddingBottom) =
+            calculateKeyVerticalPadding(
+                cellHeight = key.height,
+                minimumVerticalGap = keyboard.verticalGap,
+                capHeight = keyboard.keyCapHeight,
+            )
         setPadding(
             keyboard.horizontalGap / 2 + key.extraWidthLeft,
-            keyboard.verticalGap / 2,
+            paddingTop,
             keyboard.horizontalGap / 2 + key.extraWidthRight,
-            keyboard.verticalGap / 2,
+            paddingBottom,
         )
     }
 

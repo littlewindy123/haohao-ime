@@ -16,12 +16,14 @@ import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.osfans.trime.R
 import com.osfans.trime.data.footprints.InputFootprintEntity
+import com.osfans.trime.data.footprints.SavedWordEntity
 import com.osfans.trime.databinding.ItemInputFootprintBinding
 import com.osfans.trime.ime.candidates.bilingual.CandidateTranslationEntry
 
 internal data class InputFootprintListItem(
     val footprint: InputFootprintEntity,
     val translation: CandidateTranslationEntry,
+    val savedWord: SavedWordEntity? = null,
 )
 
 internal fun filterInputFootprints(
@@ -31,7 +33,7 @@ internal fun filterInputFootprints(
 ): List<InputFootprintListItem> {
     val normalizedQuery = query.trim().lowercase(java.util.Locale.US)
     return footprints.mapNotNull { footprint ->
-        val translation = lookup(footprint.text) ?: return@mapNotNull null
+        val translation = lookup(footprint.text) ?: CandidateTranslationEntry("", null)
         if (
             normalizedQuery.isNotEmpty() &&
             !footprint.text.contains(query.trim(), ignoreCase = true) &&
@@ -46,6 +48,7 @@ internal fun filterInputFootprints(
 internal class InputFootprintAdapter(
     private val onFavorite: (InputFootprintListItem) -> Unit,
     private val onSpeak: (String) -> Unit,
+    private val onOpen: (InputFootprintListItem) -> Unit,
 ) : ListAdapter<InputFootprintListItem, InputFootprintAdapter.ViewHolder>(Diff) {
     override fun onCreateViewHolder(
         parent: ViewGroup,
@@ -65,11 +68,12 @@ internal class InputFootprintAdapter(
         fun bind(item: InputFootprintListItem) {
             val context = binding.root.context
             binding.chineseText.text = item.footprint.text
-            binding.englishText.text = item.translation.translation
+            binding.englishText.text = item.translation.translation.ifBlank { context.getString(R.string.words_no_meaning) }
             binding.ipaText.text = item.translation.phonetic.orEmpty()
             binding.ipaText.isVisible = item.translation.phonetic != null
-            binding.useCount.text = context.getString(R.string.input_footprints_use_count, item.footprint.useCount)
-            binding.useCount.isVisible = item.footprint.useCount > 0
+            binding.useCount.text = item.savedWord?.takeIf { it.learning }?.let { WordLearningActivity.statusText(context, it) }
+                ?: context.getString(R.string.input_footprints_use_count, item.footprint.useCount)
+            binding.useCount.isVisible = item.footprint.useCount > 0 || item.savedWord?.learning == true
             binding.favoriteButton.setImageResource(
                 if (item.footprint.favorite) R.drawable.ic_baseline_star_24 else R.drawable.ic_haohao_star_border_24,
             )
@@ -91,6 +95,8 @@ internal class InputFootprintAdapter(
             )
             binding.favoriteButton.setOnClickListener { onFavorite(item) }
             binding.speakButton.setOnClickListener { onSpeak(item.translation.translation) }
+            binding.speakButton.isEnabled = item.translation.translation.isNotBlank()
+            binding.root.setOnClickListener { onOpen(item) }
         }
     }
 
@@ -98,7 +104,7 @@ internal class InputFootprintAdapter(
         override fun areItemsTheSame(
             oldItem: InputFootprintListItem,
             newItem: InputFootprintListItem,
-        ): Boolean = oldItem.footprint.text == newItem.footprint.text
+        ): Boolean = oldItem.footprint.text == newItem.footprint.text && oldItem.translation.translation == newItem.translation.translation
 
         override fun areContentsTheSame(
             oldItem: InputFootprintListItem,

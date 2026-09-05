@@ -5,12 +5,19 @@
 
 package com.osfans.trime.ime.candidates.bilingual
 
+import android.os.Handler
+import android.os.Looper
 import com.osfans.trime.util.appContext
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import timber.log.Timber
 import java.io.FileInputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.channels.FileChannel
+import java.util.concurrent.CopyOnWriteArraySet
 
 internal data class CandidateTranslationEntry(
     val translation: String,
@@ -187,6 +194,31 @@ internal class BinaryCandidateTranslationRepository private constructor(
 
 internal object OfflineCandidateTranslationRepository : CandidateTranslationRepository {
     private const val ASSET_PATH = "bilingual_zh_en.hhdict"
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val listeners = CopyOnWriteArraySet<() -> Unit>()
+    private val cache = object : LinkedHashMap<String, CandidateTranslationEntry?>(256, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, CandidateTranslationEntry?>): Boolean = size > 256
+    }
+
+    @Volatile private var ready = false
+    private val warming = java.util.concurrent.atomic.AtomicBoolean()
+
+    fun warmUp() {
+        if (!warming.compareAndSet(false, true)) return
+        scope.launch {
+            delegate
+            ready = true
+            Handler(Looper.getMainLooper()).post { listeners.forEach { it() } }
+        }
+    }
+
+    fun addReadyListener(listener: () -> Unit) {
+        listeners += listener
+        warmUp()
+    }
+    fun removeReadyListener(listener: () -> Unit) {
+        listeners -= listener
+    }
 
     private val delegate by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
         BinaryCandidateTranslationRepository.load(
@@ -207,5 +239,14 @@ internal object OfflineCandidateTranslationRepository : CandidateTranslationRepo
         )
     }
 
-    override fun lookup(text: String): CandidateTranslationEntry? = delegate.lookup(text)
+    override fun lookup(text: String): CandidateTranslationEntry? {
+        if (!ready && Looper.myLooper() == Looper.getMainLooper()) {
+            warmUp()
+            return null
+        }
+        synchronized(cache) { if (cache.containsKey(text)) return cache[text] }
+        val result = delegate.lookup(text)
+        synchronized(cache) { cache[text] = result }
+        return result
+    }
 }

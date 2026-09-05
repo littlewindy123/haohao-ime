@@ -2,7 +2,7 @@
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:state_selected="true">
         <shape>
-            <solid android:color="@color/haohao_honey" />
+            <solid android:color="@color/haohao_selection_surface" />
             <corners android:radius="10dp" />
         </shape>
     </item>

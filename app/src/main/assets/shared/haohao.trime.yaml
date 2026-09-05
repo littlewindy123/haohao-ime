@@ -5,7 +5,7 @@
 # 仅覆盖面向普通中文用户的键盘布局与基础按键。
 __include: trime:/
 
-config_version: "2.0"
+config_version: "2.6"
 name: 好好输入法
 author: HaoHao IME contributors
 
@@ -21,22 +21,23 @@ style:
   compact_candidate_text_size: 16
   compact_translation_text_size: 12
   compact_phonetic_text_size: 10
-  horizontal_gap: 4
-  vertical_gap: 9
-  keyboard_padding: 5
+  horizontal_gap: 3
+  vertical_gap: 11
+  keyboard_padding: 3
   keyboard_padding_bottom: 4
   keyboard_padding_land: 24
   keyboard_padding_land_bottom: 6
   key_height: 50
-  key_text_size: 16
-  key_long_text_size: 14
-  symbol_text_size: 10
+  key_cap_height: 54
+  key_text_size: 20
+  key_long_text_size: 16
+  symbol_text_size: 11
   key_border: 1
   key_press_offset_y: 1
-  key_shadow_offset_y: 2
+  key_shadow_offset_y: 1
   label_text_size: 16
   popup_text_size: 16
-  keyboard_height: 232
+  keyboard_height: 252
   keyboard_height_land: 220
   preview_height: 54
   preview_offset: -10
@@ -67,7 +68,9 @@ window:
 
 tool_bar:
   equal_width: true
-  builtin_icon_size: 21
+  builtin_icon_size: 18
+  builtin_icon_color: toolbar_icon_color
+  builtin_icon_highlight_color: hilited_toolbar_icon_color
   button_spacing: 0
   primary_button:
     size: [48, 48]
@@ -78,34 +81,34 @@ tool_bar:
       horizontal_inset: 4
     foreground:
       style: "ic@view_grid_outline"
-      normal: candidate_text_color
-      highlight: hilited_comment_text_color
-      font_size: 21
+      normal: toolbar_icon_color
+      highlight: hilited_toolbar_icon_color
+      font_size: 18
       padding: 10
     action: HaoHaoToolbox
   buttons:
     - size: [48, 48]
-      foreground: {style: "ic@keyboard_close", font_size: 21, padding: 10}
+      foreground: {style: "ic@keyboard_close", normal: toolbar_icon_color, highlight: hilited_toolbar_icon_color, font_size: 18, padding: 10}
       action: Hide
     - size: [48, 48]
-      foreground: {style: "ic@emoticon_outline", font_size: 21, padding: 10}
+      foreground: {style: "ic@emoticon_outline", normal: toolbar_icon_color, highlight: hilited_toolbar_icon_color, font_size: 18, padding: 10}
       action: liquid_keyboard_emoji
     - size: [48, 48]
-      foreground: {style: "ic@clipboard_text_outline", font_size: 21, padding: 10}
+      foreground: {style: "ic@clipboard_text_outline", normal: toolbar_icon_color, highlight: hilited_toolbar_icon_color, font_size: 18, padding: 10}
       action: clipboard_window
 
 preset_keys:
   BackSpace: {label: "⌫", preview: "", repeatable: true, slide_delete: true, functional: true, send: BackSpace}
   Shift_L: {label: "⇧", preview: "", functional: true, send: Shift_L, shift_lock: long}
-  Mode_switch: {toggle: ascii_mode, preview: "", functional: true, send: SWITCH_CHARSET, states: [中, En]}
+  Mode_switch: {toggle: ascii_mode, preview: "", functional: true, send: SWITCH_CHARSET, states: [中, 英]}
   HaoHaoNumber: {label: "123", preview: "", functional: true, send: Eisu_toggle, select: number}
   HaoHaoSymbols: {label: 符, preview: "", functional: true, send: Eisu_toggle, select: symbols}
   HaoHaoLetters: {label: ABC, preview: "", functional: true, send: Eisu_toggle, select: .default}
   HaoHaoSpace: {label: " ", preview: "", slide_cursor: true, functional: false, send: space}
-  HaoHaoReturn: {label: "↵", preview: "", functional: true, send: Return}
+  HaoHaoReturn: {label: "ic@keyboard_return", preview: "", functional: true, send: Return}
   HaoHaoToolbox: {label: "好", preview: "", functional: true, send: FUNCTION, command: haohao_toolbox}
   HaoHaoTranslation: {label: 翻译, preview: "", functional: true, send: FUNCTION, command: haohao_translation}
-  HaoHaoInputFootprints: {label: 足迹, preview: "", functional: true, send: FUNCTION, command: haohao_input_footprints}
+  HaoHaoInputFootprints: {label: 单词, preview: "", functional: true, send: FUNCTION, command: haohao_input_footprints}
   HaoHaoEditor: {label: 编辑, preview: "", functional: true, send: FUNCTION, command: haohao_editor}
 
 preset_color_schemes:
@@ -113,92 +116,96 @@ preset_color_schemes:
     name: 好好浅色
     author: HaoHao IME contributors
     dark_scheme: haohao_dark
-    back_color: 0xf7f8fa
-    root_background: 0xf2f3f5
-    keyboard_back_color: 0xe9edf2
-    candidate_background: 0xf7f8fa
-    candidate_border_color: 0xd8dce2
-    candidate_separator_color: 0xd8dce2
-    border_color: 0xd8dce2
-    candidate_text_color: 0x202124
-    comment_text_color: 0x737a84
-    label_color: 0x737a84
-    text_color: 0x3f6fe5
-    text_back_color: 0xf7f8fa
-    key_back_color: 0xffffff
-    key_border_color: 0xd5dbe4
-    key_shadow_color: 0x2b5c6878
+    back_color: 0xf7f4ec
+    root_background: 0xf7f4ec
+    keyboard_back_color: 0xe7e2d8
+    candidate_background: 0xf7f4ec
+    candidate_border_color: 0xe3ddd2
+    candidate_separator_color: 0xe3ddd2
+    border_color: 0xe3ddd2
+    candidate_text_color: 0x513a32
+    comment_text_color: 0x7a6860
+    label_color: 0x7a6860
+    text_color: 0x513a32
+    text_back_color: 0xf7f4ec
+    key_back_color: 0xfffdf8
+    key_border_color: 0xe3ddd2
+    key_shadow_color: 0x1f513a32
     key_highlight_color: 0x66ffffff
-    key_text_color: 0x202124
-    key_symbol_color: 0x737a84
-    off_key_back_color: 0xdce2e9
-    off_key_text_color: 0x343a40
-    off_key_symbol_color: 0x5f6670
-    on_key_back_color: 0x4f7df3
-    on_key_text_color: 0xffffff
-    on_key_symbol_color: 0xffffff
-    hilited_key_back_color: 0xdce7ff
-    hilited_key_text_color: 0x202124
-    hilited_key_symbol_color: 0x3f6fe5
-    hilited_off_key_back_color: 0xcbd7ee
-    hilited_off_key_text_color: 0x202124
-    hilited_off_key_symbol_color: 0x3f6fe5
-    hilited_on_key_back_color: 0x3f6fe5
-    hilited_on_key_text_color: 0xffffff
-    hilited_on_key_symbol_color: 0xffffff
-    hilited_candidate_back_color: 0xdce7ff
-    hilited_candidate_text_color: 0x202124
-    hilited_comment_text_color: 0x3f6fe5
-    hilited_back_color: 0xdce7ff
-    hilited_text_color: 0x3f6fe5
-    preview_back_color: 0x202124
-    preview_text_color: 0xffffff
+    key_text_color: 0x513a32
+    key_symbol_color: 0xaeb2b8
+    off_key_back_color: 0xdcece2
+    off_key_text_color: 0x513a32
+    off_key_symbol_color: 0xaeb2b8
+    toolbar_icon_color: 0x7a6860
+    hilited_toolbar_icon_color: 0x426c54
+    on_key_back_color: 0xf4bf61
+    on_key_text_color: 0x513a32
+    on_key_symbol_color: 0xfffdf8
+    hilited_key_back_color: 0xdcece2
+    hilited_key_text_color: 0x513a32
+    hilited_key_symbol_color: 0xe8ac43
+    hilited_off_key_back_color: 0xc8dece
+    hilited_off_key_text_color: 0x513a32
+    hilited_off_key_symbol_color: 0xe8ac43
+    hilited_on_key_back_color: 0xe8ac43
+    hilited_on_key_text_color: 0x513a32
+    hilited_on_key_symbol_color: 0xfffdf8
+    hilited_candidate_back_color: 0xdcece2
+    hilited_candidate_text_color: 0x513a32
+    hilited_comment_text_color: 0x426c54
+    hilited_back_color: 0xdcece2
+    hilited_text_color: 0x426c54
+    preview_back_color: 0x513a32
+    preview_text_color: 0xfffdf8
     shadow_color: 0x000000
 
   haohao_dark:
     name: 好好深色
     author: HaoHao IME contributors
     light_scheme: default
-    back_color: 0x26282d
-    root_background: 0x1f2125
-    keyboard_back_color: 0x1d2025
-    candidate_background: 0x26282d
-    candidate_border_color: 0x3a3e46
-    candidate_separator_color: 0x3a3e46
-    border_color: 0x3a3e46
-    candidate_text_color: 0xf2f4f7
-    comment_text_color: 0xaab0bb
-    label_color: 0xaab0bb
-    text_color: 0x9ab7ff
-    text_back_color: 0x26282d
-    key_back_color: 0x2e3239
-    key_border_color: 0x444a55
+    back_color: 0x24231f
+    root_background: 0x1d1c19
+    keyboard_back_color: 0x24231f
+    candidate_background: 0x24231f
+    candidate_border_color: 0x45413a
+    candidate_separator_color: 0x45413a
+    border_color: 0x45413a
+    candidate_text_color: 0xf4ece2
+    comment_text_color: 0xc6b8aa
+    label_color: 0xc6b8aa
+    text_color: 0xf0bd60
+    text_back_color: 0x24231f
+    key_back_color: 0x302d28
+    key_border_color: 0x45413a
     key_shadow_color: 0x66000000
     key_highlight_color: 0x24ffffff
-    key_text_color: 0xf2f4f7
-    key_symbol_color: 0xaab0bb
-    off_key_back_color: 0x3a3f49
-    off_key_text_color: 0xf2f4f7
-    off_key_symbol_color: 0xb8bec8
-    on_key_back_color: 0x7ea2ff
-    on_key_text_color: 0x1f2125
-    on_key_symbol_color: 0x1f2125
-    hilited_key_back_color: 0x46567c
-    hilited_key_text_color: 0xffffff
+    key_text_color: 0xf4ece2
+    key_symbol_color: 0x767c86
+    off_key_back_color: 0x354d41
+    off_key_text_color: 0xf4ece2
+    off_key_symbol_color: 0x767c86
+    toolbar_icon_color: 0x9298a2
+    hilited_toolbar_icon_color: 0xf0bd60
+    on_key_back_color: 0xe0a947
+    on_key_text_color: 0x3d2c26
+    on_key_symbol_color: 0x3d2c26
+    hilited_key_back_color: 0x405b4b
+    hilited_key_text_color: 0xfffdf8
     hilited_key_symbol_color: 0xd6e0ff
-    hilited_off_key_back_color: 0x4b5260
-    hilited_off_key_text_color: 0xffffff
+    hilited_off_key_back_color: 0x465549
+    hilited_off_key_text_color: 0xfffdf8
     hilited_off_key_symbol_color: 0xd6e0ff
-    hilited_on_key_back_color: 0x9ab7ff
-    hilited_on_key_text_color: 0x1f2125
-    hilited_on_key_symbol_color: 0x1f2125
-    hilited_candidate_back_color: 0x3b496a
-    hilited_candidate_text_color: 0xffffff
-    hilited_comment_text_color: 0x9ab7ff
-    hilited_back_color: 0x3b496a
-    hilited_text_color: 0x9ab7ff
-    preview_back_color: 0xf2f4f7
-    preview_text_color: 0x1f2125
+    hilited_on_key_back_color: 0xf0bd60
+    hilited_on_key_text_color: 0x3d2c26
+    hilited_on_key_symbol_color: 0x3d2c26
+    hilited_candidate_back_color: 0x354d41
+    hilited_candidate_text_color: 0xfffdf8
+    hilited_comment_text_color: 0xf0bd60
+    hilited_back_color: 0x354d41
+    hilited_text_color: 0xf0bd60
+    preview_back_color: 0xf4ece2
+    preview_text_color: 0x3d2c26
     shadow_color: 0x000000
 
 preset_keyboards:
@@ -234,7 +241,7 @@ preset_keyboards:
       - {click: k, label_symbol: "(", long_click: "("}
       - {click: l, label_symbol: ")", long_click: ")"}
       - {width: 5}
-      - {click: Shift_L, long_click: Shift_L, width: 15}
+      - {click: Shift_L, long_click: Shift_L, label_symbol: "\u200B", width: 15}
       - {click: z, label_symbol: "`", long_click: "`"}
       - {click: x, label_symbol: "/", long_click: "/"}
       - {click: c, label_symbol: "-", long_click: "-"}
@@ -245,11 +252,11 @@ preset_keyboards:
       - {click: BackSpace, width: 15}
       - {click: HaoHaoSymbols, width: 14}
       - {click: HaoHaoNumber, width: 12}
-      - {click: ",", label: "，", width: 10}
+      - {click: ",", label: "，", width: 10, key_text_offset_y: -3}
       - {click: HaoHaoSpace, width: 28}
-      - {click: ".", label: "。", width: 10}
+      - {click: ".", label: "。", width: 10, key_text_offset_y: -1}
       - {click: Mode_switch, width: 12}
-      - {click: HaoHaoReturn, width: 14, key_back_color: on_key_back_color, key_text_color: on_key_text_color}
+      - {click: HaoHaoReturn, width: 14, key_text_size: 18, key_back_color: on_key_back_color, key_text_color: on_key_text_color}
 
   number:
     name: 好好数字

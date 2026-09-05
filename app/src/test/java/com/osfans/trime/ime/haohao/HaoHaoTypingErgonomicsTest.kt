@@ -28,6 +28,13 @@ class HaoHaoTypingErgonomicsTest :
             scaleHaoHaoKeyboardHeight(264, AppPrefs.Keyboard.KeyboardHeightMode.STANDARD, true) shouldBe 264
             scaleHaoHaoKeyboardHeight(264, AppPrefs.Keyboard.KeyboardHeightMode.ROOMY, true) shouldBe 290
             scaleHaoHaoKeyboardHeight(264, AppPrefs.Keyboard.KeyboardHeightMode.COMPACT, false) shouldBe 264
+
+            scaleHaoHaoKeyboardHeight(252, AppPrefs.Keyboard.KeyboardHeightMode.COMPACT, true) shouldBe 227
+            scaleHaoHaoKeyboardHeight(252, AppPrefs.Keyboard.KeyboardHeightMode.STANDARD, true) shouldBe 252
+            scaleHaoHaoKeyboardHeight(252, AppPrefs.Keyboard.KeyboardHeightMode.ROOMY, true) shouldBe 277
+            scaleHaoHaoKeyboardHeight(54, AppPrefs.Keyboard.KeyboardHeightMode.COMPACT, true) shouldBe 49
+            scaleHaoHaoKeyboardHeight(54, AppPrefs.Keyboard.KeyboardHeightMode.STANDARD, true) shouldBe 54
+            scaleHaoHaoKeyboardHeight(54, AppPrefs.Keyboard.KeyboardHeightMode.ROOMY, true) shouldBe 59
         }
 
         "one hand viewport reserves a fixed rail in portrait" {

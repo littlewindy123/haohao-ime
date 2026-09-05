@@ -5,6 +5,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 -->
 <data-extraction-rules>
     <cloud-backup>
+        <exclude domain="sharedpref" path="haohao_cloud_translation_cache.xml" />
         <exclude
             domain="sharedpref"
             path="haohao_cloud_translation_secrets.xml" />
@@ -13,6 +14,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
             path="haohao_cloud_translation_instance.xml" />
     </cloud-backup>
     <device-transfer>
+        <exclude domain="sharedpref" path="haohao_cloud_translation_cache.xml" />
         <exclude
             domain="sharedpref"
             path="haohao_cloud_translation_secrets.xml" />

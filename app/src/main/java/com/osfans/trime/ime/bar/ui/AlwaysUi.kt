@@ -59,7 +59,13 @@ class AlwaysUi(
             }
         }
     } else {
-        ToolButton(ctx, icon, theme.toolBar.builtinIconSize).apply {
+        ToolButton(
+            ctx,
+            icon,
+            theme.toolBar.builtinIconSize,
+            theme.toolBar.builtinIconColor,
+            theme.toolBar.builtinIconHighlightColor,
+        ).apply {
             setOnClickListener { onButtonClick?.invoke("") }
         }
     }
@@ -81,7 +87,13 @@ class AlwaysUi(
     val inlineSuggestionsUi = InlineSuggestionsUi(ctx)
 
     val hideKeyboardButton =
-        ToolButton(ctx, R.drawable.ic_baseline_arrow_drop_down_24, theme.toolBar.builtinIconSize)
+        ToolButton(
+            ctx,
+            R.drawable.ic_baseline_arrow_drop_down_24,
+            theme.toolBar.builtinIconSize,
+            theme.toolBar.builtinIconColor,
+            theme.toolBar.builtinIconHighlightColor,
+        )
     private val rightMostButton =
         ViewAnimator(ctx).apply {
             add(hideKeyboardButton, lParams(matchParent, matchParent))

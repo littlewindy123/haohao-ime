@@ -10,11 +10,13 @@ import com.osfans.trime.ime.candidates.bilingual.CandidateTranslationEntry
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.crypto.spec.SecretKeySpec
+import kotlin.system.measureTimeMillis
 
 class CloudTranslationTest :
     StringSpec({
@@ -107,6 +109,28 @@ class CloudTranslationTest :
             requestCount shouldBe 0
         }
 
+        "translation requests are fixed to Chinese to English" {
+            var requestCount = 0
+            val provider = AliyunTranslationProvider(
+                accessKeyId = "testid",
+                accessKeySecret = "testsecret",
+                transport = TranslationHttpTransport {
+                    requestCount += 1
+                    TranslationHttpResponse(200, "{\"Code\":\"200\",\"Data\":{\"Translated\":\"unused\"}}")
+                },
+            )
+
+            provider.translate(
+                CloudTranslationRequest(
+                    texts = listOf("hello"),
+                    purpose = TranslationPurpose.SENTENCE,
+                    sourceLanguage = "en",
+                    targetLanguage = "zh",
+                ),
+            ) shouldBe CloudTranslationResult.Failure(CloudTranslationResult.Failure.Kind.INVALID_REQUEST)
+            requestCount shouldBe 0
+        }
+
         "provider cancellation reaches the active transport" {
             val cancelled = AtomicBoolean(false)
             val provider = CustomTranslationProvider(
@@ -156,6 +180,39 @@ class CloudTranslationTest :
             ).shouldContainExactly("鸡", "天气", "输入法", "塔斯汀", "豆包")
         }
 
+        "candidate source modes have exact local cloud and hybrid semantics" {
+            val offline = CandidateTranslationEntry("offline", null)
+            val cloud = CandidateTranslationEntry("cloud", null)
+
+            lookupCandidateTranslation("词", CandidateTranslationSourceMode.LOCAL_ONLY, { offline }, { cloud }) shouldBe offline
+            lookupCandidateTranslation("缺义项", CandidateTranslationSourceMode.LOCAL_ONLY, { null }, { error("Local mode must never consult cloud") }) shouldBe null
+            lookupCandidateTranslation("词", CandidateTranslationSourceMode.CLOUD_ONLY, { offline }, { cloud }) shouldBe cloud
+            lookupCandidateTranslation("词", CandidateTranslationSourceMode.LOCAL_THEN_CLOUD, { offline }, { cloud }) shouldBe offline
+            lookupCandidateTranslation("词", CandidateTranslationSourceMode.LOCAL_THEN_CLOUD, { null }, { cloud }) shouldBe cloud
+
+            selectCloudCandidates(CandidateTranslationSourceMode.LOCAL_ONLY, listOf("一")) { error("Local mode must never schedule a request") } shouldBe emptyList()
+            selectCloudCandidates(
+                CandidateTranslationSourceMode.CLOUD_ONLY,
+                listOf("一", "一", "二", "三", "四", "五", "六"),
+                shouldRequest = { true },
+            ).shouldContainExactly("一", "二", "三", "四", "五")
+            selectCloudCandidates(
+                CandidateTranslationSourceMode.LOCAL_THEN_CLOUD,
+                listOf("本地", "缺失"),
+                offlineLookup = { text -> CandidateTranslationEntry("offline", null).takeIf { text == "本地" } },
+                shouldRequest = { true },
+            ).shouldContainExactly("缺失")
+        }
+
+        "legacy candidate fallback migrates only enabled installs to hybrid" {
+            resolveCandidateTranslationSourceMode(null, legacyFallbackEnabled = false) shouldBe
+                CandidateTranslationSourceMode.LOCAL_ONLY
+            resolveCandidateTranslationSourceMode(null, legacyFallbackEnabled = true) shouldBe
+                CandidateTranslationSourceMode.LOCAL_THEN_CLOUD
+            resolveCandidateTranslationSourceMode(CandidateTranslationSourceMode.CLOUD_ONLY, true) shouldBe
+                CandidateTranslationSourceMode.CLOUD_ONLY
+        }
+
         "candidate cache isolates providers, expires entries and keeps only the newest values" {
             var now = 1_000L
             val saved = mutableListOf<CloudCandidateCacheEntry>()
@@ -178,13 +235,15 @@ class CloudTranslationTest :
             cache.lookup("provider-a", "甲") shouldBe null
             cache.lookup("provider-a", "乙")?.translation shouldBe "second"
             cache.lookup("provider-b", "乙") shouldBe null
-            saved.map { it.text } shouldContainExactly listOf("乙", "丙")
+            saved.size shouldBe 2
+            saved.all { it.text.startsWith("sha256:") } shouldBe true
+            saved.none { it.text in setOf("甲", "乙", "丙") } shouldBe true
 
             now += CLOUD_CANDIDATE_POSITIVE_TTL_MS
             cache.lookup("provider-a", "乙") shouldBe null
         }
 
-        "candidate cache keeps words, normalizes infinitives and rejects phrases" {
+        "candidate cache accepts short English phrases and rejects unusable translations" {
             val cache = CloudCandidateTranslationCache(
                 storage = object : CloudCandidateCacheStorage {
                     override fun load(): List<CloudCandidateCacheEntry> = listOf(
@@ -202,16 +261,24 @@ class CloudTranslationTest :
                 mapOf(
                     "叹" to "to sigh",
                     "电脑" to "computer",
+                    "我" to "I",
+                    "中国" to "China",
                     "回家" to "go home",
+                    "合作" to "win-win cooperation",
+                    "太长" to "one two three four five",
                 ),
             )
 
-            cache.lookup("provider", "叹")?.translation shouldBe "sigh"
+            cache.lookup("provider", "叹")?.translation shouldBe "to sigh"
             cache.lookup("provider", "电脑")?.translation shouldBe "computer"
-            cache.lookup("provider", "回家") shouldBe null
-            cache.shouldRequest("provider", "回家") shouldBe false
-            cache.lookup("provider", "旧叹")?.translation shouldBe "sigh"
-            cache.lookup("provider", "旧回家") shouldBe null
+            cache.lookup("provider", "我")?.translation shouldBe "I"
+            cache.lookup("provider", "中国")?.translation shouldBe "China"
+            cache.lookup("provider", "回家")?.translation shouldBe "go home"
+            cache.lookup("provider", "合作")?.translation shouldBe "win-win cooperation"
+            cache.lookup("provider", "太长") shouldBe null
+            cache.shouldRequest("provider", "太长") shouldBe false
+            cache.lookup("provider", "旧叹")?.translation shouldBe "to sigh"
+            cache.lookup("provider", "旧回家")?.translation shouldBe "go home"
         }
 
         "negative candidate cache retries only after eight minutes" {
@@ -229,6 +296,18 @@ class CloudTranslationTest :
             cache.shouldRequest("provider", "未命中") shouldBe false
             now += CLOUD_CANDIDATE_NEGATIVE_TTL_MS
             cache.shouldRequest("provider", "未命中") shouldBe true
+        }
+
+        "global failures use a thirty second service cooldown without poisoning candidates" {
+            var now = 1_000L
+            val cooldown = CloudCandidateServiceCooldown { now }
+            cooldown.record(CloudTranslationResult.Failure(CloudTranslationResult.Failure.Kind.NETWORK))
+            cooldown.isActive() shouldBe true
+            now += CLOUD_CANDIDATE_SERVICE_COOLDOWN_MS
+            cooldown.isActive() shouldBe false
+
+            cooldown.record(CloudTranslationResult.Failure(CloudTranslationResult.Failure.Kind.INVALID_REQUEST))
+            cooldown.isActive() shouldBe false
         }
 
         "aliyun translates every requested item without leaking credentials into headers" {
@@ -257,5 +336,106 @@ class CloudTranslationTest :
             )
             requests.all { "testsecret" !in it.body.toString(Charsets.UTF_8) } shouldBe true
             requests.all { it.headers.isEmpty() } shouldBe true
+        }
+
+        "aliyun translates up to five candidates concurrently while preserving source order" {
+            val provider = AliyunTranslationProvider(
+                accessKeyId = "testid",
+                accessKeySecret = "testsecret",
+                transport = TranslationHttpTransport { request ->
+                    delay(50)
+                    val body = request.body.toString(Charsets.UTF_8)
+                    val translated = when {
+                        "SourceText=%E4%B8%80" in body -> "one"
+                        "SourceText=%E4%BA%8C" in body -> "two"
+                        "SourceText=%E4%B8%89" in body -> "three"
+                        "SourceText=%E5%9B%9B" in body -> "four"
+                        else -> "five"
+                    }
+                    TranslationHttpResponse(200, "{\"Code\":\"200\",\"Data\":{\"Translated\":\"$translated\"}}")
+                },
+                timestamp = { "2026-08-31T00:00:00Z" },
+                nonce = { "fixed-nonce" },
+            )
+            lateinit var result: CloudTranslationResult
+            val elapsed = measureTimeMillis {
+                result = runBlocking {
+                    provider.translate(
+                        CloudTranslationRequest(listOf("一", "二", "三", "四", "五"), TranslationPurpose.CANDIDATE),
+                    )
+                }
+            }
+
+            result shouldBe CloudTranslationResult.Success(listOf("one", "two", "three", "four", "five"))
+            (elapsed < 200L) shouldBe true
+        }
+
+        "dual cloud falls back on recoverable failures but not invalid requests" {
+            var fallbackCalls = 0
+            val fallback = CloudTranslationProvider {
+                fallbackCalls += 1
+                CloudTranslationResult.Success(listOf("hello"))
+            }
+            val request = CloudTranslationRequest(listOf("你好"), TranslationPurpose.SENTENCE)
+
+            DirectDualCloudTranslationProvider(
+                primary = CloudTranslationProvider {
+                    CloudTranslationResult.Failure(CloudTranslationResult.Failure.Kind.AUTHENTICATION)
+                },
+                fallback = fallback,
+            ).translate(request) shouldBe CloudTranslationResult.Success(listOf("hello"))
+            fallbackCalls shouldBe 1
+
+            DirectDualCloudTranslationProvider(
+                primary = CloudTranslationProvider {
+                    CloudTranslationResult.Failure(CloudTranslationResult.Failure.Kind.INVALID_REQUEST)
+                },
+                fallback = fallback,
+            ).translate(request) shouldBe
+                CloudTranslationResult.Failure(CloudTranslationResult.Failure.Kind.INVALID_REQUEST)
+            fallbackCalls shouldBe 1
+        }
+
+        "baidu caches refreshes and safely replaces expired access tokens" {
+            var now = 1_000L
+            var tokenCalls = 0
+            val translatedTokens = mutableListOf<String>()
+            val provider = BaiduTranslationProvider(
+                apiKey = "api-key",
+                secretKey = "secret-key",
+                tokenCache = BaiduAccessTokenCache { now },
+                transport = TranslationHttpTransport { request ->
+                    if ("/oauth/2.0/token" in request.url) {
+                        tokenCalls += 1
+                        TranslationHttpResponse(
+                            200,
+                            "{\"access_token\":\"token-$tokenCalls\",\"expires_in\":100}",
+                        )
+                    } else {
+                        translatedTokens += request.url.substringAfter("access_token=")
+                        TranslationHttpResponse(
+                            200,
+                            "{\"result\":{\"trans_result\":[{\"src\":\"x\",\"dst\":\"hello\"}]}}",
+                        )
+                    }
+                },
+            )
+            val request = CloudTranslationRequest(listOf("你好"), TranslationPurpose.SENTENCE)
+
+            provider.translate(request) shouldBe CloudTranslationResult.Success(listOf("hello"))
+            provider.translate(request) shouldBe CloudTranslationResult.Success(listOf("hello"))
+            tokenCalls shouldBe 1
+            now += 40_001L
+            provider.translate(request) shouldBe CloudTranslationResult.Success(listOf("hello"))
+            tokenCalls shouldBe 2
+            translatedTokens.shouldContainExactly("token-1", "token-1", "token-2")
+        }
+
+        "embedded cloud configuration validates all fields and expiry day" {
+            val dayStart = 1_788_220_800_000L
+            isInternalCloudConfigurationValid(true, "a", "b", "c", "d", "2026-09-01", dayStart) shouldBe true
+            isInternalCloudConfigurationValid(true, "a", "b", "c", "d", "2026-08-31", dayStart) shouldBe false
+            isInternalCloudConfigurationValid(true, "", "b", "c", "d", "2026-09-01", dayStart) shouldBe false
+            isInternalCloudConfigurationValid(true, "a", "b", "c", "d", "bad-date", dayStart) shouldBe false
         }
     })

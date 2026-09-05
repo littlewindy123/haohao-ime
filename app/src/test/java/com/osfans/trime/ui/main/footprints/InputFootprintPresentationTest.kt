@@ -27,7 +27,7 @@ class InputFootprintPresentationTest :
             filterInputFootprints(footprints, "hello", entries::get).map { it.footprint.text } shouldContainExactly listOf("你好")
         }
 
-        test("missing or damaged dictionary entries degrade to hidden rows") {
-            filterInputFootprints(footprints, "", entries::get).map { it.footprint.text } shouldContainExactly listOf("你好", "电脑")
+        test("missing meanings retain history without inventing an English answer") {
+            filterInputFootprints(footprints, "", entries::get).map { it.footprint.text } shouldContainExactly listOf("你好", "电脑", "损坏词")
         }
     })

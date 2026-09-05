@@ -67,7 +67,9 @@ object RimeDaemon {
     private val repairInProgress = AtomicBoolean(false)
 
     private fun establish(name: String) = object : RimeSession {
-        private inline fun <T> ensureEstablished(block: () -> T) = if (name in sessions) {
+        private fun isEstablished(): Boolean = lock.withLock { sessions[name] === this }
+
+        private inline fun <T> ensureEstablished(block: () -> T) = if (isEstablished()) {
             block()
         } else {
             throw IllegalStateException("Session $name is not established")
@@ -77,20 +79,25 @@ object RimeDaemon {
             runBlocking { block(rimeImpl) }
         }
 
-        override suspend fun <T> runOnReady(block: suspend RimeApi.() -> T): T = ensureEstablished {
-            val state = realRime.runtimeState.value.takeUnless { it == RimeRuntimeState.PREPARING }
-                ?: realRime.runtimeState.first { it != RimeRuntimeState.PREPARING }
-            if (state == RimeRuntimeState.FAILED) {
-                throw RimeUnavailableException(realRime.lastFailure ?: "Rime is unavailable")
+        override suspend fun <T> runOnReady(block: suspend RimeApi.() -> T): T = lifecycleOperationLock.withSuspendLock {
+            // A previous client's pending shutdown must finish before this client uses native Rime.
+            ensureEstablished {
+                val state = realRime.runtimeState.value.takeUnless { it == RimeRuntimeState.PREPARING }
+                    ?: realRime.runtimeState.first { it != RimeRuntimeState.PREPARING }
+                if (state == RimeRuntimeState.FAILED) {
+                    throw RimeUnavailableException(realRime.lastFailure ?: "Rime is unavailable")
+                }
+                block(rimeImpl)
             }
-            block(rimeImpl)
         }
 
         override fun runIfReady(block: suspend RimeApi.() -> Unit) {
             ensureEstablished {
                 if (realRime.isReady) {
                     realRime.lifecycleScope.launch {
-                        block(rimeImpl)
+                        lifecycleOperationLock.withSuspendLock {
+                            if (isEstablished() && realRime.isReady) block(rimeImpl)
+                        }
                     }
                 }
             }
@@ -129,6 +136,7 @@ object RimeDaemon {
         if (!shouldStop) return
         TrimeApplication.getInstance().coroutineScope.launch {
             lifecycleOperationLock.withSuspendLock {
+                if (lock.withLock { sessions.isNotEmpty() }) return@withSuspendLock
                 withContext(Dispatchers.IO) { realRime.finalize() }
                 lock.withLock {
                     if (sessions.isNotEmpty() && realRime.lifecycle.currentState == RimeLifecycle.State.STOPPED) {

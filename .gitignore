@@ -469,6 +469,7 @@ obj/
 ### Custom ###
 # Keystore
 keystore.properties
+internal-cloud-secrets.properties
 
 # Project
 app/src/main/assets/checksums.json
@@ -480,4 +481,8 @@ app/src/main/jni/boost/
 
 # kotlin
 .kotlin
+
+# Local browser snapshots and on-device system traces
+/.playwright-mcp/
+/design-demos/haohao-learning/measurements/*.perfetto-trace
 

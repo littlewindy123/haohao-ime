@@ -104,6 +104,7 @@ class TrimeApplication : Application() {
         initializeOptionalModule("clipboard") { ClipboardHelper.init(applicationContext) }
         initializeOptionalModule("collection") { CollectionHelper.init(applicationContext) }
         initializeOptionalModule("input-footprints") { InputFootprints.init(applicationContext) }
+        com.osfans.trime.ime.candidates.bilingual.OfflineCandidateTranslationRepository.warmUp()
         registerBroadcastReceiver()
         startWorkManager()
     }

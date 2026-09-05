@@ -24,6 +24,8 @@ data class ToolBar(
     val backStyle: String = "ic@arrow-left",
     val equalWidth: Boolean = false,
     val builtinIconSize: Int = 24,
+    val builtinIconColor: String = "candidate_text_color",
+    val builtinIconHighlightColor: String = "hilited_candidate_text_color",
 ) : Parcelable {
 
     fun equalWidthButtonsInDisplayOrder(): List<Button> = listOfNotNull(primaryButton) + buttons.drop(1) + listOfNotNull(buttons.firstOrNull())
@@ -112,6 +114,8 @@ data class ToolBar(
             backStyle = node?.get("back_style")?.string ?: "ic@arrow-left",
             equalWidth = node?.get("equal_width")?.boolean ?: false,
             builtinIconSize = node?.get("builtin_icon_size")?.int ?: 24,
+            builtinIconColor = node?.get("builtin_icon_color")?.string ?: "candidate_text_color",
+            builtinIconHighlightColor = node?.get("builtin_icon_highlight_color")?.string ?: "hilited_candidate_text_color",
         )
     }
 }

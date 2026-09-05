@@ -160,13 +160,28 @@ class Keyboard(
     val isLock = selfConfig?.lock ?: false // 切換程序時記憶鍵盤
     val asciiKeyboard: String? = selfConfig?.asciiKeyboard // 英文鍵盤
 
+    private val heightMode = AppPrefs.defaultInstance().keyboard.heightMode.getValue()
+
+    private val isHaoHaoTheme = ThemeManager.prefs.selectedTheme.getValue() == DEFAULT_THEME_ID
+
+    internal val keyCapHeight: Int =
+        theme.generalStyle.keyCapHeight
+            .takeIf { it > 0 }
+            ?.let {
+                scaleHaoHaoKeyboardHeight(
+                    baseHeight = context.dp(it),
+                    mode = heightMode,
+                    haoHaoTheme = isHaoHaoTheme,
+                )
+            } ?: 0
+
     val keyboardHeight: Int = scaleHaoHaoKeyboardHeight(
         intArrayOf(
             selfConfig?.let { getKeyboardHeightFromKeyboardConfig(it) } ?: 0,
             getKeyboardHeightFromTheme(theme),
         ).firstOrNull { it > 0 } ?: 0,
-        mode = AppPrefs.defaultInstance().keyboard.heightMode.getValue(),
-        haoHaoTheme = ThemeManager.prefs.selectedTheme.getValue() == DEFAULT_THEME_ID,
+        mode = heightMode,
+        haoHaoTheme = isHaoHaoTheme,
     )
 
     private val expandKeypressArea: Boolean by AppPrefs.defaultInstance().keyboard.expandKeypressArea

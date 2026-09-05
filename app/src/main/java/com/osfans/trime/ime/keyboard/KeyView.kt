@@ -39,6 +39,19 @@ import kotlin.math.roundToInt
 private const val FUNCTION_KEY_DEPTH_ALPHA = 0.72f
 private const val HIGHLIGHT_INSET_RATIO = 0.65f
 
+internal data class HaoHaoModeLabel(
+    val active: String,
+    val inactive: String,
+    val activeTextSizeSp: Float = 20f,
+    val inactiveTextSizeSp: Float = 10f,
+)
+
+internal fun resolveHaoHaoModeLabel(asciiMode: Boolean): HaoHaoModeLabel = if (asciiMode) {
+    HaoHaoModeLabel(active = "英", inactive = "中")
+} else {
+    HaoHaoModeLabel(active = "中", inactive = "英")
+}
+
 internal data class KeySurfaceRect(
     val left: Int,
     val top: Int,
@@ -173,7 +186,6 @@ class KeyView(
         }
 
         onRelease = { behavior, isFromLongPress ->
-            Timber.d("KeyView release: label=${key.getLabel()}, behavior=$behavior, fromLongPress=$isFromLongPress")
             if (isFromLongPress) {
                 if (hasPopup) {
                     val triggerAction = PopupAction.TriggerAction(id)
@@ -300,7 +312,6 @@ class KeyView(
     }
 
     private fun processKeyAction(action: KeyAction, behavior: KeyBehavior) {
-        Timber.d("processKeyAction: label=${key.getLabel()}, code=${action.code}, type=$behavior")
 
         if (action.isModifierKey) {
             val status = rime.run { statusCached }
@@ -390,7 +401,9 @@ class KeyView(
             if (it == "enter_labels") keyboardView.labelEnter else it
         }
 
-        if (label.isNotEmpty()) {
+        if (isHaoHaoTheme && key.click?.toggle == "ascii_mode") {
+            drawHaoHaoModeLabel(canvas, resolveHaoHaoModeLabel(rime.run { statusCached }.isAsciiMode))
+        } else if (label.isNotEmpty()) {
             drawLabel(canvas, label)
         }
 
@@ -492,6 +505,34 @@ class KeyView(
 
             canvas.drawText(label, centerX + sp(key.keyTextOffsetX), centerY + adjustmentY + sp(key.keyTextOffsetY), textPaint)
         }
+    }
+
+    private fun drawHaoHaoModeLabel(canvas: Canvas, label: HaoHaoModeLabel) {
+        val typeface = FontManager.getTypeface("key_font")
+        textPaint.apply {
+            color = key.getTextColor()
+            textSize = sp(label.activeTextSizeSp)
+            this.typeface = typeface
+            clearShadowLayer()
+        }
+        symbolPaint.apply {
+            color = key.getSymbolColor()
+            textSize = sp(label.inactiveTextSizeSp)
+            this.typeface = typeface
+            clearShadowLayer()
+        }
+
+        val secondary = "/${label.inactive}"
+        val activeWidth = textPaint.measureText(label.active)
+        val secondaryWidth = symbolPaint.measureText(secondary)
+        val centerX = (width - paddingLeft - paddingRight) / 2f + paddingLeft + sp(key.keyTextOffsetX)
+        val centerY = (height - paddingTop - paddingBottom) / 2f + paddingTop + sp(key.keyTextOffsetY)
+        val groupLeft = centerX - (activeWidth + secondaryWidth) / 2f
+        val activeBaseline = centerY - (textPaint.fontMetrics.ascent + textPaint.fontMetrics.descent) / 2f
+        val secondaryBaseline = centerY - (symbolPaint.fontMetrics.ascent + symbolPaint.fontMetrics.descent) / 2f
+
+        canvas.drawText(label.active, groupLeft + activeWidth / 2f, activeBaseline, textPaint)
+        canvas.drawText(secondary, groupLeft + activeWidth + secondaryWidth / 2f, secondaryBaseline, symbolPaint)
     }
 
     private fun drawIcon(

@@ -221,7 +221,6 @@ class Rime :
     }
 
     override suspend fun simulateKeySequence(sequence: String): Boolean = withRimeContext {
-        Timber.d("simulateKeySequence: $sequence")
         if (simulateRimeKeySequence(sequence)) {
             val commit = getRimeCommit()
             val input = getRimeRawInput()

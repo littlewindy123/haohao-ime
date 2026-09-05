@@ -4,6 +4,7 @@ SPDX-FileCopyrightText: 2026 HaoHao IME contributors
 SPDX-License-Identifier: GPL-3.0-or-later
 -->
 <full-backup-content>
+    <exclude domain="sharedpref" path="haohao_cloud_translation_cache.xml" />
     <exclude
         domain="sharedpref"
         path="haohao_cloud_translation_secrets.xml" />

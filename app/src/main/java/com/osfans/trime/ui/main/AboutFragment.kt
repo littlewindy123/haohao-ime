@@ -9,6 +9,7 @@ import android.annotation.SuppressLint
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import androidx.appcompat.app.AlertDialog
 import androidx.navigation.fragment.findNavController
 import androidx.preference.Preference
 import com.osfans.trime.BuildConfig
@@ -69,12 +70,11 @@ class AboutFragment : PaddingPreferenceFragment() {
             addCategory("") {
                 isIconSpaceReserved = false
                 addPreference(R.string.privacy_policy) {
-                    startActivity(
-                        Intent(
-                            Intent.ACTION_VIEW,
-                            Uri.parse(Const.PRIVACY_POLICY_URL),
-                        ),
-                    )
+                    AlertDialog.Builder(requireContext())
+                        .setTitle(R.string.privacy_policy)
+                        .setMessage(R.string.haohao_privacy_policy)
+                        .setPositiveButton(android.R.string.ok, null)
+                        .show()
                 }
                 addPreference(R.string.source_code, R.string.git_repo) {
                     startActivity(

@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="好好输入法轻学习闭环三套创意方向对比。" />
+    <title>好好输入法｜轻学习闭环三方向</title>
+    <style>
+      :root {
+        --bg: #e9ebee; --ink: #202124; --muted: #656b74; --line: #c4c9d0; --blue: #3f6fe5; --white: #f8f9fa;
+        font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; font-synthesis: none; line-break: strict;
+      }
+      * { box-sizing: border-box; }
+      body { min-width: 320px; margin: 0; color: var(--ink); background: var(--bg); }
+      a { color: inherit; }
+      h1, h2, p { text-wrap: balance; }
+      .shell { width: min(1500px, calc(100vw - 48px)); margin-inline: auto; }
+      header { display: flex; min-height: 74px; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--ink); }
+      .brand { display: flex; align-items: center; gap: 12px; }
+      .brand img { width: 40px; height: 40px; border-radius: 9px; }
+      .brand strong { font-size: 15px; }
+      .micro { color: var(--muted); font-family: Bahnschrift, Aptos, "Segoe UI", sans-serif; font-size: 10px; font-weight: 750; letter-spacing: .15em; text-transform: uppercase; }
+      .intro { display: grid; grid-template-columns: 1.25fr .75fr; gap: 50px; align-items: end; padding: 66px 0 48px; }
+      h1 { max-width: 12em; margin: 0; font-size: clamp(3.2rem, 6vw, 7rem); line-height: .98; letter-spacing: -.04em; }
+      .intro p { max-width: 34em; margin: 0; color: var(--muted); font-size: 17px; line-height: 1.8; }
+      .directions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; padding-bottom: 80px; }
+      .direction { min-width: 0; border-top: 3px solid var(--ink); background: var(--white); }
+      .direction:nth-child(2) { color: #f2f3f5; border-color: #6f94f3; background: #181a1e; }
+      .direction:nth-child(3) { border-color: var(--blue); }
+      .direction-head { min-height: 194px; padding: 22px; }
+      .direction h2 { margin: 12px 0 10px; font-size: clamp(1.8rem, 2.5vw, 3.2rem); line-height: 1.08; }
+      .direction p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.7; }
+      .direction:nth-child(2) p, .direction:nth-child(2) .micro { color: #aeb6c2; }
+      .visual { position: relative; aspect-ratio: 16/10; overflow: hidden; background: #cbd0d8; }
+      .desktop { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top; }
+      .mobile { position: absolute; right: 12px; bottom: 12px; width: 24%; border: 3px solid var(--white); box-shadow: 0 14px 36px rgba(20,24,31,.25); }
+      .direction:nth-child(2) .mobile { border-color: #2b2f36; }
+      .direction-actions { display: flex; gap: 9px; padding: 18px 22px 22px; }
+      .direction-actions a { display: inline-flex; min-height: 44px; align-items: center; padding: 0 14px; border: 1px solid currentColor; font-size: 13px; font-weight: 750; text-decoration: none; }
+      .direction-actions a:first-child { color: #fff; border-color: var(--blue); background: var(--blue); }
+      .criteria { display: grid; grid-template-columns: 180px repeat(5, 1fr); border-top: 1px solid var(--ink); border-bottom: 1px solid var(--ink); }
+      .criteria span { padding: 14px 10px; border-right: 1px solid var(--line); font-size: 12px; text-align: center; }
+      .criteria span:first-child { text-align: left; }
+      footer { padding: 24px 0 34px; color: var(--muted); font-size: 12px; }
+      :focus-visible { outline: 3px solid var(--blue); outline-offset: 4px; }
+      @media (max-width: 980px) { .directions { grid-template-columns: 1fr; } .direction-head { min-height: auto; } .visual { aspect-ratio: 16/9; } }
+      @media (max-width: 620px) {
+        .shell { width: min(100% - 28px, 1500px); }
+        header .micro { display: none; }
+        .intro { grid-template-columns: 1fr; padding-top: 44px; }
+        .intro p { font-size: 16px; }
+        .criteria { display: none; }
+        .direction-actions { flex-direction: column; }
+      }
+      @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+    </style>
+  </head>
+  <body>
+    <header class="shell"><div class="brand"><img src="../../website/assets/haohao-icon.png" width="40" height="40" alt="" /><strong>好好输入法 · 未来实验室</strong></div><span class="micro">Three real directions / 请选择或混合</span></header>
+    <main class="shell">
+      <section class="intro"><h1>同一个轻学习闭环，三种完全不同的想象。</h1><p>三版共享相同的真实内容与交互：输入、300ms 后出现英文、可选 IPA、收藏、轻量回想。现有官网与线上服务器均未改动。</p></section>
+      <section class="directions" aria-label="三套设计方向">
+        <article class="direction">
+          <div class="direction-head"><span class="micro">A · Organic editorial</span><h2>词汇生长</h2><p>把收藏过的词变成一株正在生长的植物，温暖、安静，也最像一种长期陪伴。取舍是它更偏生活方式品牌，输入法本体的视觉指向稍弱。</p></div>
+          <div class="visual"><img class="desktop" src="screenshots/word-garden-desktop.jpg" width="1440" height="900" alt="词汇生长方向桌面端首屏" /><img class="mobile" src="screenshots/word-garden-mobile.jpg" width="390" height="844" alt="词汇生长方向移动端首屏" /></div>
+          <div class="direction-actions"><a href="word-garden.html">打开可玩原型</a><a href="screenshots/word-garden-desktop.jpg">查看桌面截图</a></div>
+        </article>
+        <article class="direction">
+          <div class="direction-head"><span class="micro">B · Data humanism</span><h2>词汇星图</h2><p>把每个真实遇见的词变成一个节点，收藏和回想让它逐渐变亮。它最有未来感与长期规模感，但深色数据视觉会比当前品牌更冷静。</p></div>
+          <div class="visual"><img class="desktop" src="screenshots/word-constellation-desktop.jpg" width="1440" height="900" alt="词汇星图方向桌面端首屏" /><img class="mobile" src="screenshots/word-constellation-mobile.jpg" width="390" height="844" alt="词汇星图方向移动端首屏" /></div>
+          <div class="direction-actions"><a href="word-constellation.html">打开可玩原型</a><a href="screenshots/word-constellation-desktop.jpg">查看桌面截图</a></div>
+        </article>
+        <article class="direction">
+          <div class="direction-head"><span class="micro">C · Product-native typography</span><h2>活的候选栏</h2><p>让整个网站成为一条会展开、收藏和回想的巨大候选栏，产品辨识度最高。它更锐利、更像一个真正的新产品宣言，也最适合作为正式官网主方向。</p></div>
+          <div class="visual"><img class="desktop" src="screenshots/living-candidate-desktop.jpg" width="1440" height="900" alt="活的候选栏方向桌面端首屏" /><img class="mobile" src="screenshots/living-candidate-mobile.jpg" width="390" height="844" alt="活的候选栏方向移动端首屏" /></div>
+          <div class="direction-actions"><a href="living-candidate.html">打开可玩原型</a><a href="screenshots/living-candidate-desktop.jpg">查看桌面截图</a></div>
+        </article>
+      </section>
+      <div class="criteria" aria-label="选择维度"><span>选择维度</span><span>品牌独特性</span><span>学习闭环清晰度</span><span>输入法关联度</span><span>移动端可用性</span><span>Star 转化力</span></div>
+    </main>
+    <footer class="shell">选择 A、B、C，或直接说「A 的温度 + C 的结构」这样的混合方案。选定前不会修改现有官网。</footer>
+  </body>
+</html>

@@ -99,7 +99,7 @@ class InputBarDelegate : InputBroadcastReceiver {
         theme.generalStyle.run {
             max(
                 candidateViewHeight + bilingualTranslationLineHeight(
-                    candidateTypography.translationTextSize,
+                    candidateTypography.translationTextSize * context.resources.configuration.fontScale,
                     commentHeight,
                 ),
                 minimumToolBarHeight,
@@ -110,8 +110,8 @@ class InputBarDelegate : InputBroadcastReceiver {
         theme.generalStyle.run {
             max(
                 candidateViewHeight +
-                    bilingualTranslationLineHeight(candidateTypography.translationTextSize, commentHeight) +
-                    bilingualPhoneticLineHeight(candidateTypography.phoneticTextSize),
+                    bilingualTranslationLineHeight(candidateTypography.translationTextSize * context.resources.configuration.fontScale, commentHeight) +
+                    bilingualPhoneticLineHeight(candidateTypography.phoneticTextSize * context.resources.configuration.fontScale),
                 minimumToolBarHeight,
             )
         }

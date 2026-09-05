@@ -24,6 +24,9 @@ import com.osfans.trime.daemon.RimeSession
 import com.osfans.trime.data.footprints.InputFootprintPolicy
 import com.osfans.trime.data.footprints.InputFootprints
 import com.osfans.trime.data.prefs.AppPrefs
+import com.osfans.trime.data.translation.ConfiguredCandidateTranslationRepository
+import com.osfans.trime.data.translation.CandidateTranslationSourceMode
+import com.osfans.trime.ui.main.footprints.WordLearningActivity
 import com.osfans.trime.data.theme.ColorManager
 import com.osfans.trime.data.theme.Theme
 import com.osfans.trime.data.theme.ThemeManager
@@ -125,10 +128,30 @@ abstract class BaseInputView(
             val isFavorite = canFavorite && withContext(Dispatchers.IO) {
                 requireNotNull(footprintStore).isFavorite(text)
             }
+            val canViewMeaning = editorInfo != null && footprintStore != null &&
+                InputFootprintPolicy.canRecord(editorInfo.inputType, editorInfo.imeOptions)
+            val meaning = if (canViewMeaning) withContext(Dispatchers.IO) {
+                ConfiguredCandidateTranslationRepository.lookup(text)
+            } else null
+            val source = when (AppPrefs.defaultInstance().cloudTranslation.candidateSource.getValue()) {
+                CandidateTranslationSourceMode.LOCAL_ONLY -> "offline"
+                CandidateTranslationSourceMode.CLOUD_ONLY -> "cloud"
+                CandidateTranslationSourceMode.LOCAL_THEN_CLOUD -> if (OfflineCandidateTranslationRepository.lookup(text) != null) "offline" else "cloud"
+            }
+            if (!view.isAttachedToWindow || service.currentInputEditorInfo !== editorInfo || currentPresentationVersion != presentationVersion) return@launch
             candidateActionMenu =
                 PopupMenu(themedContext, view).apply {
                     menu.add(title).apply {
                         isEnabled = false
+                    }
+                    if (canViewMeaning) {
+                        menu.add(R.string.words_detail).setOnMenuItemClickListener {
+                            val currentEditor = service.currentInputEditorInfo
+                            if (currentEditor != null && currentEditor === editorInfo && InputFootprintPolicy.canRecord(currentEditor.inputType, currentEditor.imeOptions)) {
+                                WordLearningActivity.openMeaning(service, text, meaning?.translation, meaning?.phonetic, source)
+                            }
+                            true
+                        }
                     }
                     if (canFavorite) {
                         menu.add(

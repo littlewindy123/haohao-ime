@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="好好输入法轻学习闭环概念稿：活的候选栏。" />
+    <title>活的候选栏｜好好输入法未来实验室</title>
+    <style>
+      /*
+        假设：最有辨识度的官网不该借用别的学习隐喻，而应把输入法本身放大成整张页面。
+        母题：候选从“中文”连续展开为“英文 / IPA / 收藏 / 回想”，页面结构就是候选栏。
+        状态：收藏与复习为“正在探索”，当前已实现能力在页面中单独标记。
+      */
+      :root {
+        --bg: #f2f3f5;
+        --ink: #202124;
+        --muted: #656b74;
+        --line: #cfd3da;
+        --blue: #3f6fe5;
+        --blue-strong: #2e5dce;
+        --blue-soft: #dce7ff;
+        --white: #ffffff;
+        --font-body: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+        --font-latin: Bahnschrift, Aptos, "Segoe UI", sans-serif;
+        color-scheme: light;
+        font-family: var(--font-body);
+        font-synthesis: none;
+        line-break: strict;
+      }
+      * { box-sizing: border-box; }
+      html { scroll-behavior: smooth; }
+      body { min-width: 320px; margin: 0; color: var(--ink); background: var(--bg); font-size: 17px; line-height: 1.7; overflow-x: hidden; }
+      button, input { font: inherit; }
+      button, a { -webkit-tap-highlight-color: transparent; }
+      a { color: inherit; }
+      h1, h2, h3, p { margin-top: 0; }
+      h1, h2, h3 { text-wrap: balance; }
+      p { text-wrap: pretty; }
+      .shell { width: min(1360px, calc(100vw - 48px)); margin-inline: auto; }
+      .skip { position: fixed; z-index: 30; top: 8px; left: 8px; padding: 9px 13px; color: #fff; background: var(--ink); transform: translateY(-160%); }
+      .skip:focus { transform: translateY(0); }
+      :focus-visible { outline: 3px solid var(--blue); outline-offset: 4px; }
+      .micro { font-family: var(--font-latin); font-size: 10px; font-weight: 750; letter-spacing: .17em; text-transform: uppercase; }
+
+      .nav { display: grid; grid-template-columns: 1fr auto auto; gap: 26px; min-height: 68px; align-items: center; border-bottom: 1px solid var(--ink); }
+      .brand { display: inline-flex; min-width: 44px; min-height: 44px; align-items: center; gap: 11px; text-decoration: none; }
+      .brand img { width: 38px; height: 38px; border-radius: 9px; }
+      .brand strong { font-size: 14px; }
+      .lab { color: var(--blue-strong); }
+      .star-link {
+        display: inline-flex; min-height: 44px; align-items: center; justify-content: center; padding: 0 16px;
+        color: #fff; background: var(--ink); font-size: 13px; font-weight: 760; text-decoration: none;
+        transition: transform 180ms ease, background 180ms ease;
+      }
+      .star-link:hover { background: var(--blue-strong); transform: translateY(-2px); }
+
+      .hero { padding: 38px 0 56px; }
+      .hero-head { display: grid; grid-template-columns: 1.45fr .55fr; gap: 50px; align-items: end; margin-bottom: 26px; }
+      h1 { max-width: 12em; margin-bottom: 0; font-size: clamp(3.8rem, 7vw, 8.7rem); font-weight: 820; letter-spacing: -.045em; line-height: .91; }
+      h1 .quiet { color: var(--blue); font-weight: 320; }
+      .hero-side { max-width: 30em; justify-self: end; }
+      .hero-side p { margin-bottom: 16px; color: #555b64; }
+      .hero-side a { display: inline-flex; min-height: 44px; align-items: center; color: var(--blue-strong); font-weight: 760; text-underline-offset: 4px; }
+
+      .candidate-machine { border-top: 3px solid var(--ink); border-bottom: 1px solid var(--ink); background: var(--white); }
+      .machine-top { display: grid; grid-template-columns: 88px 1fr auto; align-items: stretch; border-bottom: 1px solid var(--ink); }
+      .machine-index { display: grid; place-items: center; border-right: 1px solid var(--ink); font-family: var(--font-latin); font-size: 14px; font-weight: 800; }
+      .input-label { display: grid; grid-template-columns: auto 1fr; gap: 22px; align-items: center; padding: 14px 18px; }
+      .demo-input { width: 100%; min-height: 52px; padding: 0; border: 0; border-radius: 0; outline: 0; background: transparent; font-family: var(--font-latin); font-size: 28px; font-weight: 720; }
+      .ipa-control { display: flex; min-width: 146px; align-items: center; justify-content: center; gap: 9px; border-left: 1px solid var(--ink); font-size: 12px; font-weight: 700; }
+      .ipa-control input { width: 20px; height: 20px; accent-color: var(--blue); }
+      .candidate-space { display: grid; grid-template-columns: 1fr 295px; }
+      .candidate-list { min-width: 0; }
+      .candidate-row {
+        display: grid; grid-template-columns: 88px minmax(150px,.55fr) minmax(200px,1fr) auto; min-height: 108px; align-items: center;
+        border-bottom: 1px solid var(--line); transition: background 220ms ease;
+      }
+      .candidate-row:last-child { border-bottom: 0; }
+      .candidate-row.is-primary { background: var(--blue-soft); }
+      .candidate-number { display: grid; align-self: stretch; place-items: center; border-right: 1px solid var(--line); color: var(--muted); font-family: var(--font-latin); }
+      .candidate-cn { padding-inline: 24px; font-size: clamp(2.4rem, 4vw, 5rem); font-weight: 780; line-height: 1; }
+      .candidate-meta { display: grid; padding-inline: 22px; font-family: var(--font-latin); opacity: 1; transform: translateY(0); transition: opacity 220ms ease, transform 220ms ease; }
+      .candidate-meta span { color: var(--blue-strong); font-size: 22px; font-weight: 760; }
+      .candidate-meta small { color: var(--muted); }
+      .candidate-machine.is-waiting .candidate-meta { opacity: 0; transform: translateY(7px); }
+      .save-button {
+        min-width: 170px; min-height: 48px; margin-right: 18px; padding: 0 15px; border: 1px solid var(--blue); color: var(--blue-strong); background: transparent; font-weight: 760; cursor: pointer;
+      }
+      .save-button:not(:disabled):hover { color: #fff; background: var(--blue); }
+      .save-button:disabled { border-color: #b8bdc5; color: #8f959d; cursor: not-allowed; }
+      .learning-rail { display: flex; flex-direction: column; border-left: 1px solid var(--ink); background: var(--ink); color: #f5f6f8; }
+      .rail-head { padding: 17px 18px; border-bottom: 1px solid #444850; color: #aeb4bd; }
+      .stage-list { margin: 0; padding: 0; list-style: none; }
+      .stage-list li { display: grid; grid-template-columns: 38px 1fr; gap: 10px; padding: 15px 18px; border-bottom: 1px solid #3d4148; color: #8e959f; }
+      .stage-list li.is-active { color: #fff; background: #292d33; }
+      .stage-list li.is-done { color: var(--blue-soft); }
+      .stage-list span { font-family: var(--font-latin); }
+      .stage-list strong { font-size: 13px; }
+      .pocket { padding: 16px 18px; border-bottom: 1px solid #444850; }
+      .pocket-head { display: flex; justify-content: space-between; color: #aeb4bd; }
+      .pocket-list { display: flex; min-height: 42px; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; }
+      .pocket-word { padding: 4px 7px; border: 1px solid #5c6680; color: #dce7ff; font-size: 12px; }
+      .empty { color: #858c95; font-size: 12px; }
+      .review { padding: 15px 18px; }
+      .review-copy, .question, .feedback { margin-bottom: 8px; font-size: 12px; }
+      .question { color: #fff; font-size: 14px; font-weight: 750; }
+      .review-options { display: flex; flex-wrap: wrap; gap: 5px; }
+      .review-options button { min-height: 44px; padding: 0 8px; border: 1px solid #575d67; color: #d4d8df; background: transparent; cursor: pointer; }
+      .review-options button:hover { border-color: var(--blue); }
+      .feedback { min-height: 20px; margin-top: 7px; color: #adc3ff; }
+      .reset { min-height: 44px; margin: auto 18px 16px; align-self: flex-start; padding: 0; border: 0; color: #9ea5ae; background: none; text-decoration: underline; cursor: pointer; }
+      .machine-foot { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 12px 18px 12px 106px; border-top: 1px solid var(--ink); }
+      .examples { display: flex; gap: 7px; }
+      .example { min-height: 44px; padding: 0 12px; border: 1px solid var(--line); color: var(--muted); background: transparent; font-family: var(--font-latin); cursor: pointer; }
+      .example:hover, .example.is-active { border-color: var(--blue); color: var(--blue-strong); background: var(--blue-soft); }
+      .status { margin: 0; color: var(--muted); font-size: 12px; }
+
+      .sequence { padding: 130px 0; border-bottom: 1px solid var(--ink); }
+      .sequence-head { display: grid; grid-template-columns: .7fr 1.3fr; gap: 60px; margin-bottom: 70px; }
+      .sequence h2 { margin-bottom: 0; font-size: clamp(3rem, 6vw, 7rem); line-height: .98; }
+      .sequence-head p { max-width: 30em; align-self: end; color: var(--muted); }
+      .sequence-rows { border-top: 1px solid var(--ink); }
+      .sequence-row { display: grid; grid-template-columns: 140px .8fr 1.2fr; min-height: 160px; align-items: center; border-bottom: 1px solid var(--ink); }
+      .sequence-row > span { font-family: var(--font-latin); font-size: 13px; }
+      .sequence-row h3 { margin: 0; font-size: clamp(2.2rem, 4vw, 4.6rem); }
+      .sequence-row p { max-width: 34em; margin: 0; color: var(--muted); }
+      .sequence-row:nth-child(2) h3 { color: var(--blue); }
+
+      .proof { padding: 105px 0; color: #fff; background: var(--ink); }
+      .proof-head { display: grid; grid-template-columns: 1fr 1fr; gap: 50px; align-items: end; margin-bottom: 42px; }
+      .proof h2 { margin-bottom: 0; font-size: clamp(2.7rem, 5.4vw, 6.3rem); line-height: 1; }
+      .truth-ledger { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: #4a4e55; }
+      .truth-ledger article { padding: 26px; background: var(--ink); }
+      .truth-ledger article:last-child { background: #242a39; }
+      .truth-ledger ul { margin: 16px 0 0; padding: 0; list-style: none; }
+      .truth-ledger li { padding: 8px 0; border-top: 1px solid #42464d; }
+      .screens { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; margin-top: 42px; background: #4a4e55; }
+      .screens img { display: block; width: 100%; aspect-ratio: 16/9; object-fit: cover; object-position: top; }
+
+      .closing { padding: 120px 0 56px; color: var(--ink); background: var(--blue-soft); }
+      .closing-grid { display: grid; grid-template-columns: 1fr auto; gap: 50px; align-items: end; }
+      .closing h2 { max-width: 12em; margin-bottom: 18px; font-size: clamp(3rem, 6.5vw, 7.6rem); line-height: .94; }
+      .closing p { max-width: 38em; color: #545b67; }
+      .closing .star-link { min-height: 54px; padding-inline: 22px; }
+      footer { padding: 22px 0; font-size: 12px; }
+      footer .shell { display: flex; justify-content: space-between; gap: 18px; }
+
+      @media (max-width: 1050px) {
+        .candidate-space { grid-template-columns: 1fr; }
+        .learning-rail { min-height: 430px; border-top: 1px solid var(--ink); border-left: 0; }
+      }
+      @media (max-width: 700px) {
+        body { font-size: 16px; }
+        .shell { width: min(100% - 28px, 1360px); }
+        .nav { grid-template-columns: 1fr auto; gap: 10px; }
+        .lab, .brand strong { display: none; }
+        .hero { padding-top: 40px; }
+        .hero-head, .sequence-head, .proof-head, .closing-grid { grid-template-columns: 1fr; align-items: start; }
+        h1 { font-size: clamp(3.4rem, 16.5vw, 5.7rem); }
+        .hero-side { justify-self: start; }
+        .machine-top { grid-template-columns: 54px 1fr; }
+        .machine-index { grid-row: 1 / 3; }
+        .input-label { grid-template-columns: 1fr; gap: 4px; padding: 10px 12px; }
+        .ipa-control { min-height: 44px; border-top: 1px solid var(--line); border-left: 0; }
+        .candidate-row { grid-template-columns: 54px 92px 1fr; min-height: 100px; }
+        .candidate-number { grid-row: 1 / 2; }
+        .candidate-cn { padding-inline: 12px; font-size: 34px; }
+        .candidate-meta { padding: 8px 10px; }
+        .candidate-meta span { font-size: 17px; }
+        .save-button { grid-column: 2 / 4; width: calc(100% - 12px); min-width: 0; margin: 0 12px 10px 0; }
+        .candidate-row:not(.is-primary) .candidate-meta { display: none; }
+        .machine-foot { align-items: flex-start; flex-direction: column; padding-left: 12px; }
+        .examples { width: 100%; overflow-x: auto; }
+        .sequence { padding: 90px 0; }
+        .sequence-row { grid-template-columns: 58px 1fr; gap: 12px; padding: 24px 0; }
+        .sequence-row p { grid-column: 2; }
+        .truth-ledger { grid-template-columns: 1fr; }
+        .screens { display: flex; margin-right: -14px; overflow-x: auto; scroll-snap-type: x mandatory; }
+        .screens img { min-width: 82%; scroll-snap-align: start; }
+        footer .shell { flex-direction: column; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        html { scroll-behavior: auto; }
+        *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; }
+      }
+    </style>
+  </head>
+  <body>
+    <a class="skip" href="#machine">跳到互动候选栏</a>
+    <header class="shell">
+      <nav class="nav" aria-label="主导航">
+        <a class="brand" href="#top" aria-label="好好输入法首页"><img src="../../website/assets/haohao-icon.png" width="38" height="38" alt="" /><strong>好好输入法</strong></a>
+        <span class="lab micro">Future Lab / 正在探索</span>
+        <a class="star-link" href="https://github.com/littlewindy123/haohao-ime" target="_blank" rel="noopener noreferrer">GitHub Star ↗</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero shell" id="top">
+        <div class="hero-head">
+          <h1>你正在打的字，<br /><span class="quiet">正在变成会记住的词。</span></h1>
+          <div class="hero-side"><p>输入、遇见、收藏、想起。学习不再是一段额外流程，而是候选栏自己的下一种状态。</p><a href="https://github.com/littlewindy123/haohao-ime" target="_blank" rel="noopener noreferrer">支持这个开源方向　★</a></div>
+        </div>
+
+        <section class="candidate-machine is-waiting" id="machine" aria-label="活的候选栏互动演示">
+          <div class="machine-top">
+            <span class="machine-index">01</span>
+            <label class="input-label" for="demo-input"><span class="micro">拼音</span><input class="demo-input" id="demo-input" value="nihao" autocomplete="off" spellcheck="false" /></label>
+            <label class="ipa-control"><input id="ipa-toggle" type="checkbox" />显示 IPA</label>
+          </div>
+          <div class="candidate-space">
+            <div class="candidate-list" aria-live="polite">
+              <article class="candidate-row is-primary">
+                <span class="candidate-number">1</span><strong class="candidate-cn" id="candidate-chinese">你好</strong>
+                <span class="candidate-meta"><span id="candidate-english">hello</span><small id="candidate-ipa">&nbsp;</small></span>
+                <button class="save-button" id="save-word" type="button" disabled>＋ 收进今日词袋</button>
+              </article>
+              <article class="candidate-row"><span class="candidate-number">2</span><strong class="candidate-cn" id="second-chinese">你</strong><span class="candidate-meta"><span id="second-english">you</span><small>&nbsp;</small></span></article>
+              <article class="candidate-row"><span class="candidate-number">3</span><strong class="candidate-cn" id="third-chinese">好</strong><span class="candidate-meta"><span id="third-english">good</span><small>&nbsp;</small></span></article>
+            </div>
+            <aside class="learning-rail">
+              <div class="rail-head micro">Learning state / concept</div>
+              <ol class="stage-list"><li class="is-active" data-stage="encountered"><span>01</span><strong>遇见 · ENCOUNTER</strong></li><li data-stage="saved"><span>02</span><strong>留下 · SAVE</strong></li><li data-stage="reviewed"><span>03</span><strong>想起 · RECALL</strong></li></ol>
+              <div class="pocket"><div class="pocket-head micro"><span>今日词袋</span><span id="pocket-count">0 / 3</span></div><div class="pocket-list" id="pocket-list"><span class="empty">只留下你主动选择的词。</span></div></div>
+              <div class="review"><p class="micro">轻轻回想</p><p class="review-copy" id="review-copy">先从候选栏收藏一个词。</p><p class="question" id="review-question"></p><div class="review-options" id="review-options"></div><p class="feedback" id="review-feedback" aria-live="polite"></p></div>
+              <button class="reset" id="reset-demo" type="button">重置演示</button>
+            </aside>
+          </div>
+          <div class="machine-foot"><div class="examples"><button class="example is-active" type="button" data-example="nihao">nihao</button><button class="example" type="button" data-example="xuexi">xuexi</button><button class="example" type="button" data-example="zhongwen">zhongwen</button></div><p class="status" id="demo-status">候选正在稳定…</p></div>
+        </section>
+      </section>
+
+      <section class="sequence shell" id="sequence">
+        <div class="sequence-head"><div><p class="micro">One flow · not another app</p><h2>学习，就发生在候选之间。</h2></div><p>不弹题、不抢焦点、不记录整段输入。只在你主动选择之后，把一个真实遇见过的词带回来。</p></div>
+        <div class="sequence-rows"><article class="sequence-row"><span>01 / 300ms</span><h3>遇见</h3><p>中文候选稳定后，英文短释义自然出现。当前版本已经做到。</p></article><article class="sequence-row"><span>02 / OPTIONAL</span><h3>留下</h3><p>把真正想记的词收进今日词袋。正在探索，不默认记录任何输入。</p></article><article class="sequence-row"><span>03 / 3–5</span><h3>想起</h3><p>空闲时回想少量词，不做连续签到，也不把学习变成压力。</p></article></div>
+      </section>
+
+      <section class="proof" id="truth"><div class="shell"><div class="proof-head"><div><p class="micro">Current truth / future proposal</p><h2>现在与未来，<br />放在同一条候选线上。</h2></div><p>我们不拿概念冒充 Release。好好仍在真机验证，但关于“打字时学一点”的未来，可以先让你亲手试到。</p></div><div class="truth-ledger"><article><p class="micro">现在可用</p><h3>离线双语候选</h3><ul><li>12 万+中文词头</li><li>300ms 防抖显示</li><li>可选 IPA · Rime</li><li>零网络权限</li></ul></article><article><p class="micro">正在探索</p><h3>轻学习闭环</h3><ul><li>今日词袋</li><li>遇见次数</li><li>3–5 词轻复习</li><li>仅保存主动收藏的词</li></ul></article></div><div class="screens" aria-label="当前真实产品截图"><img src="../../website/assets/screenshot-light.png" width="1080" height="2400" loading="lazy" alt="好好输入法浅色候选界面" /><img src="../../website/assets/screenshot-dark.png" width="1080" height="2400" loading="lazy" alt="好好输入法深色候选界面" /><img src="../../website/assets/screenshot-expanded.png" width="1080" height="2400" loading="lazy" alt="好好输入法展开候选界面" /></div></div></section>
+
+      <section class="closing"><div class="closing-grid shell"><div><p class="micro">Open source · GPL-3.0</p><h2>如果候选栏还能更进一步，你愿意一起做吗？</h2><p>项目暂无正式稳定 Release。给好好一颗 Star，告诉我们这种不打断的学习方式值得继续。</p></div><a class="star-link" href="https://github.com/littlewindy123/haohao-ime" target="_blank" rel="noopener noreferrer">去 GitHub 点亮 Star　★</a></div></section>
+    </main>
+    <footer><div class="shell"><span>方向 C · 活的候选栏 / Living Candidate</span><span>概念演示不联网、不持久化，也不收集输入。</span></div></footer>
+
+    <script>
+      const WORDS = {
+        nihao: { id: "nihao", chinese: "你好", english: "hello", ipa: "/həˈɫoʊ/", alternates: [["你","you"],["好","good"]], encounters: 0, stage: "encountered" },
+        xuexi: { id: "xuexi", chinese: "学习", english: "study", ipa: "/ˈstədi/", alternates: [["学习中",""],["学习了",""]], encounters: 0, stage: "encountered" },
+        zhongwen: { id: "zhongwen", chinese: "中文", english: "Chinese", ipa: "/tʃaɪˈniz/", alternates: [["中文名",""],["中文系",""]], encounters: 0, stage: "encountered" },
+      };
+      const state = { current: null, saved: [] };
+      const machine = document.querySelector("#machine");
+      const input = document.querySelector("#demo-input");
+      const chinese = document.querySelector("#candidate-chinese");
+      const english = document.querySelector("#candidate-english");
+      const ipa = document.querySelector("#candidate-ipa");
+      const secondChinese = document.querySelector("#second-chinese");
+      const secondEnglish = document.querySelector("#second-english");
+      const thirdChinese = document.querySelector("#third-chinese");
+      const thirdEnglish = document.querySelector("#third-english");
+      const status = document.querySelector("#demo-status");
+      const save = document.querySelector("#save-word");
+      const toggle = document.querySelector("#ipa-toggle");
+      const pocket = document.querySelector("#pocket-list");
+      const count = document.querySelector("#pocket-count");
+      const reviewCopy = document.querySelector("#review-copy");
+      const question = document.querySelector("#review-question");
+      const options = document.querySelector("#review-options");
+      const feedback = document.querySelector("#review-feedback");
+      let timer;
+      function normalized() { return input.value.toLowerCase().replace(/[^a-z]/g, ""); }
+      function setRail(stage) {
+        const order = ["encountered", "saved", "reviewed"];
+        const currentIndex = order.indexOf(stage);
+        document.querySelectorAll("[data-stage]").forEach((item) => {
+          const index = order.indexOf(item.dataset.stage);
+          item.classList.toggle("is-active", index === currentIndex);
+          item.classList.toggle("is-done", index < currentIndex);
+        });
+      }
+      function setCandidate(word, waiting) {
+        state.current = word || null;
+        chinese.textContent = word ? word.chinese : "—";
+        english.textContent = word ? word.english : "试试示例";
+        ipa.textContent = word && toggle.checked ? word.ipa : "\u00a0";
+        secondChinese.textContent = word ? word.alternates[0][0] : "你好";
+        secondEnglish.textContent = word ? (word.alternates[0][1] || "\u00a0") : "hello";
+        thirdChinese.textContent = word ? word.alternates[1][0] : "学习";
+        thirdEnglish.textContent = word ? (word.alternates[1][1] || "\u00a0") : "study";
+        machine.classList.toggle("is-waiting", waiting);
+        save.disabled = waiting || !word || state.saved.some((item) => item.id === word.id);
+        save.textContent = word && state.saved.some((item) => item.id === word.id) ? "已在今日词袋" : "＋ 收进今日词袋";
+        setRail(word ? word.stage : "encountered");
+      }
+      function renderInput() {
+        clearTimeout(timer);
+        const key = normalized(); const word = WORDS[key];
+        document.querySelectorAll("[data-example]").forEach((button) => button.classList.toggle("is-active", button.dataset.example === key));
+        if (!word) { setCandidate(null, false); status.textContent = key ? "概念演示只收录三个示例" : "输入一个示例拼音"; return; }
+        word.stage = state.saved.some((item) => item.id === word.id) ? word.stage : "encountered";
+        setCandidate(word, true); status.textContent = "候选正在稳定…";
+        timer = setTimeout(() => { word.encounters += 1; setCandidate(word, false); status.textContent = `英文已出现 · 今天遇见 ${word.encounters} 次`; }, 300);
+      }
+      function renderPocket() {
+        count.textContent = `${state.saved.length} / 3`;
+        pocket.innerHTML = state.saved.length ? state.saved.map((word) => `<span class="pocket-word">${word.chinese} · ${word.english}</span>`).join("") : '<span class="empty">只留下你主动选择的词。</span>';
+      }
+      function renderReview(word) {
+        reviewCopy.textContent = "不离开这条候选线，回想刚刚的词。";
+        question.textContent = `「${word.chinese}」对应哪个英文？`;
+        feedback.textContent = "";
+        options.innerHTML = ["hello", "study", "Chinese"].map((choice) => `<button type="button" data-answer="${choice}">${choice}</button>`).join("");
+        options.querySelectorAll("button").forEach((button) => button.addEventListener("click", () => {
+          if (button.dataset.answer === word.english) { word.stage = "reviewed"; feedback.textContent = "想起来了。候选完成了一次闭环。"; setRail("reviewed"); options.querySelectorAll("button").forEach((item) => item.disabled = true); }
+          else feedback.textContent = "回看上面的英文，再试一次。";
+        }));
+      }
+      input.addEventListener("input", renderInput);
+      toggle.addEventListener("change", () => { if (state.current) ipa.textContent = toggle.checked ? state.current.ipa : "\u00a0"; });
+      document.querySelectorAll("[data-example]").forEach((button) => button.addEventListener("click", () => { input.value = button.dataset.example; renderInput(); input.focus(); }));
+      save.addEventListener("click", () => { const word = state.current; if (!word || state.saved.some((item) => item.id === word.id)) return; word.stage = "saved"; state.saved.push(word); renderPocket(); renderReview(word); setCandidate(word, false); setRail("saved"); });
+      document.querySelector("#reset-demo").addEventListener("click", () => {
+        clearTimeout(timer); state.saved.length = 0; Object.values(WORDS).forEach((word) => { word.encounters = 0; word.stage = "encountered"; });
+        input.value = "nihao"; toggle.checked = false; question.textContent = ""; options.innerHTML = ""; feedback.textContent = ""; reviewCopy.textContent = "先从候选栏收藏一个词。"; renderPocket(); renderInput();
+      });
+      renderPocket(); renderInput();
+    </script>
+  </body>
+</html>

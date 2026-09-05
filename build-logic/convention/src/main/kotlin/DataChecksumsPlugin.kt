@@ -39,6 +39,9 @@ class DataChecksumsPlugin : Plugin<Project> {
             inputDir.set(target.assetsDir)
             outputFile.set(target.assetsDir.resolve(FILE_NAME))
         }
+        target.tasks.configureEach {
+            if (name.startsWith("lintAnalyze") || (name.contains("Lint") && name.endsWith("Model"))) dependsOn(TASK)
+        }
         target.tasks.register<Delete>(CLEAN_TASK) {
             delete(target.assetsDir.resolve(FILE_NAME))
         }.also {

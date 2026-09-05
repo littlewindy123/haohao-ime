@@ -33,6 +33,7 @@ import com.osfans.trime.data.theme.ColorManager
 import com.osfans.trime.data.theme.DEFAULT_THEME_ID
 import com.osfans.trime.data.theme.Theme
 import com.osfans.trime.data.theme.ThemeManager
+import com.osfans.trime.data.translation.CloudCandidateTranslationController
 import com.osfans.trime.ime.bar.InputBarDelegate
 import com.osfans.trime.ime.broadcast.EnterKeyDisplayDelegate
 import com.osfans.trime.ime.broadcast.InputBroadcaster
@@ -108,6 +109,7 @@ class InputView(
     private val inputDepMgr = InputDependencyManager.initialize(this, themedContext, theme, service, rime)
     private val di = inputDepMgr.di
     private val broadcaster: InputBroadcaster by di.instance()
+    private val cloudCandidates: CloudCandidateTranslationController by di.instance()
     private val popup: PopupDelegate by di.instance()
     private val enterKeyDisplay: EnterKeyDisplayDelegate by di.instance()
     private val preedit: PreeditDelegate by di.instance()
@@ -388,6 +390,7 @@ class InputView(
 
     fun deactivateCloudTranslation() {
         translationController.deactivate()
+        cloudCandidates.deactivate()
     }
 
     fun onRimeKeyQueued() {

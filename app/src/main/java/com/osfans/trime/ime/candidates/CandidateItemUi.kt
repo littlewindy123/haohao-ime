@@ -8,6 +8,7 @@ package com.osfans.trime.ime.candidates
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Color
+import android.provider.Settings
 import android.text.TextUtils
 import android.view.Gravity
 import android.view.View
@@ -87,9 +88,9 @@ class CandidateItemUi(
     private val textSize = typography.candidateTextSize
     private val translationSize = typography.translationTextSize
     private val translationLineHeight =
-        bilingualTranslationLineHeight(translationSize, theme.generalStyle.commentHeight)
+        bilingualTranslationLineHeight(translationSize * ctx.resources.configuration.fontScale, theme.generalStyle.commentHeight)
     private val phoneticSize = typography.phoneticTextSize
-    private val phoneticLineHeight = bilingualPhoneticLineHeight(phoneticSize)
+    private val phoneticLineHeight = bilingualPhoneticLineHeight(phoneticSize * ctx.resources.configuration.fontScale)
 
     private val textFont = FontManager.getTypeface("candidate_font")
     private val commentFont = FontManager.getTypeface("comment_font")
@@ -125,6 +126,8 @@ class CandidateItemUi(
 
             override fun onViewDetachedFromWindow(view: View) {
                 revealController.removeListener(revealListener)
+                translation.animate().cancel()
+                phonetic.animate().cancel()
             }
         }
 
@@ -319,6 +322,11 @@ class CandidateItemUi(
         val translationText = presentation.translation.takeIf {
             !restrictCompactTranslation || it == boundCompactTranslation
         }
+        val revealTranslation = translation.text.isNullOrEmpty() && !translationText.isNullOrEmpty()
+        translation.animate().cancel()
+        phonetic.animate().cancel()
+        translation.alpha = 1f
+        phonetic.alpha = 1f
         translation.text = translationText.orEmpty()
         translation.setTextColor(cColor)
         translation.visibility =
@@ -337,6 +345,14 @@ class CandidateItemUi(
                 presentation.reservePhoneticLine -> View.INVISIBLE
                 else -> View.GONE
             }
+        if (revealTranslation && Settings.Global.getFloat(ctx.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) > 0f) {
+            translation.alpha = 0f
+            translation.animate().alpha(1f).setDuration(120).start()
+            if (!phoneticText.isNullOrEmpty()) {
+                phonetic.alpha = 0f
+                phonetic.animate().alpha(1f).setDuration(120).start()
+            }
+        }
         if (isExpanded) {
             root.minimumHeight = ctx.dp(
                 if (presentation.reservePhoneticLine) {

@@ -186,7 +186,13 @@ class HaoHaoEditorWindow :
         contentDescription = description?.let(context::getString) ?: label
         buttons[action] = this
         if (action.repeatable) {
-            setOnClickListener { }
+            var touchClick = false
+            setOnClickListener {
+                if (!touchClick) {
+                    provideFeedback(this)
+                    performAction(action)
+                }
+            }
             setOnTouchListener { view, event ->
                 when (event.actionMasked) {
                     MotionEvent.ACTION_DOWN -> {
@@ -196,7 +202,9 @@ class HaoHaoEditorWindow :
                     }
                     MotionEvent.ACTION_UP -> {
                         stopRepeating()
+                        touchClick = true
                         view.performClick()
+                        touchClick = false
                         true
                     }
                     MotionEvent.ACTION_CANCEL -> {

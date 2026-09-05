@@ -36,6 +36,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
     <color name="haohao_cocoa_secondary">#7A6860</color>
     <color name="haohao_divider">#E3DDD2</color>
     <color name="haohao_segment_surface">#FBF8F1</color>
+    <color name="haohao_selection_surface">#DCECE2</color>
     <color name="haohao_segment_border">#D8CFC1</color>
     <color name="haohao_switch_off">#C9C5BD</color>
     <color name="haohao_switch_thumb_color">#FFFDF8</color>

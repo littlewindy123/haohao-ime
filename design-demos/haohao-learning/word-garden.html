@@ -1,0 +1,397 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="好好输入法轻学习闭环概念稿：词汇生长。" />
+    <title>词汇生长｜好好输入法未来实验室</title>
+    <style>
+      /*
+        假设：用户想看见“真实输入如何成为积累”，而不是另一个背单词工具。
+        母题：每个被主动收藏的词是一株植物；植物只由真实交互生长，不使用虚假数据。
+        状态：今日词袋、遇见次数与轻复习均为“正在探索”的概念，不代表当前版本已发布。
+      */
+      :root {
+        --paper: #f2f3f0;
+        --paper-deep: #e7e9e4;
+        --ink: #202124;
+        --muted: #686e68;
+        --line: #cfd4cd;
+        --blue: #3f6fe5;
+        --blue-deep: #315dc9;
+        --blue-soft: #dce7ff;
+        --white: #fbfcfa;
+        --font-body: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+        --font-latin: Bahnschrift, Aptos, "Segoe UI", sans-serif;
+        color-scheme: light;
+        font-family: var(--font-body);
+        font-synthesis: none;
+        line-break: strict;
+      }
+
+      * { box-sizing: border-box; }
+      html { scroll-behavior: smooth; }
+      body {
+        min-width: 320px;
+        margin: 0;
+        color: var(--ink);
+        background:
+          radial-gradient(circle at 82% 9%, rgba(63,111,229,.08), transparent 24rem),
+          repeating-linear-gradient(0deg, transparent 0 35px, rgba(32,33,36,.024) 35px 36px),
+          var(--paper);
+        font-size: 17px;
+        line-height: 1.75;
+        overflow-x: hidden;
+      }
+      button, input { font: inherit; }
+      button, a { -webkit-tap-highlight-color: transparent; }
+      a { color: inherit; }
+      h1, h2, h3, p { margin-top: 0; }
+      h1, h2, h3 { text-wrap: balance; }
+      p { text-wrap: pretty; }
+      .shell { width: min(1280px, calc(100vw - 64px)); margin-inline: auto; }
+      .skip {
+        position: fixed; z-index: 20; top: 10px; left: 10px; padding: 10px 14px;
+        color: #fff; background: var(--ink); transform: translateY(-150%);
+      }
+      .skip:focus { transform: translateY(0); }
+      :focus-visible { outline: 3px solid var(--blue); outline-offset: 4px; }
+
+      .nav {
+        display: flex; min-height: 76px; align-items: center; justify-content: space-between;
+        border-bottom: 1px solid var(--line);
+      }
+      .brand, .nav-right, .brand-copy { display: flex; align-items: center; }
+      .brand { min-width: 44px; min-height: 44px; gap: 12px; text-decoration: none; }
+      .brand img { width: 42px; height: 42px; border-radius: 10px; }
+      .brand-copy { align-items: flex-start; flex-direction: column; line-height: 1.05; }
+      .brand-copy strong { font-size: 15px; }
+      .brand-copy small, .micro {
+        font-family: var(--font-latin); font-size: 10px; font-weight: 700; letter-spacing: .15em;
+      }
+      .brand-copy small { margin-top: 6px; color: var(--muted); }
+      .nav-right { gap: 24px; }
+      .lab-label { color: var(--blue-deep); font-size: 12px; font-weight: 700; }
+      .star-link, .star-primary {
+        display: inline-flex; min-height: 48px; align-items: center; justify-content: center;
+        border: 1px solid var(--ink); text-decoration: none; transition: transform 180ms ease, background 180ms ease;
+      }
+      .star-link { padding: 0 18px; font-size: 13px; font-weight: 750; }
+      .star-link:hover, .star-primary:hover { transform: translateY(-2px); }
+
+      .hero {
+        display: grid; grid-template-columns: minmax(0, .88fr) minmax(600px, 1.12fr);
+        gap: 42px; min-height: calc(100dvh - 77px); align-items: center; padding-block: 48px 72px;
+      }
+      .hero-copy { position: relative; z-index: 2; }
+      .kicker { display: flex; align-items: center; gap: 14px; margin-bottom: 32px; color: var(--blue-deep); }
+      .kicker::before { width: 42px; height: 1px; background: currentColor; content: ""; }
+      h1 { max-width: 9em; margin-bottom: 26px; font-size: clamp(3.5rem, 6.4vw, 7.5rem); font-weight: 790; letter-spacing: -.04em; line-height: 1.02; }
+      h1 em { color: var(--blue); font-style: normal; font-weight: 320; }
+      .lede { max-width: 31em; margin-bottom: 30px; color: #505650; }
+      .star-primary { padding: 0 24px; color: #fff; background: var(--ink); font-weight: 750; }
+      .truth-line { display: flex; flex-wrap: wrap; gap: 18px; margin-top: 24px; color: var(--muted); font-size: 13px; }
+      .truth-line span::before { margin-right: 7px; color: var(--blue); content: "•"; }
+
+      .garden-stage {
+        position: relative; min-height: 676px; padding: 26px; border: 1px solid rgba(32,33,36,.15);
+        background: rgba(251,252,250,.76); box-shadow: 0 40px 100px rgba(46,61,54,.12);
+        overflow: hidden;
+      }
+      .garden-stage::after {
+        position: absolute; inset: auto 0 0; height: 37%;
+        background: linear-gradient(180deg, transparent, rgba(220,231,255,.55)); content: "";
+      }
+      .stage-head, .control-row, .candidate-main, .pocket-head, .review-options { display: flex; align-items: center; }
+      .stage-head { position: relative; z-index: 2; justify-content: space-between; padding-bottom: 16px; border-bottom: 1px solid var(--line); }
+      .stage-head strong { font-size: 14px; }
+      .stage-head span { color: var(--blue-deep); }
+      .control-row { position: relative; z-index: 3; gap: 12px; margin-top: 24px; }
+      .input-field { flex: 1; }
+      .demo-input {
+        width: 100%; min-height: 56px; padding: 0 16px; border: 0; border-bottom: 2px solid var(--ink);
+        border-radius: 0; color: var(--ink); background: transparent; font-family: var(--font-latin); font-size: 22px; outline: 0;
+      }
+      .ipa-control { display: flex; min-height: 44px; flex: 0 0 auto; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; }
+      .ipa-control input { width: 20px; height: 20px; accent-color: var(--blue); }
+      .examples { position: relative; z-index: 3; display: flex; gap: 8px; margin-top: 12px; }
+      .example {
+        min-height: 44px; padding: 0 14px; border: 1px solid var(--line); color: var(--muted); background: transparent;
+        font-family: var(--font-latin); cursor: pointer;
+      }
+      .example:hover, .example.is-active { border-color: var(--blue); color: var(--blue-deep); background: var(--blue-soft); }
+
+      .candidate {
+        position: relative; z-index: 3; margin-top: 20px; padding: 20px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+      }
+      .candidate-main { min-height: 96px; justify-content: space-between; gap: 18px; }
+      .candidate-word { display: grid; grid-template-columns: auto 1fr; gap: 3px 18px; align-items: baseline; }
+      .candidate-word strong { grid-row: 1 / 3; color: var(--blue); font-size: 58px; line-height: 1; }
+      .candidate-word span { font-family: var(--font-latin); font-size: 22px; font-weight: 700; opacity: 1; transform: translateY(0); transition: opacity 220ms ease, transform 220ms ease; }
+      .candidate-word small { color: var(--muted); font-family: var(--font-latin); opacity: 1; transition: opacity 220ms ease; }
+      .candidate.is-waiting .candidate-word span, .candidate.is-waiting .candidate-word small { opacity: 0; transform: translateY(6px); }
+      .save-button {
+        min-height: 48px; padding: 0 16px; border: 1px solid var(--blue); color: var(--blue-deep); background: transparent; font-weight: 750; cursor: pointer;
+      }
+      .save-button:disabled { border-color: var(--line); color: #929791; cursor: not-allowed; }
+      .save-button:not(:disabled):hover { color: #fff; background: var(--blue); }
+      .demo-status { margin: 8px 0 0; color: var(--muted); font-size: 12px; }
+
+      .growth-bed {
+        position: relative; z-index: 2; display: grid; grid-template-columns: 1.1fr .9fr; gap: 18px; margin-top: 18px;
+      }
+      .pocket, .review { min-height: 210px; padding: 18px; border: 1px solid rgba(63,111,229,.24); background: rgba(242,243,240,.72); }
+      .pocket-head { justify-content: space-between; }
+      .pocket-head h2, .review h2 { margin: 0; font-size: 16px; }
+      .pocket-head span { color: var(--blue-deep); font-family: var(--font-latin); font-size: 12px; }
+      .plant-bed { display: flex; min-height: 132px; align-items: flex-end; gap: 8px; padding-top: 16px; }
+      .empty-copy { align-self: center; color: var(--muted); font-size: 13px; }
+      .plant {
+        position: relative; display: grid; width: 31%; min-width: 74px; height: 118px; place-items: end center;
+        animation: grow 480ms cubic-bezier(.2,.8,.2,1) both;
+      }
+      .plant::before { position: absolute; bottom: 30px; width: 2px; height: 58px; background: var(--blue); content: ""; transform-origin: bottom; }
+      .plant::after { position: absolute; bottom: 58px; width: 30px; height: 16px; border-radius: 100% 0 100% 0; background: var(--blue-soft); content: ""; transform: rotate(-24deg); }
+      .plant strong { position: relative; z-index: 2; width: 100%; padding: 5px; border-top: 1px solid var(--blue); color: var(--blue-deep); background: var(--paper); text-align: center; font-size: 13px; }
+      .plant small { position: absolute; top: 1px; color: var(--muted); font-family: var(--font-latin); font-size: 9px; }
+      @keyframes grow { from { opacity: 0; transform: translateY(20px) scaleY(.7); } }
+      .review { display: flex; flex-direction: column; }
+      .review-copy { margin: 12px 0 8px; color: var(--muted); font-size: 13px; }
+      .review-question { margin: 6px 0 10px; font-size: 18px; font-weight: 750; }
+      .review-options { flex-wrap: wrap; gap: 7px; }
+      .review-options button {
+        min-height: 44px; padding: 0 11px; border: 1px solid var(--line); background: var(--white); cursor: pointer;
+      }
+      .review-options button:hover { border-color: var(--blue); }
+      .review-feedback { min-height: 24px; margin: 8px 0 0; color: var(--blue-deep); font-size: 12px; }
+      .reset { min-height: 44px; align-self: flex-start; margin-top: auto; padding: 0; border: 0; color: var(--muted); background: none; text-decoration: underline; cursor: pointer; }
+
+      .truth-section { padding-block: 120px; border-top: 1px solid var(--line); }
+      .truth-grid { display: grid; grid-template-columns: .7fr 1.3fr; gap: 80px; }
+      .truth-grid h2 { margin-bottom: 18px; font-size: clamp(2.4rem, 4vw, 5rem); line-height: 1.08; }
+      .truth-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
+      .truth-columns article { padding-top: 16px; border-top: 2px solid var(--ink); }
+      .truth-columns article:last-child { border-color: var(--blue); }
+      .truth-columns h3 { font-size: 16px; }
+      .truth-columns ul { margin: 18px 0 0; padding: 0; list-style: none; }
+      .truth-columns li { padding: 10px 0; border-bottom: 1px solid var(--line); }
+      .phone-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 60px; }
+      .phone-strip figure { margin: 0; }
+      .phone-strip img { display: block; width: 100%; aspect-ratio: 9/14; object-fit: cover; object-position: top; border: 1px solid var(--line); }
+      .phone-strip figcaption { padding-top: 9px; color: var(--muted); font-size: 12px; }
+
+      .closing { padding: 110px 0 54px; color: #f7f8fa; background: var(--ink); }
+      .closing-inner { display: grid; grid-template-columns: 1fr auto; gap: 40px; align-items: end; }
+      .closing h2 { max-width: 11em; margin-bottom: 22px; font-size: clamp(2.6rem, 5.5vw, 6.5rem); line-height: 1.04; }
+      .closing p { max-width: 35em; color: #b8bdc5; }
+      .closing .star-link { border-color: #fff; color: var(--ink); background: #fff; }
+      footer { padding: 24px 0; border-top: 1px solid #3b3f46; color: #aeb3bb; background: var(--ink); font-size: 12px; }
+      footer .shell { display: flex; justify-content: space-between; gap: 20px; }
+
+      @media (max-width: 1000px) {
+        .hero { grid-template-columns: 1fr; }
+        .hero-copy { padding-top: 32px; }
+        .garden-stage { min-height: auto; }
+        .truth-grid { grid-template-columns: 1fr; gap: 40px; }
+      }
+      @media (max-width: 620px) {
+        body { font-size: 16px; }
+        .shell { width: min(100% - 32px, 1280px); }
+        .nav { min-height: 66px; }
+        .brand-copy, .lab-label { display: none; }
+        .nav-right { gap: 10px; }
+        .star-link { min-height: 44px; padding: 0 13px; }
+        .hero { min-height: auto; gap: 30px; padding: 44px 0 72px; }
+        h1 { font-size: clamp(3.2rem, 17vw, 5.2rem); }
+        .garden-stage { margin-inline: -8px; padding: 18px 14px; }
+        .stage-head span { display: none; }
+        .control-row { align-items: flex-end; }
+        .demo-input { font-size: 20px; }
+        .examples { overflow-x: auto; }
+        .candidate-main { align-items: flex-start; flex-direction: column; }
+        .candidate-word strong { font-size: 48px; }
+        .save-button { width: 100%; }
+        .growth-bed, .truth-columns { grid-template-columns: 1fr; }
+        .phone-strip { display: flex; margin-right: -16px; overflow-x: auto; scroll-snap-type: x mandatory; }
+        .phone-strip figure { min-width: 76%; scroll-snap-align: start; }
+        .closing-inner { grid-template-columns: 1fr; align-items: start; }
+        footer .shell { flex-direction: column; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        html { scroll-behavior: auto; }
+        *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; }
+      }
+    </style>
+  </head>
+  <body>
+    <a class="skip" href="#main">跳到互动演示</a>
+    <header class="shell">
+      <nav class="nav" aria-label="主导航">
+        <a class="brand" href="#top" aria-label="好好输入法">
+          <img src="../../website/assets/haohao-icon.png" width="42" height="42" alt="" />
+          <span class="brand-copy"><strong>好好输入法</strong><small>HAOHAO IME</small></span>
+        </a>
+        <div class="nav-right">
+          <span class="lab-label">未来实验室 · 正在探索</span>
+          <a class="star-link" href="https://github.com/littlewindy123/haohao-ime" target="_blank" rel="noopener noreferrer">GitHub Star ↗</a>
+        </div>
+      </nav>
+    </header>
+
+    <main id="main">
+      <section class="hero shell" id="top">
+        <div class="hero-copy">
+          <p class="kicker micro">DIRECTION A · WORD GARDEN</p>
+          <h1>打字时，<em>词汇也在生长。</em></h1>
+          <p class="lede">你不需要再打开一款背单词应用。好好只把真实遇见的词，轻轻留在今天。</p>
+          <a class="star-primary" href="https://github.com/littlewindy123/haohao-ime" target="_blank" rel="noopener noreferrer">支持这个开源实验　★</a>
+          <div class="truth-line"><span>当前已实现离线双语候选</span><span>学习闭环正在探索</span></div>
+        </div>
+
+        <section class="garden-stage" aria-label="词汇生长互动演示">
+          <div class="stage-head"><strong>今天的词园</strong><span class="micro">SESSION ONLY · 本页刷新后清空</span></div>
+          <div class="control-row">
+            <label class="input-field"><span class="micro">输入拼音</span><input class="demo-input" id="demo-input" value="nihao" autocomplete="off" spellcheck="false" /></label>
+            <label class="ipa-control"><input id="ipa-toggle" type="checkbox" />显示 IPA</label>
+          </div>
+          <div class="examples" aria-label="示例拼音">
+            <button class="example is-active" type="button" data-example="nihao">nihao</button>
+            <button class="example" type="button" data-example="xuexi">xuexi</button>
+            <button class="example" type="button" data-example="zhongwen">zhongwen</button>
+          </div>
+          <div class="candidate is-waiting" id="candidate" aria-live="polite">
+            <div class="candidate-main">
+              <div class="candidate-word"><strong id="candidate-chinese">你好</strong><span id="candidate-english">hello</span><small id="candidate-ipa">&nbsp;</small></div>
+              <button class="save-button" id="save-word" type="button" disabled>收进今日词袋</button>
+            </div>
+            <p class="demo-status" id="demo-status">候选正在稳定…</p>
+          </div>
+          <div class="growth-bed">
+            <section class="pocket" aria-labelledby="pocket-title">
+              <div class="pocket-head"><h2 id="pocket-title">今日词袋</h2><span id="pocket-count">0 / 3 WORDS</span></div>
+              <div class="plant-bed" id="pocket-list"><p class="empty-copy">收藏一个真实遇见的词，它会从这里长出来。</p></div>
+            </section>
+            <section class="review" aria-labelledby="review-title">
+              <h2 id="review-title">轻轻回想一下</h2>
+              <p class="review-copy" id="review-copy">先收藏一个词。复习不会抢在输入前面。</p>
+              <p class="review-question" id="review-question"></p>
+              <div class="review-options" id="review-options"></div>
+              <p class="review-feedback" id="review-feedback" aria-live="polite"></p>
+              <button class="reset" id="reset-demo" type="button">重置演示</button>
+            </section>
+          </div>
+        </section>
+      </section>
+
+      <section class="truth-section shell" id="truth">
+        <div class="truth-grid">
+          <div><p class="micro">NOW / NEXT</p><h2>一边诚实，<br />一边想得更远。</h2><p>概念稿只把未来做成可感知的体验，不把计划写成已经发布的功能。</p></div>
+          <div class="truth-columns">
+            <article><p class="micro">现在可用</p><h3>安静地出现在候选里</h3><ul><li>完全离线的双语候选</li><li>稳定 300ms 后显示英文</li><li>可选美式 IPA · Rime 内核</li><li>不请求网络权限</li></ul></article>
+            <article><p class="micro">正在探索</p><h3>从遇见，到真正记得</h3><ul><li>主动收藏进今日词袋</li><li>只记录词，不记录完整输入</li><li>显示真实遇见次数</li><li>空闲时轻复习 3–5 个</li></ul></article>
+          </div>
+        </div>
+        <div class="phone-strip" aria-label="当前真实产品截图">
+          <figure><img src="../../website/assets/screenshot-light.png" width="1080" height="2400" loading="lazy" alt="好好输入法浅色候选界面" /><figcaption>当前产品 · 浅色候选</figcaption></figure>
+          <figure><img src="../../website/assets/screenshot-dark.png" width="1080" height="2400" loading="lazy" alt="好好输入法深色候选界面" /><figcaption>当前产品 · 深色与 IPA</figcaption></figure>
+          <figure><img src="../../website/assets/screenshot-expanded.png" width="1080" height="2400" loading="lazy" alt="好好输入法展开候选界面" /><figcaption>当前产品 · 展开候选</figcaption></figure>
+        </div>
+      </section>
+
+      <section class="closing">
+        <div class="closing-inner shell">
+          <div><p class="micro">OPEN SOURCE · GPL-3.0</p><h2>让每次输入，留下一个会记住的词。</h2><p>项目仍在真机验证，暂无正式稳定 Release。如果你也期待这种不打扰的学习方式，请给好好一颗 Star。</p></div>
+          <a class="star-link" href="https://github.com/littlewindy123/haohao-ime" target="_blank" rel="noopener noreferrer">去 GitHub 点亮 Star　★</a>
+        </div>
+      </section>
+    </main>
+    <footer><div class="shell"><span>方向 A · 词汇生长 / Word Garden</span><span>概念功能仅在本页会话中演示，不收集输入。</span></div></footer>
+
+    <script>
+      const WORDS = {
+        nihao: { id: "nihao", chinese: "你好", english: "hello", ipa: "/həˈɫoʊ/", encounters: 0, stage: "encountered" },
+        xuexi: { id: "xuexi", chinese: "学习", english: "study", ipa: "/ˈstədi/", encounters: 0, stage: "encountered" },
+        zhongwen: { id: "zhongwen", chinese: "中文", english: "Chinese", ipa: "/tʃaɪˈniz/", encounters: 0, stage: "encountered" },
+      };
+      const state = { current: null, saved: [] };
+      const input = document.querySelector("#demo-input");
+      const candidate = document.querySelector("#candidate");
+      const chinese = document.querySelector("#candidate-chinese");
+      const english = document.querySelector("#candidate-english");
+      const ipa = document.querySelector("#candidate-ipa");
+      const status = document.querySelector("#demo-status");
+      const save = document.querySelector("#save-word");
+      const toggle = document.querySelector("#ipa-toggle");
+      const pocket = document.querySelector("#pocket-list");
+      const count = document.querySelector("#pocket-count");
+      const reviewCopy = document.querySelector("#review-copy");
+      const question = document.querySelector("#review-question");
+      const options = document.querySelector("#review-options");
+      const feedback = document.querySelector("#review-feedback");
+      let timer;
+
+      function normalized() { return input.value.toLowerCase().replace(/[^a-z]/g, ""); }
+      function setCandidate(word, waiting) {
+        state.current = word || null;
+        chinese.textContent = word ? word.chinese : "—";
+        english.textContent = word ? word.english : "试试上方示例";
+        ipa.textContent = word && toggle.checked ? word.ipa : "\u00a0";
+        candidate.classList.toggle("is-waiting", waiting);
+        save.disabled = waiting || !word || state.saved.some((item) => item.id === word.id);
+        save.textContent = word && state.saved.some((item) => item.id === word.id) ? "已在今日词袋" : "收进今日词袋";
+      }
+      function renderInput() {
+        clearTimeout(timer);
+        const key = normalized();
+        const word = WORDS[key];
+        document.querySelectorAll("[data-example]").forEach((button) => button.classList.toggle("is-active", button.dataset.example === key));
+        if (!word) { setCandidate(null, false); status.textContent = key ? "概念演示只收录三个示例" : "输入一个示例拼音"; return; }
+        setCandidate(word, true);
+        status.textContent = "候选正在稳定…";
+        timer = setTimeout(() => {
+          word.encounters += 1;
+          setCandidate(word, false);
+          status.textContent = `英文已出现 · 今天遇见 ${word.encounters} 次`;
+        }, 300);
+      }
+      function renderPocket() {
+        count.textContent = `${state.saved.length} / 3 WORDS`;
+        if (!state.saved.length) { pocket.innerHTML = '<p class="empty-copy">收藏一个真实遇见的词，它会从这里长出来。</p>'; return; }
+        pocket.innerHTML = state.saved.map((word) => `<div class="plant"><small>${word.encounters}× ENCOUNTERED</small><strong>${word.chinese}<br>${word.english}</strong></div>`).join("");
+      }
+      function renderReview(word) {
+        reviewCopy.textContent = "不是考试，只是把刚才的遇见轻轻叫回来。";
+        question.textContent = `「${word.chinese}」对应哪个英文？`;
+        feedback.textContent = "";
+        const choices = ["hello", "study", "Chinese"];
+        options.innerHTML = choices.map((choice) => `<button type="button" data-answer="${choice}">${choice}</button>`).join("");
+        options.querySelectorAll("button").forEach((button) => button.addEventListener("click", () => {
+          if (button.dataset.answer === word.english) {
+            word.stage = "reviewed";
+            feedback.textContent = `想起来了。${word.chinese} · ${word.english}`;
+            options.querySelectorAll("button").forEach((item) => item.disabled = true);
+          } else feedback.textContent = "再看一眼刚才的候选，然后重试。";
+        }));
+      }
+      input.addEventListener("input", renderInput);
+      toggle.addEventListener("change", () => { if (state.current) ipa.textContent = toggle.checked ? state.current.ipa : "\u00a0"; });
+      document.querySelectorAll("[data-example]").forEach((button) => button.addEventListener("click", () => { input.value = button.dataset.example; renderInput(); input.focus(); }));
+      save.addEventListener("click", () => {
+        const word = state.current;
+        if (!word || state.saved.some((item) => item.id === word.id)) return;
+        word.stage = "saved";
+        state.saved.push(word);
+        renderPocket(); renderReview(word); setCandidate(word, false);
+      });
+      document.querySelector("#reset-demo").addEventListener("click", () => {
+        clearTimeout(timer); state.saved.length = 0;
+        Object.values(WORDS).forEach((word) => { word.encounters = 0; word.stage = "encountered"; });
+        input.value = "nihao"; toggle.checked = false;
+        question.textContent = ""; options.innerHTML = ""; feedback.textContent = "";
+        reviewCopy.textContent = "先收藏一个词。复习不会抢在输入前面。";
+        renderPocket(); renderInput();
+      });
+      renderPocket(); renderInput();
+    </script>
+  </body>
+</html>

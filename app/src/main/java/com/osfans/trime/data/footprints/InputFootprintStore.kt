@@ -21,6 +21,7 @@ internal class InputFootprintStore(
     private val database: InputFootprintDatabase,
 ) {
     private val dao = database.inputFootprintDao()
+    val learning = WordLearningStore(database)
 
     val recent: Flow<List<InputFootprintEntity>> = dao.recent(RECENT_LIMIT)
     val favorites: Flow<List<InputFootprintEntity>> = dao.favorites()
@@ -76,7 +77,10 @@ internal class InputFootprintStore(
         dao.detachFavoritesFromRecent()
     }
 
-    suspend fun clearAll() = dao.deleteAll()
+    suspend fun clearAll() = database.withTransaction {
+        dao.deleteAll()
+        learning.clearAll()
+    }
 
     companion object {
         const val RECENT_LIMIT = 100
@@ -104,7 +108,7 @@ internal object InputFootprints {
                 context.applicationContext,
                 InputFootprintDatabase::class.java,
                 databaseFile(context).absolutePath,
-            ).build()
+            ).addMigrations(WORD_LEARNING_MIGRATION, WORD_DISPLAY_UNDO_MIGRATION).build()
         try {
             database.openHelper.writableDatabase
             storeInstance = InputFootprintStore(database)

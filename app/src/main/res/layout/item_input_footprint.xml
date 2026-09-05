@@ -16,21 +16,21 @@
         android:ellipsize="end"
         android:maxLines="1"
         android:textColor="@color/haohao_cocoa"
-        android:textSize="20sp"
-        android:textStyle="bold"
-        app:layout_constraintEnd_toStartOf="@id/use_count"
+        android:textSize="15sp"
+        app:layout_constraintEnd_toStartOf="@id/speak_button"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintTop_toBottomOf="@id/english_text" />
 
     <TextView
         android:id="@+id/use_count"
-        android:layout_width="wrap_content"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginStart="8dp"
         android:textColor="@color/haohao_cocoa_secondary"
         android:textSize="12sp"
-        app:layout_constraintBaseline_toBaselineOf="@id/chinese_text"
-        app:layout_constraintEnd_toStartOf="@id/speak_button" />
+        app:layout_constraintEnd_toStartOf="@id/speak_button"
+        android:layout_marginTop="4dp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/ipa_text" />
 
     <TextView
         android:id="@+id/english_text"
@@ -39,11 +39,12 @@
         android:layout_marginTop="3dp"
         android:ellipsize="end"
         android:maxLines="1"
-        android:textColor="@color/haohao_cocoa_secondary"
-        android:textSize="15sp"
+        android:textColor="@color/haohao_cocoa"
+        android:textSize="23sp"
+        android:textStyle="bold"
         app:layout_constraintEnd_toStartOf="@id/speak_button"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/chinese_text" />
+        app:layout_constraintTop_toTopOf="parent" />
 
     <TextView
         android:id="@+id/ipa_text"
@@ -54,10 +55,9 @@
         android:maxLines="1"
         android:textColor="@color/haohao_cocoa_secondary"
         android:textSize="13sp"
-        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toStartOf="@id/speak_button"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/english_text" />
+        app:layout_constraintTop_toBottomOf="@id/chinese_text" />
 
     <ImageButton
         android:id="@+id/speak_button"
@@ -67,6 +67,7 @@
         android:contentDescription="@string/input_footprints_speak"
         android:padding="12dp"
         android:src="@drawable/ic_haohao_volume_24"
+        app:tint="@color/haohao_cocoa"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toStartOf="@id/favorite_button"
         app:layout_constraintTop_toTopOf="parent" />

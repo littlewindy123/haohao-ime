@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-05T07:15:20Z",
+  "title": "Design System: 好好输入法",
+  "extensions": {
+    "native": {
+      "platform": "android",
+      "uiToolkit": "Android Views / AppCompat / Material Components",
+      "tokenSources": [
+        "app/src/main/res/values/colors.xml",
+        "app/src/main/res/values-night/colors.xml",
+        "app/src/main/res/values/styles_haohao.xml"
+      ],
+      "componentSources": {
+        "InputFootprintsFragment": "app/src/main/java/com/osfans/trime/ui/main/footprints/InputFootprintsFragment.kt",
+        "WordLearningActivity": "app/src/main/java/com/osfans/trime/ui/main/footprints/WordLearningActivity.kt",
+        "InputFootprintRow": "app/src/main/res/layout/item_input_footprint.xml"
+      },
+      "preview": "design-demos/haohao-learning/native-words.html",
+      "previewIsIllustrative": true,
+      "verificationScope": "API 36 模拟器已验证页面重建、复习反馈及浅深色、大字号、横屏和单手布局；实际截图与真机待验边界见 docs/operations/local-first-validation.md。"
+    }
+  },
+  "components": [],
+  "narrative": {
+    "northStar": "温暖但精致",
+    "overview": "本规范记录 Android 原生好好界面及个人词本已经落地的视觉语言。奶油色底、薄荷色选中态、蜂蜜色行动与可可色文字延续用户确认的金毛品牌；输入和学习内容保持安静、清楚。上游高级设置和用户自定义 Rime 主题不因此被强制替换。",
+    "keyCharacteristics": [
+      "温暖的低饱和底色，浅深主题分别定义。",
+      "英文义项、中文释义、来源和状态形成清晰层级。",
+      "列表以留白和细分隔线组织，金毛只用于欢迎、空态和复习完成。"
+    ],
+    "rules": [
+      {
+        "name": "The 主题配对 Rule",
+        "body": "原生控件引用 `haohao_*` 颜色资源；改动浅色角色时同时检查 `values-night` 对应角色。蜂蜜色按钮使用 `haohao_on_honey`，不能直接复用普通主文字色。",
+        "section": "colors"
+      }
+    ],
+    "dos": [
+      "Do 保留 Android 原生返回、触控反馈、系统字号与明暗主题适配。",
+      "Do 用义项内容和用户主动回答解释状态；学习文案保持克制。"
+    ],
+    "donts": [
+      "Don't 把遇见次数写成记忆程度、把完成一轮写成已经掌握。",
+      "Don't 在正常键盘、单词列表或答题内容中反复放置金毛装饰。",
+      "Don't 把 HTML 示例、临时失败截图或未验证的显示效果固化为原生设计规则。"
+    ]
+  }
+}

@@ -14,6 +14,8 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 [English](README.md) | 简体中文 | [繁體中文](README_tc.md)
 
+好好输入法的产品、原生设计和个人词本规则见[项目文档](docs/README.md)。以下保留上游同文输入法介绍。
+
 ## 关于
 
 源于开源的[注音仓颉输入法]前端，基于著名的 [RIME] 输入法框架，使用 JNI 的 C 语言和 Android 的 Java/Kotlin 语言书写，旨在保护汉语各地方言母语，音码、形码通用的输入法平台。

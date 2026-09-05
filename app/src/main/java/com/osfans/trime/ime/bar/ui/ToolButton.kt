@@ -78,9 +78,15 @@ class ToolButton(context: Context) : GestureFrame(context) {
         context: Context,
         @DrawableRes icon: Int,
         builtinIconSize: Int = 24,
+        builtinIconColor: String = "candidate_text_color",
+        builtinIconHighlightColor: String = "hilited_candidate_text_color",
     ) : this(context) {
-        val tintList = ColorStateList.valueOf(
-            ColorManager.getColor("candidate_text_color"),
+        val tintList = ColorStateList(
+            arrayOf(intArrayOf(android.R.attr.state_pressed), intArrayOf()),
+            intArrayOf(
+                ColorManager.getColor(builtinIconHighlightColor),
+                ColorManager.getColor(builtinIconColor),
+            ),
         )
         image.imageTintList = tintList
         image.padding = dp(BUILTIN_ICON_PADDING_DP)

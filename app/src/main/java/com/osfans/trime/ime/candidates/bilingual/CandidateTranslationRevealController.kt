@@ -53,6 +53,7 @@ internal class CandidateTranslationRevealController(
     private var generation = 0L
     private var hasCandidates = false
     private var observingPreferences = false
+    private val dictionaryReadyListener: () -> Unit = { if (observingPreferences) notifyContentChanged() }
 
     var state = CandidateTranslationRevealState.HIDDEN
         private set
@@ -68,12 +69,14 @@ internal class CandidateTranslationRevealController(
     fun start() {
         if (observingPreferences) return
         observingPreferences = true
+        OfflineCandidateTranslationRepository.addReadyListener(dictionaryReadyListener)
         val preferences = AppPrefs.defaultInstance().candidates
         preferences.bilingualTranslation.registerOnChangeListener(translationPreferenceListener)
         preferences.bilingualTranslationDelay.registerOnChangeListener(delayPreferenceListener)
     }
 
     fun stop() {
+        OfflineCandidateTranslationRepository.removeReadyListener(dictionaryReadyListener)
         if (observingPreferences) {
             val preferences = AppPrefs.defaultInstance().candidates
             preferences.bilingualTranslation.unregisterOnChangeListener(translationPreferenceListener)

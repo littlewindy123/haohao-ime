@@ -33,9 +33,12 @@ import com.osfans.trime.ime.haohao.HaoHaoToolAvailability
 import com.osfans.trime.ime.haohao.HaoHaoToolUnavailableReason
 import com.osfans.trime.ime.haohao.HaoHaoToolboxAction
 import com.osfans.trime.ime.haohao.resolveHaoHaoToolAvailability
+import com.osfans.trime.ime.keyboard.HaoHaoModeLabel
 import com.osfans.trime.ime.keyboard.KeyBehavior
 import com.osfans.trime.ime.keyboard.KeySurfaceRect
 import com.osfans.trime.ime.keyboard.calculateKeySurfaceGeometry
+import com.osfans.trime.ime.keyboard.calculateKeyVerticalPadding
+import com.osfans.trime.ime.keyboard.resolveHaoHaoModeLabel
 import com.osfans.trime.util.yaml.Yaml
 import com.osfans.trime.util.yaml.boolean
 import com.osfans.trime.util.yaml.float
@@ -45,6 +48,7 @@ import com.osfans.trime.util.yaml.sequence
 import com.osfans.trime.util.yaml.string
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.collections.shouldContainExactly
+import io.kotest.matchers.ints.shouldBeLessThanOrEqual
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import java.io.File
@@ -104,6 +108,7 @@ class HaoHaoDefaultsTest :
             SIMPLIFIED_SCHEMA_CUSTOM_PATCH.contains("- charset_filter") shouldBe true
             SIMPLIFIED_SCHEMA_CUSTOM_PATCH.contains("translator/enable_charset_filter: true") shouldBe true
             config["__include"]?.string shouldBe "trime:/"
+            config["config_version"]?.string shouldBe "2.6"
             config["name"]?.string shouldBe "好好输入法"
             DEFAULT_FOLLOW_SYSTEM_DAY_NIGHT shouldBe true
 
@@ -132,25 +137,27 @@ class HaoHaoDefaultsTest :
 
         "compact theme defines reference geometry and light-dark palettes" {
             style["key_height"]?.int shouldBe 50
+            style["key_cap_height"]?.int shouldBe 54
             style["candidate_text_size"]?.float shouldBe 16f
             style["comment_text_size"]?.float shouldBe 12f
-            style["key_text_size"]?.float shouldBe 16f
-            style["key_long_text_size"]?.float shouldBe 14f
-            style["symbol_text_size"]?.float shouldBe 10f
+            style["key_text_size"]?.float shouldBe 20f
+            style["key_long_text_size"]?.float shouldBe 16f
+            style["symbol_text_size"]?.float shouldBe 11f
             style["label_text_size"]?.float shouldBe 16f
             style["popup_text_size"]?.float shouldBe 16f
-            style["horizontal_gap"]?.int shouldBe 4
-            style["vertical_gap"]?.int shouldBe 9
-            style["keyboard_padding"]?.int shouldBe 5
-            style["keyboard_height"]?.int shouldBe 232
+            style["horizontal_gap"]?.int shouldBe 3
+            style["vertical_gap"]?.int shouldBe 11
+            style["keyboard_padding"]?.int shouldBe 3
+            style["keyboard_height"]?.int shouldBe 252
             style["round_corner"]?.float shouldBe 7f
             style["key_border"]?.int shouldBe 1
             style["key_press_offset_y"]?.float shouldBe 1f
-            style["key_shadow_offset_y"]?.float shouldBe 2f
+            style["key_shadow_offset_y"]?.float shouldBe 1f
             style["candidate_corner_radius"]?.float shouldBe 8f
             decodedStyle.compactCandidateTextSize shouldBe 16f
             decodedStyle.compactTranslationTextSize shouldBe 12f
             decodedStyle.compactPhoneticTextSize shouldBe 10f
+            decodedStyle.keyCapHeight shouldBe 54
 
             val preedit = requireNotNull(config["preedit"]?.mapping)
             requireNotNull(preedit["foreground"]?.mapping)["font_size"]?.float shouldBe 14f
@@ -164,20 +171,28 @@ class HaoHaoDefaultsTest :
             val light = requireNotNull(colorSchemes["default"]?.mapping)
             val dark = requireNotNull(colorSchemes["haohao_dark"]?.mapping)
             light["dark_scheme"]?.string shouldBe "haohao_dark"
-            light["keyboard_back_color"]?.int shouldBe 0xe9edf2
-            light["key_back_color"]?.int shouldBe 0xffffff
-            light["key_border_color"]?.int shouldBe 0xd5dbe4
-            light["key_shadow_color"]?.int shouldBe 0x2b5c6878
+            light["keyboard_back_color"]?.int shouldBe 0xe7e2d8
+            light["key_back_color"]?.int shouldBe 0xfffdf8
+            light["key_border_color"]?.int shouldBe 0xe3ddd2
+            light["key_shadow_color"]?.int shouldBe 0x1f513a32
             light["key_highlight_color"]?.int shouldBe 0x66ffffff
-            light["off_key_back_color"]?.int shouldBe 0xdce2e9
-            light["on_key_back_color"]?.int shouldBe 0x4f7df3
-            dark["keyboard_back_color"]?.int shouldBe 0x1d2025
-            dark["key_back_color"]?.int shouldBe 0x2e3239
-            dark["key_border_color"]?.int shouldBe 0x444a55
+            light["key_symbol_color"]?.int shouldBe 0xaeb2b8
+            light["off_key_symbol_color"]?.int shouldBe 0xaeb2b8
+            light["toolbar_icon_color"]?.int shouldBe 0x7a6860
+            light["hilited_toolbar_icon_color"]?.int shouldBe 0x426c54
+            light["off_key_back_color"]?.int shouldBe 0xdcece2
+            light["on_key_back_color"]?.int shouldBe 0xf4bf61
+            dark["keyboard_back_color"]?.int shouldBe 0x24231f
+            dark["key_back_color"]?.int shouldBe 0x302d28
+            dark["key_border_color"]?.int shouldBe 0x45413a
             dark["key_shadow_color"]?.int shouldBe 0x66000000
             dark["key_highlight_color"]?.int shouldBe 0x24ffffff
-            dark["off_key_back_color"]?.int shouldBe 0x3a3f49
-            dark["on_key_back_color"]?.int shouldBe 0x7ea2ff
+            dark["key_symbol_color"]?.int shouldBe 0x767c86
+            dark["off_key_symbol_color"]?.int shouldBe 0x767c86
+            dark["toolbar_icon_color"]?.int shouldBe 0x9298a2
+            dark["hilited_toolbar_icon_color"]?.int shouldBe 0xf0bd60
+            dark["off_key_back_color"]?.int shouldBe 0x354d41
+            dark["on_key_back_color"]?.int shouldBe 0xe0a947
         }
 
         "layered key surface keeps the visual gutter inside a complete touch cell" {
@@ -220,11 +235,32 @@ class HaoHaoDefaultsTest :
             pressed.shadow shouldBe null
         }
 
-        "360 369 and 411dp viewports keep wider caps and continuous touch cells" {
+        "height modes keep reference caps centered inside touch rows" {
+            listOf(
+                58 to 49,
+                63 to 54,
+                68 to 59,
+            ).forEach { (rowHeight, capHeight) ->
+                val (top, bottom) = calculateKeyVerticalPadding(
+                    cellHeight = rowHeight,
+                    minimumVerticalGap = 9,
+                    capHeight = capHeight,
+                )
+                kotlin.math.abs(top - bottom) shouldBeLessThanOrEqual 1
+                rowHeight - top - bottom shouldBe capHeight
+            }
+        }
+
+        "360 393 and 411dp viewports keep reference caps and continuous touch cells" {
             val density = 3
-            val sidePadding = 5 * density
-            val halfGap = 2 * density
-            val expectedCapWidths = mapOf(360 to 93, 369 to 95, 411 to 108)
+            val sidePadding = 3 * density
+            val halfGap = 4
+            val expectedCapWidths = mapOf(360 to 98, 393 to 108, 411 to 113)
+            val (paddingTop, paddingBottom) = calculateKeyVerticalPadding(
+                cellHeight = 58 * density,
+                minimumVerticalGap = 9 * density,
+                capHeight = 49 * density,
+            )
 
             expectedCapWidths.forEach { (viewportDp, expectedCapWidth) ->
                 val availableWidth = viewportDp * density - sidePadding * 2
@@ -233,9 +269,9 @@ class HaoHaoDefaultsTest :
                     width = cellWidth,
                     height = 58 * density,
                     paddingLeft = halfGap,
-                    paddingTop = 4 * density,
+                    paddingTop = paddingTop,
                     paddingRight = halfGap,
-                    paddingBottom = 4 * density,
+                    paddingBottom = paddingBottom,
                     shadowOffsetY = 2 * density,
                     pressOffsetX = 0,
                     pressOffsetY = density,
@@ -243,6 +279,7 @@ class HaoHaoDefaultsTest :
                 )
 
                 geometry.cap.right - geometry.cap.left shouldBe expectedCapWidth
+                geometry.cap.bottom - geometry.cap.top shouldBe 49 * density
                 repeat(9) { index ->
                     val current = geometry.logicalCell.offset(index * cellWidth, 0)
                     val next = geometry.logicalCell.offset((index + 1) * cellWidth, 0)
@@ -254,6 +291,11 @@ class HaoHaoDefaultsTest :
         }
 
         "themes without layered depth retain their original key surface" {
+            calculateKeyVerticalPadding(
+                cellHeight = 58,
+                minimumVerticalGap = 9,
+                capHeight = 0,
+            ) shouldBe (4 to 4)
             val geometry = calculateKeySurfaceGeometry(
                 width = 36,
                 height = 58,
@@ -275,7 +317,11 @@ class HaoHaoDefaultsTest :
             presetKeys["Shift_L"]?.mapping?.get("label")?.string shouldBe "⇧"
             presetKeys["Shift_L"]?.mapping?.get("send")?.string shouldBe "Shift_L"
             presetKeys["Shift_L"]?.mapping?.get("shift_lock")?.string shouldBe "long"
-            presetKeys["HaoHaoReturn"]?.mapping?.get("label")?.string shouldBe "↵"
+            presetKeys["Mode_switch"]?.mapping?.get("states")?.sequence?.mapNotNull { it.string } shouldContainExactly
+                listOf("中", "英")
+            resolveHaoHaoModeLabel(asciiMode = false) shouldBe HaoHaoModeLabel("中", "英", 20f, 10f)
+            resolveHaoHaoModeLabel(asciiMode = true) shouldBe HaoHaoModeLabel("英", "中", 20f, 10f)
+            presetKeys["HaoHaoReturn"]?.mapping?.get("label")?.string shouldBe "ic@keyboard_return"
             val spaceLabel = presetKeys["HaoHaoSpace"]?.mapping?.get("label")?.string
             spaceLabel shouldBe " "
             spaceLabel?.isNotEmpty() shouldBe true
@@ -302,13 +348,20 @@ class HaoHaoDefaultsTest :
             primaryButton["size"]?.sequence?.mapNotNull { it.int } shouldContainExactly listOf(48, 48)
             foreground["style"]?.string shouldBe "ic@view_grid_outline"
             decodedToolBar.equalWidth shouldBe true
-            decodedToolBar.builtinIconSize shouldBe 21
+            decodedToolBar.builtinIconSize shouldBe 18
+            decodedToolBar.builtinIconColor shouldBe "toolbar_icon_color"
+            decodedToolBar.builtinIconHighlightColor shouldBe "hilited_toolbar_icon_color"
             ToolBar.decode(null).equalWidth shouldBe false
             ToolBar.decode(null).builtinIconSize shouldBe 24
+            ToolBar.decode(null).builtinIconColor shouldBe "candidate_text_color"
+            ToolBar.decode(null).builtinIconHighlightColor shouldBe "hilited_candidate_text_color"
             decodedToolBar.equalWidthButtonsInDisplayOrder().all { button ->
-                button.size == listOf(48, 48) && button.foreground.fontSize == 21f
+                button.size == listOf(48, 48) &&
+                    button.foreground.fontSize == 18f &&
+                    button.foreground.normal == "toolbar_icon_color" &&
+                    button.foreground.highlight == "hilited_toolbar_icon_color"
             } shouldBe true
-            toolButtonIconFrameSizeDp(decodedToolBar.builtinIconSize) shouldBe 29
+            toolButtonIconFrameSizeDp(decodedToolBar.builtinIconSize) shouldBe 26
 
             val toolbarActions = decodedToolBar.buttons.map { it.action }
             toolbarActions shouldContainExactly listOf(
@@ -460,8 +513,12 @@ class HaoHaoDefaultsTest :
                 key.labelSymbol shouldBe symbol
                 key.behaviors[KeyBehavior.LONG_CLICK] shouldBe KeyActionToken.Plain(symbol)
             }
-            main.keys.single { it.behaviors[KeyBehavior.CLICK] == KeyActionToken.Plain("Shift_L") }
-                .behaviors[KeyBehavior.LONG_CLICK] shouldBe KeyActionToken.Plain("Shift_L")
+            main.keys.single { it.behaviors[KeyBehavior.CLICK] == KeyActionToken.Plain("Shift_L") }.let { shift ->
+                shift.behaviors[KeyBehavior.LONG_CLICK] shouldBe KeyActionToken.Plain("Shift_L")
+                shift.labelSymbol shouldBe "\u200B"
+            }
+            main.keys.single { it.behaviors[KeyBehavior.CLICK] == KeyActionToken.Plain("HaoHaoReturn") }
+                .keyTextSize shouldBe 18f
 
             val bottomWidths = listOf(
                 "HaoHaoSymbols" to 14f,
@@ -475,6 +532,10 @@ class HaoHaoDefaultsTest :
             bottomWidths.forEach { (click, width) ->
                 main.keys.single { it.behaviors[KeyBehavior.CLICK] == KeyActionToken.Plain(click) }.width shouldBe width
             }
+            main.keys.single { it.behaviors[KeyBehavior.CLICK] == KeyActionToken.Plain(",") }
+                .keyTextOffsetY shouldBe -3f
+            main.keys.single { it.behaviors[KeyBehavior.CLICK] == KeyActionToken.Plain(".") }
+                .keyTextOffsetY shouldBe -1f
         }
 
         "letter-only schemas route qwerty to the HaoHao main keyboard" {

@@ -22,12 +22,33 @@ import java.io.File
 
 @RunWith(AndroidJUnit4::class)
 class HaoHaoPinyinRegressionTest {
+    @Test(timeout = 120_000L)
+    fun rapidlyReplacingTheLastClientKeepsTheNewSessionUsable() = runBlocking {
+        repeat(10) { index ->
+            val name = "$SESSION_NAME-replace-$index"
+            val session = RimeDaemon.createSession(name)
+            try {
+                awaitAndSelectSchema(session)
+                session.runOnReady {
+                    setRuntimeOption("ascii_mode", false)
+                    clearComposition()
+                    "nihao".forEach { processKey(it.code) }
+                    assertTrue(getCandidates(0, 16).any { it.text == "你好" })
+                    clearComposition()
+                }
+            } finally {
+                RimeDaemon.destroySession(name)
+            }
+        }
+    }
+
     @Test(timeout = 900_000L)
     fun expectedWordsStayVisibleInTheCompactCandidates() = runBlocking {
         val userDataDir = prepareRegressionStorage()
         val cases = readCases()
         val firstFailures = runRegressionPass("first", cases)
-        val compiledTable = userDataDir.resolve(COMPILED_TABLE_PATH)
+        val compiledTable = userDataDir.resolve(COMPILED_TABLE_PATH).takeIf { it.isFile }
+            ?: DataManager.sharedDataDir.resolve(COMPILED_TABLE_PATH)
         assertTrue("Missing compiled dictionary: $compiledTable", compiledTable.isFile)
         val compiledTableModifiedAt = compiledTable.lastModified()
 

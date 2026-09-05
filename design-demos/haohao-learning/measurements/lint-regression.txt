@@ -1,0 +1,611 @@
+D:\CodexBuildRoots\trime-develop\app\src\main\java\com\osfans\trime\ime\haohao\HaoHaoEditorWindow.kt:100: Warning: Field requires API level 23 (current min is 21): android.R.id#undo [InlinedApi]
+        HaoHaoEditorAction.Undo -> performMenuAction(android.R.id.undo, KeyEvent.KEYCODE_Z, false)
+                                                     ~~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\java\com\osfans\trime\ime\haohao\HaoHaoEditorWindow.kt:101: Warning: Field requires API level 23 (current min is 21): android.R.id#redo [InlinedApi]
+        HaoHaoEditorAction.Redo -> performMenuAction(android.R.id.redo, KeyEvent.KEYCODE_Z, true)
+                                                     ~~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\java\com\osfans\trime\ui\main\footprints\InputFootprintsFragment.kt:67: Warning: Field requires API level 26 (current min is 21): android.view.inputmethod.EditorInfo#IME_FLAG_NO_PERSONALIZED_LEARNING [InlinedApi]
+        binding.searchInput.imeOptions = binding.searchInput.imeOptions or EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING
+                                                                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\java\com\osfans\trime\ui\main\footprints\InputFootprintsFragment.kt:67: Warning: Field requires API level 26 (current min is 21): android.view.inputmethod.EditorInfo#IME_FLAG_NO_PERSONALIZED_LEARNING [InlinedApi]
+        binding.searchInput.imeOptions = binding.searchInput.imeOptions or EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING
+                                                                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\java\com\osfans\trime\ui\main\footprints\WordLearningActivity.kt:218: Warning: Field requires API level 26 (current min is 21): android.view.inputmethod.EditorInfo#IME_FLAG_NO_PERSONALIZED_LEARNING [InlinedApi]
+                    imeOptions = EditorInfo.IME_ACTION_DONE or EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING
+                                                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\java\com\osfans\trime\ui\main\footprints\WordLearningActivity.kt:218: Warning: Field requires API level 26 (current min is 21): android.view.inputmethod.EditorInfo#IME_FLAG_NO_PERSONALIZED_LEARNING [InlinedApi]
+                    imeOptions = EditorInfo.IME_ACTION_DONE or EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING
+                                                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\java\com\osfans\trime\ui\main\footprints\WordLearningActivity.kt:337: Warning: Field requires API level 26 (current min is 21): android.view.inputmethod.EditorInfo#IME_FLAG_NO_PERSONALIZED_LEARNING [InlinedApi]
+                imeOptions = EditorInfo.IME_ACTION_DONE or EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING
+                                                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\java\com\osfans\trime\ui\main\footprints\WordLearningActivity.kt:337: Warning: Field requires API level 26 (current min is 21): android.view.inputmethod.EditorInfo#IME_FLAG_NO_PERSONALIZED_LEARNING [InlinedApi]
+                imeOptions = EditorInfo.IME_ACTION_DONE or EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING
+                                                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "InlinedApi":
+   This check scans through all the Android API field references in the
+   application and flags certain constants, such as static final integers and
+   Strings, which were introduced in later versions. These will actually be
+   copied into the class files rather than being referenced, which means that
+   the value is available even when running on older devices. In some cases
+   that's fine, and in other cases it can result in a runtime crash or
+   incorrect behavior. It depends on the context, so consider the code
+   carefully and decide whether it's safe and can be suppressed or whether the
+   code needs to be guarded.
+
+   If you really want to use this API and don't need to support older devices
+   just set the minSdkVersion in your build.gradle or AndroidManifest.xml
+   files.
+
+   If your code is deliberately accessing newer APIs, and you have ensured
+   (e.g. with conditional execution) that this code will only ever be called
+   on a supported platform, then you can annotate your class or method with
+   the @TargetApi annotation specifying the local minimum SDK to apply, such
+   as @TargetApi(11), such that this check considers 11 rather than your
+   manifest file's minimum SDK as the required API level.
+
+D:\CodexBuildRoots\trime-develop\app\build.gradle.kts:69: Warning: Not targeting the latest versions of Android; compatibility modes apply. Consider testing and updating this version. Consult the android.os.Build.VERSION_CODES javadoc for details. [OldTargetApi]
+        targetSdk = 36
+        ~~~~~~~~~~~~~~
+
+   Explanation for issues of type "OldTargetApi":
+   When your application or sdk runs on a version of Android that is more
+   recent than your targetSdk specifies that it has been tested with, various
+   compatibility modes kick in. This ensures that your application continues
+   to work, but it may look out of place. For example, if the targetSdk is
+   less than 14, your app may get an option button in the UI.
+
+   To fix this issue, set the targetSdk to the highest available value. Then
+   test your app to make sure everything works correctly. You may want to
+   consult the compatibility notes to see what changes apply to each version
+   you are adding support for:
+   https://developer.android.com/reference/android/os/Build.VERSION_CODES.html
+   as well as follow this guide:
+   https://developer.android.com/distribute/best-practices/develop/target-sdk.
+   html
+
+   https://developer.android.com/distribute/best-practices/develop/target-sdk.html
+
+D:\CodexBuildRoots\trime-develop\app\src\main\AndroidManifest.xml:97: Warning: Attribute launchMode on <activity-alias> com.osfans.trime.MainLauncherAlias is invalid, and will be silently ignored. This attribute is always ignored on <activity-alias>. [InvalidManifestAttribute]
+            android:launchMode="singleTask"
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "InvalidManifestAttribute":
+   Most manifest attributes can be added to any tag without triggering any
+   build-time warnings or errors, but those attributes may be invalid, and
+   will be silently ignored.
+
+   For example, only a very specific subset of <activity> attributes are valid
+   on an <activity-alias>; the rest are ignored, which can be confusing.
+
+D:\CodexBuildRoots\trime-develop\app\build.gradle.kts:63: Warning: A newer version of compileSdk than 36 is available: 37 [GradleDependency]
+    compileSdk = 36
+    ~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "GradleDependency":
+   This detector looks for usages of libraries where the version you are using
+   is not the current stable release. Using older versions is fine, and there
+   are cases where you deliberately want to stick with an older version.
+   However, you may simply not be aware that a more recent version is
+   available, and that is what this lint check helps find.
+
+D:\CodexBuildRoots\trime-develop\app\src\main\res\values\attrs.xml:10: Warning: Overriding @attr/useSimpleSummaryProvider which is marked as private in androidx.preference:preference:1.2.1. If deliberate, use tools:override="true", otherwise pick a different name. [PrivateResource]
+    <attr name="useSimpleSummaryProvider" format="boolean" />
+                ~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "PrivateResource":
+   Private resources should not be referenced; the may not be present
+   everywhere, and even where they are they may disappear without notice.
+
+   To fix this, copy the resource into your own project instead.
+
+D:\CodexBuildRoots\trime-develop\app\src\main\res\values\strings.xml:269: Warning: Formatting %d followed by words ("item"): This should probably be a plural rather than a string [PluralsCandidate]
+    <string name="added_n_items">Added %1$d item(s)</string>
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\res\values\strings.xml:270: Warning: Formatting %d followed by words ("item"): This should probably be a plural rather than a string [PluralsCandidate]
+    <string name="removed_n_items">Removed %1$d item(s)</string>
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\res\values\strings.xml:288: Warning: Formatting %d followed by words ("entry"): This should probably be a plural rather than a string [PluralsCandidate]
+    <string name="import_n_entries">Imported %1$d entry(-ies)</string>
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\res\values\strings.xml:289: Warning: Formatting %d followed by words ("entry"): This should probably be a plural rather than a string [PluralsCandidate]
+    <string name="exported_n_entries">Exported %1$d entry(-ies)</string>
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\res\values\strings.xml:345: Warning: Formatting %d followed by words ("words"): This should probably be a plural rather than a string [PluralsCandidate]
+    <string name="input_footprints_summary">Recent %1$d words · %2$d favorites</string>
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\res\values\strings.xml:351: Warning: Formatting %d followed by words ("uses"): This should probably be a plural rather than a string [PluralsCandidate]
+    <string name="input_footprints_use_count">%1$d uses</string>
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\res\values\strings.xml:368: Warning: Formatting %d followed by words ("words"): This should probably be a plural rather than a string [PluralsCandidate]
+    <string name="input_footprints_toolbox_summary">Recent %1$d words · %2$d favorites</string>
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\res\values\strings.xml:381: Warning: Formatting %d followed by words ("pairs"): This should probably be a plural rather than a string [PluralsCandidate]
+    <string name="pinyin_fuzzy_enabled_count">%1$d pairs enabled</string>
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\res\values\strings_words.xml:29: Warning: Formatting %d followed by words ("words"): This should probably be a plural rather than a string [PluralsCandidate]
+    <string name="words_review_progress">%1$d / %2$d words completed</string>
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\res\values\strings_words.xml:33: Warning: Formatting %d followed by words ("words"): This should probably be a plural rather than a string [PluralsCandidate]
+    <string name="words_review_done_summary">Reviewed %1$d words. Your progress is saved.</string>
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\res\values\strings_words.xml:36: Warning: Formatting %d followed by words ("remaining"): This should probably be a plural rather than a string [PluralsCandidate]
+    <string name="words_continue">Continue · %1$d remaining</string>
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\res\values\strings_words.xml:54: Warning: Formatting %d followed by words ("new"): This should probably be a plural rather than a string [PluralsCandidate]
+    <string name="words_plan_counts">%1$d new · %2$d due in this batch</string>
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\res\values\strings_words.xml:55: Warning: Formatting %d followed by words ("new"): This should probably be a plural rather than a string [PluralsCandidate]
+    <string name="words_plan_remaining">Available today: %1$d new · %2$d due</string>
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\res\values\strings_words.xml:56: Warning: Formatting %d followed by words ("remaining"): This should probably be a plural rather than a string [PluralsCandidate]
+    <string name="words_resume">Continue review · %1$d remaining</string>
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\res\values\strings_words.xml:57: Warning: Formatting %d followed by words ("words"): This should probably be a plural rather than a string [PluralsCandidate]
+    <string name="words_review_count">Review %1$d words</string>
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "PluralsCandidate":
+   This lint check looks for potential errors in internationalization where
+   you have translated a message which involves a quantity and it looks like
+   other parts of the string may need grammatical changes.
+
+   For example, rather than something like this:
+     <string name="try_again">Try again in %d seconds.</string>
+   you should be using a plural:
+      <plurals name="try_again">
+           <item quantity="one">Try again in %d second</item>
+           <item quantity="other">Try again in %d seconds</item>
+       </plurals>
+   This will ensure that in other languages the right set of translations are
+   provided for the different quantity classes.
+
+   (This check depends on some heuristics, so it may not accurately determine
+   whether a string really should be a quantity. You can use tools:ignore to
+   filter out false positives.
+
+   https://developer.android.com/guide/topics/resources/string-resource.html#Plurals
+
+D:\CodexBuildRoots\trime-develop\app\src\main\res\layout\activity_setup.xml:14: Warning: Possible overdraw: Root element paints background @color/haohao_page_background with a theme that also paints a background (inferred theme is @style/Theme.TrimeAppTheme) [Overdraw]
+    android:background="@color/haohao_page_background"
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\res\layout\fragment_cloud_translation_settings.xml:11: Warning: Possible overdraw: Root element paints background @color/haohao_page_background with a theme that also paints a background (inferred theme is @style/Theme.TrimeAppTheme) [Overdraw]
+    android:background="@color/haohao_page_background"
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\res\layout\fragment_input_footprints.xml:7: Warning: Possible overdraw: Root element paints background @color/haohao_page_background with a theme that also paints a background (inferred theme is @style/Theme.TrimeAppTheme) [Overdraw]
+    android:background="@color/haohao_page_background">
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\res\layout\fragment_main.xml:13: Warning: Possible overdraw: Root element paints background @color/haohao_page_background with a theme that also paints a background (inferred theme is @style/Theme.TrimeAppTheme) [Overdraw]
+    android:background="@color/haohao_page_background"
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\res\layout\fragment_pinyin_fuzzy.xml:6: Warning: Possible overdraw: Root element paints background @color/haohao_page_background with a theme that also paints a background (inferred theme is @style/Theme.TrimeAppTheme) [Overdraw]
+    android:background="@color/haohao_page_background"
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\res\layout\fragment_setup.xml:14: Warning: Possible overdraw: Root element paints background @color/haohao_page_background with a theme that also paints a background (inferred theme is @style/Theme.TrimeAppTheme) [Overdraw]
+    android:background="@color/haohao_page_background"
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\res\layout\item_input_footprint.xml:7: Warning: Possible overdraw: Root element paints background ?attr/selectableItemBackground with a theme that also paints a background (inferred theme is @style/Theme.TrimeAppTheme) [Overdraw]
+    android:background="?attr/selectableItemBackground"
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "Overdraw":
+   If you set a background drawable on a root view, then you should use a
+   custom theme where the theme background is null. Otherwise, the theme
+   background will be painted first, only to have your custom background
+   completely cover it; this is called "overdraw".
+
+   NOTE: This detector relies on figuring out which layouts are associated
+   with which activities based on scanning the Java code, and it's currently
+   doing that using an inexact pattern matching algorithm. Therefore, it can
+   incorrectly conclude which activity the layout is associated with and then
+   wrongly complain that a background-theme is hidden.
+
+   If you want your custom background on multiple pages, then you should
+   consider making a custom theme with your custom background and just using
+   that theme instead of a root element background.
+
+   Of course it's possible that your custom drawable is translucent and you
+   want it to be mixed with the background. However, you will get better
+   performance if you pre-mix the background with your drawable and use that
+   resulting image or color as a custom theme background instead.
+
+D:\CodexBuildRoots\trime-develop\app\src\main\res\values\colors.xml:12: Warning: The resource R.color.yellow_500 appears to be unused [UnusedResources]
+    <color name="yellow_500">#FFEB3B</color>
+           ~~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\res\values\colors.xml:15: Warning: The resource R.color.grey_400 appears to be unused [UnusedResources]
+    <color name="grey_400">#BDBDBD</color>
+           ~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\res\values\colors.xml:22: Warning: The resource R.color.colorAccentDark appears to be unused [UnusedResources]
+    <color name="colorAccentDark">#317086</color> <!-- 深强调色 -->
+           ~~~~~~~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\res\drawable\haohao_divider.xml:2: Warning: The resource R.drawable.haohao_divider appears to be unused [UnusedResources]
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+^
+D:\CodexBuildRoots\trime-develop\app\src\main\res\drawable\ic_app_icon_foreground.xml:8: Warning: The resource R.drawable.ic_app_icon_foreground appears to be unused [UnusedResources]
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+^
+D:\CodexBuildRoots\trime-develop\app\src\main\res\drawable\ic_baseline_email_24.xml:6: Warning: The resource R.drawable.ic_baseline_email_24 appears to be unused [UnusedResources]
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+^
+D:\CodexBuildRoots\trime-develop\app\src\main\res\drawable\ic_baseline_link_24.xml:6: Warning: The resource R.drawable.ic_baseline_link_24 appears to be unused [UnusedResources]
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+^
+D:\CodexBuildRoots\trime-develop\app\src\main\res\drawable\ic_baseline_phone_24.xml:6: Warning: The resource R.drawable.ic_baseline_phone_24 appears to be unused [UnusedResources]
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+^
+D:\CodexBuildRoots\trime-develop\app\src\main\res\drawable\ic_haohao_emoji_24.xml:1: Warning: The resource R.drawable.ic_haohao_emoji_24 appears to be unused [UnusedResources]
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+^
+D:\CodexBuildRoots\trime-develop\app\src\main\res\values\strings.xml:11: Warning: The resource R.string.app_name_debug appears to be unused [UnusedResources]
+    <string name="app_name_debug">HaoHao IME (Debug)</string>
+            ~~~~~~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\res\values\strings.xml:28: Warning: The resource R.string.quick_settings_theme_summary appears to be unused [UnusedResources]
+    <string name="quick_settings_theme_summary">Choose the keyboard theme and light or dark colors</string>
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\res\values\strings.xml:98: Warning: The resource R.string.rime_runtime_preparing_summary appears to be unused [UnusedResources]
+    <string name="rime_runtime_preparing_summary">The first start can take a moment. Typing will be ready when it finishes.</string>
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\res\values\strings.xml:117: Warning: The resource R.string.effects appears to be unused [UnusedResources]
+    <string name="effects">Effects</string>
+            ~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\res\values\strings.xml:131: Warning: The resource R.string.external_storage_permission_not_available appears to be unused [UnusedResources]
+    <string name="external_storage_permission_not_available">External storage permission is not available</string>
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\res\values\strings.xml:132: Warning: The resource R.string.external_storage_permission_granted appears to be unused [UnusedResources]
+    <string name="external_storage_permission_granted">External storage permission is granted</string>
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\res\values\strings.xml:133: Warning: The resource R.string.external_storage_permission_denied appears to be unused [UnusedResources]
+    <string name="external_storage_permission_denied">External storage permission was denied, deployment or reading schemas and config may not be available</string>
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\res\values\strings.xml:135: Warning: The resource R.string.setup__next appears to be unused [UnusedResources]
+    <string name="setup__next">Next</string>
+            ~~~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\res\values\strings.xml:141: Warning: The resource R.string.setup__prev appears to be unused [UnusedResources]
+    <string name="setup__prev">Prev</string>
+            ~~~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\res\values\strings.xml:163: Warning: The resource R.string.quick_bar appears to be unused [UnusedResources]
+    <string name="quick_bar">Quick bar</string>
+            ~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\res\values\strings.xml:215: Warning: The resource R.string.setup__request_permission_hint appears to be unused [UnusedResources]
+    <string name="setup__request_permission_hint">Allow access to the keyboard configuration so HaoHao IME can load and save your offline setup.</string>
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\res\values\strings.xml:216: Warning: The resource R.string.setup__request_permission appears to be unused [UnusedResources]
+    <string name="setup__request_permission">Allow config access</string>
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\res\values\strings.xml:225: Warning: The resource R.string.no_schema_to_enable appears to be unused [UnusedResources]
+    <string name="no_schema_to_enable">No schema to enable. Make sure you have prelude and schema files in the user directory.</string>
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\res\values\strings.xml:248: Warning: The resource R.string.raw_input appears to be unused [UnusedResources]
+    <string name="raw_input">Raw input</string>
+            ~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\res\values\strings.xml:293: Warning: The resource R.string.restore appears to be unused [UnusedResources]
+    <string name="restore">Restore</string>
+            ~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\res\values\strings.xml:314: Warning: The resource R.string.haohao_toolbox_clipboard appears to be unused [UnusedResources]
+    <string name="haohao_toolbox_clipboard">Clipboard</string>
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\res\values\strings.xml:315: Warning: The resource R.string.haohao_toolbox_emoji appears to be unused [UnusedResources]
+    <string name="haohao_toolbox_emoji">Emoji</string>
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\res\values\strings.xml:341: Warning: The resource R.string.haohao_editor_finish_composing appears to be unused [UnusedResources]
+    <string name="haohao_editor_finish_composing">Choose a candidate or clear Pinyin first</string>
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\res\values\strings.xml:366: Warning: The resource R.string.input_footprints_tts_unavailable appears to be unused [UnusedResources]
+    <string name="input_footprints_tts_unavailable">American English speech data is unavailable. Install it in system text-to-speech settings.</string>
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\res\values\strings.xml:375: Warning: The resource R.string.pinyin_smart_correction appears to be unused [UnusedResources]
+    <string name="pinyin_smart_correction">Smart correction</string>
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\res\values\strings.xml:376: Warning: The resource R.string.pinyin_smart_correction_summary appears to be unused [UnusedResources]
+    <string name="pinyin_smart_correction_summary">Correct common missing or transposed letters</string>
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\res\values\strings.xml:377: Warning: The resource R.string.pinyin_adjacent_key_correction appears to be unused [UnusedResources]
+    <string name="pinyin_adjacent_key_correction">Key correction</string>
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\res\values\strings.xml:378: Warning: The resource R.string.pinyin_adjacent_key_correction_summary appears to be unused [UnusedResources]
+    <string name="pinyin_adjacent_key_correction_summary">Accept one neighboring QWERTY key by mistake</string>
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\res\values\strings.xml:380: Warning: The resource R.string.pinyin_fuzzy_disabled appears to be unused [UnusedResources]
+    <string name="pinyin_fuzzy_disabled">Off</string>
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\res\values\strings.xml:381: Warning: The resource R.string.pinyin_fuzzy_enabled_count appears to be unused [UnusedResources]
+    <string name="pinyin_fuzzy_enabled_count">%1$d pairs enabled</string>
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\res\values\strings.xml:412: Warning: The resource R.string.cloud_translation_status_failed appears to be unused [UnusedResources]
+    <string name="cloud_translation_status_failed">Connection failed · Previous configuration kept</string>
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\res\values\strings.xml:421: Warning: The resource R.string.cloud_translation_candidate_fallback appears to be unused [UnusedResources]
+    <string name="cloud_translation_candidate_fallback">Fill missing candidate translations online</string>
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\res\values\strings.xml:422: Warning: The resource R.string.cloud_translation_candidate_fallback_summary appears to be unused [UnusedResources]
+    <string name="cloud_translation_candidate_fallback_summary">Off by default. At most five visible candidates without offline definitions are sent.</string>
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\res\values\strings.xml:447: Warning: The resource R.string.haohao_translation_commit_result appears to be unused [UnusedResources]
+    <string name="haohao_translation_commit_result">Insert translation</string>
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\res\values\strings_words.xml:50: Warning: The resource R.string.words_list_hint appears to be unused [UnusedResources]
+    <string name="words_list_hint">Encounter counts describe typing frequency, not memory.</string>
+            ~~~~~~~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\res\color\text_input_type_pill.xml:6: Warning: The resource R.color.text_input_type_pill appears to be unused [UnusedResources]
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+^
+
+   Explanation for issues of type "UnusedResources":
+   Unused resources make applications larger and slow down builds.
+
+
+   The unused resource check can ignore tests. If you want to include
+   resources that are only referenced from tests, consider packaging them in a
+   test source set instead.
+
+   You can include test sources in the unused resource check by setting the
+   system property lint.unused-resources.include-tests=true, and to exclude
+   them (usually for performance reasons), use
+   lint.unused-resources.exclude-tests=true.
+
+   Available options:
+
+   **skip-libraries** (default is true):
+   Whether the unused resource check should skip reporting unused resources in libraries.
+
+   Many libraries will declare resources that are part of the library surface; other modules depending on the library will also reference the resources. To avoid reporting all these resources as unused (in the context of a library), the unused resource check normally skips reporting unused resources in libraries. Instead, run the unused resource check on the consuming app module (along with `checkDependencies=true`).
+
+   However, there are cases where you want to check that all the resources declared in a library are used; in that case, you can disable the skip option.
+
+   To configure this option, use a `lint.xml` file with an <option> like this:
+
+   ```xml
+   <lint>
+       <issue id="UnusedResources">
+           <option name="skip-libraries" value="true" />
+       </issue>
+   </lint>
+   ```
+
+D:\CodexBuildRoots\trime-develop\app\src\main\java\com\osfans\trime\data\base\DataManager.kt:454: Warning: Consider also using StorageManager#getAllocatableBytes and allocateBytes which will consider clearable cached data [UsableSpace]
+            val availableBytes = managedDataDir.usableSpace
+                                                ~~~~~~~~~~~
+
+   Explanation for issues of type "UsableSpace":
+   When you need to allocate disk space for large files, consider using the
+   new allocateBytes(FileDescriptor, long) API, which will automatically clear
+   cached files belonging to other apps (as needed) to meet your request.
+
+   When deciding if the device has enough disk space to hold your new data,
+   call getAllocatableBytes(UUID) instead of using getUsableSpace(), since the
+   former will consider any cached data that the system is willing to clear on
+   your behalf.
+
+   Note that these methods require API level 26. If your app is running on
+   older devices, you will probably need to use both APIs, conditionally
+   switching on Build.VERSION.SDK_INT. Lint only looks in the same compilation
+   unit to see if you are already using both APIs, so if it warns even though
+   you are already using the new API, consider moving the calls to the same
+   file or suppressing the warning.
+
+D:\CodexBuildRoots\trime-develop\app\src\main\res\layout\fragment_main.xml:617: Warning: fragment_main.xml has more than 80 views, bad for performance [TooManyViews]
+                    <androidx.appcompat.widget.AppCompatButton
+                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "TooManyViews":
+   Using too many views in a single layout is bad for performance. Consider
+   using compound drawables or other tricks for reducing the number of views
+   in this layout.
+
+   The maximum view count defaults to 80 but can be configured with the
+   environment variable ANDROID_LINT_MAX_VIEW_COUNT.
+
+D:\CodexBuildRoots\trime-develop\app\src\main\res\values-zh-rCN\strings.xml:161: Warning: Replace "-" with an "en dash" character (–, &#8211;) ? [TypographyDashes]
+    <string name="hook_shift_num">点击0-9时，忽略Shift的锁定状态</string>
+                                  ~~~~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\res\values-zh-rTW\strings.xml:164: Warning: Replace "-" with an "en dash" character (–, &#8211;) ? [TypographyDashes]
+    <string name="hook_shift_num">點擊0-9時，忽略Shift的鎖定狀態</string>
+                                  ~~~~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\res\values\strings.xml:173: Warning: Replace "-" with an "en dash" character (–, &#8211;) ? [TypographyDashes]
+    <string name="hook_shift_num">Ignore Shift locked for 0-9</string>
+                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "TypographyDashes":
+   The "n dash" (u2013, &#8211;) and the "m dash" (u2014, &#8212;) characters
+   are used for ranges (n dash) and breaks (m dash). Using these instead of
+   plain hyphens can make text easier to read and your application will look
+   more polished.
+
+   https://en.wikipedia.org/wiki/Dash
+
+D:\CodexBuildRoots\trime-develop\app\src\main\res\values\strings.xml:203: Warning: The standard Android way to capitalize CANCEL is "Cancel" (tip: use @android:string/cancel instead) [ButtonCase]
+    <string name="cancel">CANCEL</string>
+                          ~~~~~~
+
+   Explanation for issues of type "ButtonCase":
+   The standard capitalization for OK/Cancel dialogs is "OK" and "Cancel". To
+   ensure that your dialogs use the standard strings, you can use the resource
+   strings @android:string/ok and @android:string/cancel.
+
+D:\CodexBuildRoots\trime-develop\app\src\main\java\com\osfans\trime\data\translation\CloudCandidateTranslation.kt:92: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+            preferences.edit().putString(ENTRIES_KEY, raw).apply()
+            ~~~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\java\com\osfans\trime\data\translation\CloudTranslation.kt:679: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        sharedPreferences.edit().putString(key, encrypt(value)).apply()
+        ~~~~~~~~~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\java\com\osfans\trime\data\translation\CloudTranslation.kt:689: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        sharedPreferences.edit().apply {
+        ~~~~~~~~~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\java\com\osfans\trime\data\translation\CloudTranslation.kt:726: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+            sharedPreferences.edit().putString(INSTALL_ID, it).apply()
+            ~~~~~~~~~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\java\com\osfans\trime\util\Drawable.kt:21: Warning: Use the KTX extension function Int.toDrawable instead? [UseKtx]
+) = RippleDrawable(ColorStateList.valueOf(color), null, ColorDrawable(Color.WHITE))
+                                                        ~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\java\com\osfans\trime\util\Drawable.kt:52: Warning: Use the KTX extension function Int.toDrawable instead? [UseKtx]
+    addState(intArrayOf(android.R.attr.state_pressed), ColorDrawable(color))
+                                                       ~~~~~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\java\com\osfans\trime\util\Intent.kt:50: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
+    else -> Intent(fullAction, Uri.parse(argument))
+                               ~~~~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\java\com\osfans\trime\ui\main\LicenseFragment.kt:86: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(license.url)))
+                                                     ~~~~~~~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\java\com\osfans\trime\ui\main\MainActivity.kt:147: Warning: Use the KTX extension property Menu.size instead? [UseKtx]
+            for (index in 0 until binding.mainToolbar.toolbar.menu.size()) {
+                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\java\com\osfans\trime\ui\main\MainActivity.kt:148: Warning: Use the KTX extension function Menu.get instead? [UseKtx]
+                binding.mainToolbar.toolbar.menu.getItem(index).icon?.setTint(toolbarColor)
+                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\java\com\osfans\trime\util\NinePatchBitmapFactory.kt:107: Warning: Use the KTX extension function Bitmap.get instead? [UseKtx]
+            val color = bitmap.getPixel(i, 0)
+                        ~~~~~~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\java\com\osfans\trime\util\NinePatchBitmapFactory.kt:133: Warning: Use the KTX extension function Bitmap.get instead? [UseKtx]
+            val color = bitmap.getPixel(0, i)
+                        ~~~~~~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\java\com\osfans\trime\util\Uri.kt:143: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
+                val contentUri = ContentUris.withAppendedId(Uri.parse(contentUriPrefix), availableId)
+                                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "UseKtx":
+   The Android KTX libraries decorates the Android platform SDK as well as
+   various libraries with more convenient extension functions available from
+   Kotlin, allowing you to use default parameters, named parameters, and
+   more.
+
+   Available options:
+
+   **remove-defaults** (default is true):
+   Whether to skip arguments that match the defaults provided by the extension.
+
+   Extensions often provide default values for some of the parameters. For example:
+   ```kotlin
+   fun Path.readLines(charset: Charset = Charsets.UTF_8): List<String> { return Files.readAllLines(this, charset) }
+   ```
+   This lint check will by default automatically omit parameters that match the default, so if your code was calling
+
+   ```kotlin
+   Files.readAllLines(file, Charset.UTF_8)
+   ```
+   lint would replace this with
+   ```kotlin
+   file.readLines()
+   ```
+   rather than
+
+   ```kotlin
+   file.readLines(Charset.UTF_8
+   ```
+   You can turn this behavior off using this option.
+
+   To configure this option, use a `lint.xml` file with an <option> like this:
+
+   ```xml
+   <lint>
+       <issue id="UseKtx">
+           <option name="remove-defaults" value="true" />
+       </issue>
+   </lint>
+   ```
+
+   **require-present** (default is true):
+   Whether to only offer extensions already available.
+
+   This option lets you only have lint suggest extension replacements if those extensions are already available on the class path (in other words, you're already depending on the library containing the extension method.)
+
+   To configure this option, use a `lint.xml` file with an <option> like this:
+
+   ```xml
+   <lint>
+       <issue id="UseKtx">
+           <option name="require-present" value="true" />
+       </issue>
+   </lint>
+   ```
+
+D:\CodexBuildRoots\trime-develop\app\src\main\java\com\osfans\trime\ime\haohao\HaoHaoEditorWindow.kt:196: Warning: Custom view `TextView` has setOnTouchListener called on it but does not override performClick [ClickableViewAccessibility]
+            setOnTouchListener { view, event ->
+            ^
+
+   Explanation for issues of type "ClickableViewAccessibility":
+   If a View that overrides onTouchEvent or uses an OnTouchListener does not
+   also implement performClick and call it when clicks are detected, the View
+   may not handle accessibility actions properly. Logic handling the click
+   actions should ideally be placed in View#performClick as some accessibility
+   services invoke performClick when a click action should occur.
+
+D:\CodexBuildRoots\trime-develop\app\src\main\java\com\osfans\trime\ui\main\footprints\WordLearningActivity.kt:338: Warning: Number formatting does not take into account locale settings. Consider using String.format instead. [SetTextI18n]
+                setText(value.toString())
+                        ~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "SetTextI18n":
+   When calling TextView#setText
+   * Never call Number#toString() to format numbers; it will not handle
+   fraction separators and locale-specific digits properly. Consider using
+   String#format with proper format specifications (%d or %f) instead.
+   * Do not pass a string literal (e.g. "Hello") to display text. Hardcoded
+   text can not be properly translated to other languages. Consider using
+   Android resource strings instead.
+   * Do not build messages by concatenating text chunks. Such messages can not
+   be properly translated.
+
+   https://developer.android.com/guide/topics/resources/localization.html
+
+D:\CodexBuildRoots\trime-develop\app\src\main\res\layout\fragment_main.xml:558: Warning: Hardcoded string "3", should use @string resource [HardcodedText]
+                        android:text="3" />
+                        ~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\res\layout\fragment_main.xml:566: Warning: Hardcoded string "4", should use @string resource [HardcodedText]
+                        android:text="4" />
+                        ~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\res\layout\fragment_main.xml:574: Warning: Hardcoded string "5", should use @string resource [HardcodedText]
+                        android:text="5" />
+                        ~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\res\layout\fragment_main.xml:607: Warning: Hardcoded string "5", should use @string resource [HardcodedText]
+                        android:text="5" />
+                        ~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\res\layout\fragment_main.xml:615: Warning: Hardcoded string "6", should use @string resource [HardcodedText]
+                        android:text="6" />
+                        ~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\res\layout\fragment_main.xml:623: Warning: Hardcoded string "7", should use @string resource [HardcodedText]
+                        android:text="7" />
+                        ~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\res\layout\fragment_main.xml:631: Warning: Hardcoded string "8", should use @string resource [HardcodedText]
+                        android:text="8" />
+                        ~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "HardcodedText":
+   Hardcoding text attributes directly in layout files is bad for several
+   reasons:
+
+   * When creating configuration variations (for example for landscape or
+   portrait) you have to repeat the actual text (and keep it up to date when
+   making changes)
+
+   * The application cannot be translated to other languages by just adding
+   new translations for existing string resources.
+
+   There are quickfixes to automatically extract this hardcoded string into a
+   resource lookup.
+
+D:\CodexBuildRoots\trime-develop\app\src\main\res\layout\activity_setup.xml:23: Warning: When you define paddingStart you should probably also define paddingEnd for right-to-left symmetry [RtlSymmetry]
+        android:paddingStart="24dp"
+        ~~~~~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\res\layout\fragment_main.xml:28: Warning: When you define paddingStart you should probably also define paddingEnd for right-to-left symmetry [RtlSymmetry]
+            android:paddingStart="24dp">
+            ~~~~~~~~~~~~~~~~~~~~
+D:\CodexBuildRoots\trime-develop\app\src\main\res\layout\item_input_footprint.xml:8: Warning: When you define paddingStart you should probably also define paddingEnd for right-to-left symmetry [RtlSymmetry]
+    android:paddingStart="12dp"
+    ~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "RtlSymmetry":
+   If you specify padding or margin on the left side of a layout, you should
+   probably also specify padding on the right side (and vice versa) for
+   right-to-left layout symmetry.
+
+D:\CodexBuildRoots\trime-develop\app\src\main\AndroidManifest.xml: Warning: The project references RTL attributes, but does not explicitly enable or disable RTL support with android:supportsRtl in the manifest [RtlEnabled]
+
+   Explanation for issues of type "RtlEnabled":
+   To enable right-to-left support, when running on API 17 and higher, you
+   must set the android:supportsRtl attribute in the manifest <application>
+   element.
+
+   If you have started adding RTL attributes, but have not yet finished the
+   migration, you can set the attribute to false to satisfy this lint check.
+
+0 errors, 106 warnings

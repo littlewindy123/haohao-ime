@@ -40,6 +40,7 @@ class GeneralStyleTest :
                     generalStyle.autoCaps shouldBe false
                     generalStyle.candidateBorder shouldBe 0
                     generalStyle.candidateFont shouldBe emptyList()
+                    generalStyle.keyCapHeight shouldBe 0
                     generalStyle.commentPosition shouldBe GeneralStyle.CommentPosition.RIGHT
                     generalStyle.enterLabel shouldNotBe null
                     generalStyle.enterLabel.go shouldBe "go"

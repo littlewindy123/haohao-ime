@@ -29,7 +29,7 @@ import com.osfans.trime.data.theme.Theme
 import com.osfans.trime.data.theme.model.GeneralStyle
 import com.osfans.trime.data.translation.CloudCandidateTranslationController
 import com.osfans.trime.data.translation.CloudCandidateTranslationRepository
-import com.osfans.trime.data.translation.OfflineFirstCandidateTranslationRepository
+import com.osfans.trime.data.translation.ConfiguredCandidateTranslationRepository
 import com.osfans.trime.ime.bar.InputBarDelegate
 import com.osfans.trime.ime.bar.UnrollButtonStateMachine
 import com.osfans.trime.ime.broadcast.InputBroadcastReceiver
@@ -256,6 +256,16 @@ class CompactCandidateDelegate : InputBroadcastReceiver {
     private var currentPreedit: String? = null
     private var renderJob: Job? = null
     private var renderGeneration = 0L
+
+    @Volatile private var rowGeometry: RowGeometry? = null
+
+    private data class RowGeometry(
+        val candidates: List<UnrolledCandidateItem>,
+        val width: Int,
+        val mode: CompactTranslationMode,
+        val enabled: Boolean,
+        val cells: List<CompactCandidateCell>,
+    )
     private val candidateWidthCache =
         object : LinkedHashMap<CandidateWidthCacheKey, CompactCandidateWidthBounds>(64, 0.75f, true) {
             override fun removeEldestEntry(
@@ -408,7 +418,7 @@ class CompactCandidateDelegate : InputBroadcastReceiver {
         mode: CompactTranslationMode,
     ): CompactTranslationHint? {
         if (!candidatePreferences.bilingualTranslation.getValue()) return null
-        val translation = OfflineFirstCandidateTranslationRepository.lookup(item.candidate.text)?.translation
+        val translation = ConfiguredCandidateTranslationRepository.lookup(item.candidate.text)?.translation
         val requiredWidth = translation?.let {
             translationTextPaint.measureText(it).roundToInt() +
                 context.dp(theme.generalStyle.candidatePadding * 2) +
@@ -439,8 +449,13 @@ class CompactCandidateDelegate : InputBroadcastReceiver {
             val targetCount = targetCandidateCount()
             val candidates = data.candidates.toCompactCandidateItems(targetCount, preedit)
             val translationMode = candidatePreferences.compactTranslationMode.getValue()
+            val translationEnabled = candidatePreferences.bilingualTranslation.getValue()
             val translationHints = candidates.associateWith { translationHintFor(it, translationMode) }
-            val cells = fitCompactCandidateRow(
+            // Translation arrivals may reveal text, but must not move the Chinese touch targets.
+            val reusableGeometry = rowGeometry.takeIf {
+                it?.candidates == candidates && it.width == availableWidth && it.mode == translationMode && it.enabled == translationEnabled
+            }?.cells
+            val geometry = reusableGeometry ?: fitCompactCandidateRow(
                 candidates = candidates,
                 targetCount = targetCount,
                 availableWidth = availableWidth,
@@ -448,7 +463,8 @@ class CompactCandidateDelegate : InputBroadcastReceiver {
                 widthOf = { item ->
                     measureCandidateWidth(item, translationMode, translationHints[item])
                 },
-            ).map { cell ->
+            )
+            val cells = geometry.map { cell ->
                 cell.copy(
                     compactTranslation = compactTranslationTextForCell(
                         translationHints[cell.item],
@@ -465,6 +481,7 @@ class CompactCandidateDelegate : InputBroadcastReceiver {
                     return@withContext
                 }
                 service.recordCandidateModelBuild(elapsedNanos)
+                rowGeometry = RowGeometry(candidates, availableWidth, translationMode, translationEnabled, geometry)
                 adapter.updateCandidates(cells, data.total, data.highlighted)
                 renderedCandidatePresentationVersion = latestCandidatePresentationVersion
                 cloudCandidateController.requestVisible(cells.map { it.item.candidate.text })

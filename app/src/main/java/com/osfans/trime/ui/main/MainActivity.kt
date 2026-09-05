@@ -134,9 +134,20 @@ class MainActivity : AppCompatActivity() {
         navController.addOnDestinationChangedListener { _, dest, _ ->
             dest.label?.let { viewModel.setToolbarTitle(it.toString()) }
             val isMain = dest.hasRoute<NavigationRoute.Main>()
+            val isWords = dest.hasRoute<NavigationRoute.InputFootprints>()
             binding.mainToolbar.root.isVisible = !isMain
             binding.mainToolbar.toolbar.subtitle = ""
-            updateSystemBars(isMain)
+            val toolbarColor = ContextCompat.getColor(this, if (isWords) R.color.haohao_cocoa else R.color.toolbarForegroundColor)
+            binding.mainToolbar.root.setBackgroundColor(ContextCompat.getColor(this, if (isWords) R.color.haohao_page_background else R.color.colorPrimary))
+            binding.mainToolbar.toolbar.setBackgroundColor(ContextCompat.getColor(this, if (isWords) R.color.haohao_page_background else R.color.colorPrimary))
+            binding.mainToolbar.toolbar.setTitleTextColor(toolbarColor)
+            binding.mainToolbar.toolbar.navigationIcon?.setTint(toolbarColor)
+            (binding.mainToolbar.toolbar.navigationIcon as? DrawerArrowDrawable)?.color = toolbarColor
+            binding.mainToolbar.toolbar.overflowIcon?.setTint(toolbarColor)
+            for (index in 0 until binding.mainToolbar.toolbar.menu.size()) {
+                binding.mainToolbar.toolbar.menu.getItem(index).icon?.setTint(toolbarColor)
+            }
+            updateSystemBars(isMain, isWords)
         }
 
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
@@ -240,7 +251,7 @@ class MainActivity : AppCompatActivity() {
         testInputPanel?.show(window)
     }
 
-    private fun updateSystemBars(isMain: Boolean) {
+    private fun updateSystemBars(isMain: Boolean, isWords: Boolean = false) {
         val isNightMode =
             resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK ==
                 Configuration.UI_MODE_NIGHT_YES
@@ -248,7 +259,12 @@ class MainActivity : AppCompatActivity() {
         if (isMain) {
             window.statusBarColor = ContextCompat.getColor(this, R.color.haohao_brand_header)
             window.navigationBarColor = ContextCompat.getColor(this, R.color.haohao_page_background)
-            controller.isAppearanceLightStatusBars = true
+            controller.isAppearanceLightStatusBars = !isNightMode
+            controller.isAppearanceLightNavigationBars = !isNightMode
+        } else if (isWords) {
+            window.statusBarColor = ContextCompat.getColor(this, R.color.haohao_page_background)
+            window.navigationBarColor = ContextCompat.getColor(this, R.color.haohao_page_background)
+            controller.isAppearanceLightStatusBars = !isNightMode
             controller.isAppearanceLightNavigationBars = !isNightMode
         } else {
             window.statusBarColor = ContextCompat.getColor(this, R.color.colorPrimaryDark)

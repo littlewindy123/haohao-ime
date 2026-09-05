@@ -27,15 +27,37 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import org.kodein.di.instance
+import java.nio.charset.StandardCharsets
+import java.security.MessageDigest
 import java.util.concurrent.CopyOnWriteArraySet
 
 internal const val CLOUD_CANDIDATE_CACHE_MAX_ENTRIES = 4_096
 internal const val CLOUD_CANDIDATE_POSITIVE_TTL_MS = 30L * 24 * 60 * 60 * 1_000
 internal const val CLOUD_CANDIDATE_NEGATIVE_TTL_MS = 8L * 60 * 1_000
-private const val CLOUD_CANDIDATE_DEBOUNCE_MS = 300L
-private const val CLOUD_CANDIDATE_MAX_WORD_CODE_POINTS = 18
+internal const val CLOUD_CANDIDATE_SERVICE_COOLDOWN_MS = 30_000L
+internal const val CLOUD_CANDIDATE_DEBOUNCE_MS = 800L
+private const val CLOUD_CANDIDATE_MAX_TRANSLATION_CODE_POINTS = 32
+private const val CLOUD_CANDIDATE_MAX_TRANSLATION_WORDS = 4
 private val CLOUD_CANDIDATE_WORD = Regex("[A-Za-z]+(?:['\u2019-][A-Za-z]+)*")
-private val CLOUD_CANDIDATE_SIMPLE_PREFIX = Regex("(?:to|a|an|the)\\s+(.+)", RegexOption.IGNORE_CASE)
+
+internal enum class CandidateTranslationSourceMode {
+    LOCAL_ONLY,
+    CLOUD_ONLY,
+    LOCAL_THEN_CLOUD,
+    ;
+
+    val requiresCloudConsent: Boolean
+        get() = this != LOCAL_ONLY
+}
+
+internal fun resolveCandidateTranslationSourceMode(
+    persistedMode: CandidateTranslationSourceMode?,
+    legacyFallbackEnabled: Boolean,
+): CandidateTranslationSourceMode = persistedMode ?: if (legacyFallbackEnabled) {
+    CandidateTranslationSourceMode.LOCAL_THEN_CLOUD
+} else {
+    CandidateTranslationSourceMode.LOCAL_ONLY
+}
 
 @Serializable
 internal data class CloudCandidateCacheEntry(
@@ -54,6 +76,7 @@ internal interface CloudCandidateCacheStorage {
 private object SharedPrefsCloudCandidateCacheStorage : CloudCandidateCacheStorage {
     private const val PREFERENCES_NAME = "haohao_cloud_translation_cache"
     private const val ENTRIES_KEY = "positive_entries_v1"
+    private val writer = java.util.concurrent.Executors.newSingleThreadExecutor { runnable -> Thread(runnable, "word-cache-writer").apply { isDaemon = true } }
     private val preferences by lazy {
         appContext.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
     }
@@ -64,8 +87,10 @@ private object SharedPrefsCloudCandidateCacheStorage : CloudCandidateCacheStorag
     }.getOrDefault(emptyList())
 
     override fun save(entries: List<CloudCandidateCacheEntry>) {
-        val raw = CACHE_JSON.encodeToString(ListSerializer(CloudCandidateCacheEntry.serializer()), entries)
-        preferences.edit().putString(ENTRIES_KEY, raw).apply()
+        writer.execute {
+            val raw = CACHE_JSON.encodeToString(ListSerializer(CloudCandidateCacheEntry.serializer()), entries)
+            preferences.edit().putString(ENTRIES_KEY, raw).apply()
+        }
     }
 }
 
@@ -86,13 +111,16 @@ internal class CloudCandidateTranslationCache(
             .filter { now - it.storedAtMillis in 0 until CLOUD_CANDIDATE_POSITIVE_TTL_MS }
             .mapNotNull { entry ->
                 sanitizeCandidateTranslation(entry.translation)?.let { translation ->
-                    entry.copy(translation = translation)
+                    entry.copy(
+                        text = candidateTextFingerprint(entry.text),
+                        translation = translation,
+                    )
                 }
             }
             .sortedBy(CloudCandidateCacheEntry::storedAtMillis)
             .toList()
             .takeLast(maximumEntries)
-        reusable.forEach { positive[cacheKey(it.providerFingerprint, it.text)] = it }
+        reusable.forEach { positive[storedCacheKey(it.providerFingerprint, it.text)] = it }
         if (reusable != loaded) persistLocked()
     }
 
@@ -139,7 +167,12 @@ internal class CloudCandidateTranslationCache(
                 return@forEach
             }
             positive.remove(key)
-            positive[key] = CloudCandidateCacheEntry(providerFingerprint, text, translation, storedAt)
+            positive[key] = CloudCandidateCacheEntry(
+                providerFingerprint = providerFingerprint,
+                text = candidateTextFingerprint(text),
+                translation = translation,
+                storedAtMillis = storedAt,
+            )
             negativeUntil.remove(key)
         }
         while (positive.size > maximumEntries) {
@@ -165,33 +198,66 @@ internal class CloudCandidateTranslationCache(
     private fun cacheKey(
         providerFingerprint: String,
         text: String,
-    ): String = "$providerFingerprint\u0000$text"
+    ): String = storedCacheKey(providerFingerprint, candidateTextFingerprint(text))
+
+    private fun storedCacheKey(
+        providerFingerprint: String,
+        textFingerprint: String,
+    ): String = "$providerFingerprint\u0000$textFingerprint"
 }
+
+private fun candidateTextFingerprint(text: String): String {
+    if (text.startsWith(CANDIDATE_TEXT_FINGERPRINT_PREFIX)) return text
+    val digest = MessageDigest.getInstance("SHA-256").digest(text.toByteArray(StandardCharsets.UTF_8))
+    return CANDIDATE_TEXT_FINGERPRINT_PREFIX + digest.joinToString("") { "%02x".format(it) }
+}
+
+private const val CANDIDATE_TEXT_FINGERPRINT_PREFIX = "sha256:"
 
 private fun sanitizeCandidateTranslation(value: String): String? {
     val translation = value.replace(Regex("\\s+"), " ").trim()
-    val word = when {
-        CLOUD_CANDIDATE_WORD.matches(translation) -> translation
-        else -> CLOUD_CANDIDATE_SIMPLE_PREFIX.matchEntire(translation)
-            ?.groupValues
-            ?.get(1)
-            ?.takeIf(CLOUD_CANDIDATE_WORD::matches)
-    } ?: return null
-    if (word.codePointCount(0, word.length) > CLOUD_CANDIDATE_MAX_WORD_CODE_POINTS) return null
-    return word
+    if (translation.isEmpty()) return null
+    if (translation.codePointCount(0, translation.length) > CLOUD_CANDIDATE_MAX_TRANSLATION_CODE_POINTS) return null
+    val words = translation.split(' ')
+    if (words.size !in 1..CLOUD_CANDIDATE_MAX_TRANSLATION_WORDS) return null
+    if (words.any { !CLOUD_CANDIDATE_WORD.matches(it) }) return null
+    return words.joinToString(" ")
 }
 
 internal object CloudCandidateTranslationRepository : CandidateTranslationRepository {
-    private val cache = CloudCandidateTranslationCache()
+    private val cacheDelegate = lazy { CloudCandidateTranslationCache() }
+    private val cache by cacheDelegate
+    private val warming = java.util.concurrent.atomic.AtomicBoolean()
+    private val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.IO)
     private val config by lazy { CloudTranslationConfigStore() }
     private val listeners = CopyOnWriteArraySet<() -> Unit>()
 
-    override fun lookup(text: String): CandidateTranslationEntry? = cache.lookup(config.providerFingerprint(), text)
+    private fun warmUp() {
+        if (!warming.compareAndSet(false, true)) return
+        scope.launch {
+            cache
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) { listeners.forEach { it() } }
+        }
+    }
+
+    override fun lookup(text: String): CandidateTranslationEntry? {
+        if (!cacheDelegate.isInitialized()) {
+            warmUp()
+            return null
+        }
+        return cache.lookup(config.providerFingerprint(), text)
+    }
 
     fun shouldRequest(
         providerFingerprint: String,
         text: String,
-    ): Boolean = cache.shouldRequest(providerFingerprint, text)
+    ): Boolean {
+        if (!cacheDelegate.isInitialized()) {
+            warmUp()
+            return false
+        }
+        return cache.shouldRequest(providerFingerprint, text)
+    }
 
     fun currentProviderFingerprint(): String = config.providerFingerprint()
 
@@ -213,6 +279,7 @@ internal object CloudCandidateTranslationRepository : CandidateTranslationReposi
 
     fun addListener(listener: () -> Unit) {
         listeners += listener
+        warmUp()
     }
 
     fun removeListener(listener: () -> Unit) {
@@ -220,8 +287,22 @@ internal object CloudCandidateTranslationRepository : CandidateTranslationReposi
     }
 }
 
-internal object OfflineFirstCandidateTranslationRepository : CandidateTranslationRepository {
-    override fun lookup(text: String): CandidateTranslationEntry? = OfflineCandidateTranslationRepository.lookup(text) ?: CloudCandidateTranslationRepository.lookup(text)
+internal fun lookupCandidateTranslation(
+    text: String,
+    mode: CandidateTranslationSourceMode,
+    offlineLookup: (String) -> CandidateTranslationEntry? = OfflineCandidateTranslationRepository::lookup,
+    cloudLookup: (String) -> CandidateTranslationEntry? = CloudCandidateTranslationRepository::lookup,
+): CandidateTranslationEntry? = when (mode) {
+    CandidateTranslationSourceMode.LOCAL_ONLY -> offlineLookup(text)
+    CandidateTranslationSourceMode.CLOUD_ONLY -> cloudLookup(text)
+    CandidateTranslationSourceMode.LOCAL_THEN_CLOUD -> offlineLookup(text) ?: cloudLookup(text)
+}
+
+internal object ConfiguredCandidateTranslationRepository : CandidateTranslationRepository {
+    override fun lookup(text: String): CandidateTranslationEntry? = lookupCandidateTranslation(
+        text = text,
+        mode = AppPrefs.defaultInstance().cloudTranslation.candidateSource.getValue(),
+    )
 }
 
 internal object CloudTranslationRuntime {
@@ -239,16 +320,60 @@ internal object CloudTranslationPrivacyPolicy {
     ): Boolean = InputFootprintPolicy.canRecord(inputType, imeOptions)
 }
 
+internal class CloudCandidateServiceCooldown(
+    private val nowMillis: () -> Long = System::currentTimeMillis,
+) {
+    private var unavailableUntilMillis = 0L
+
+    fun isActive(): Boolean = nowMillis() < unavailableUntilMillis
+
+    fun record(failure: CloudTranslationResult.Failure) {
+        if (failure.kind in COOLDOWN_FAILURES) {
+            unavailableUntilMillis = nowMillis() + CLOUD_CANDIDATE_SERVICE_COOLDOWN_MS
+        }
+    }
+
+    private companion object {
+        val COOLDOWN_FAILURES = setOf(
+            CloudTranslationResult.Failure.Kind.NETWORK,
+            CloudTranslationResult.Failure.Kind.AUTHENTICATION,
+            CloudTranslationResult.Failure.Kind.RATE_LIMITED,
+            CloudTranslationResult.Failure.Kind.QUOTA_EXCEEDED,
+            CloudTranslationResult.Failure.Kind.UPSTREAM,
+            CloudTranslationResult.Failure.Kind.INVALID_RESPONSE,
+        )
+    }
+}
+
 internal fun selectCloudCandidateMisses(
     texts: List<String>,
     offlineLookup: (String) -> CandidateTranslationEntry? = OfflineCandidateTranslationRepository::lookup,
     shouldRequest: (String) -> Boolean,
 ): List<String> = texts.asSequence()
+    .distinct()
     .filter { offlineLookup(it) == null }
     .filter(shouldRequest)
-    .distinct()
     .take(5)
     .toList()
+
+internal fun selectCloudCandidates(
+    mode: CandidateTranslationSourceMode,
+    texts: List<String>,
+    offlineLookup: (String) -> CandidateTranslationEntry? = OfflineCandidateTranslationRepository::lookup,
+    shouldRequest: (String) -> Boolean,
+): List<String> = when (mode) {
+    CandidateTranslationSourceMode.LOCAL_ONLY -> emptyList()
+    CandidateTranslationSourceMode.CLOUD_ONLY -> texts.asSequence()
+        .distinct()
+        .filter(shouldRequest)
+        .take(5)
+        .toList()
+    CandidateTranslationSourceMode.LOCAL_THEN_CLOUD -> selectCloudCandidateMisses(
+        texts = texts,
+        offlineLookup = offlineLookup,
+        shouldRequest = shouldRequest,
+    )
+}
 
 internal class CloudCandidateTranslationController : InputBroadcastReceiver {
     private val di = InputDependencyManager.getInstance().di
@@ -259,10 +384,17 @@ internal class CloudCandidateTranslationController : InputBroadcastReceiver {
     private var generation = 0L
     private var cloudAllowedForEditor = false
     private var lastRequestKey: String? = null
+    private val serviceCooldown = CloudCandidateServiceCooldown()
 
     @Keep
-    private val fallbackListener = PreferenceDelegate.OnChangeListener<Boolean> { _, _ ->
-        if (!prefs.cloudTranslation.candidateFallback.getValue()) cancelPending()
+    private val sourceListener = PreferenceDelegate.OnChangeListener<CandidateTranslationSourceMode> { _, mode ->
+        cancelPending()
+        if (mode == CandidateTranslationSourceMode.LOCAL_ONLY) {
+            CloudCandidateTranslationRepository.removeListener(repositoryListener)
+        } else {
+            CloudCandidateTranslationRepository.addListener(repositoryListener)
+        }
+        revealController.notifyContentChanged()
     }
 
     private val repositoryListener: () -> Unit = {
@@ -270,13 +402,20 @@ internal class CloudCandidateTranslationController : InputBroadcastReceiver {
     }
 
     fun start() {
-        prefs.cloudTranslation.candidateFallback.registerOnChangeListener(fallbackListener)
-        CloudCandidateTranslationRepository.addListener(repositoryListener)
+        prefs.cloudTranslation.candidateSource.registerOnChangeListener(sourceListener)
+        if (prefs.cloudTranslation.candidateSource.getValue() != CandidateTranslationSourceMode.LOCAL_ONLY) {
+            CloudCandidateTranslationRepository.addListener(repositoryListener)
+        }
     }
 
     fun stop() {
-        prefs.cloudTranslation.candidateFallback.unregisterOnChangeListener(fallbackListener)
+        prefs.cloudTranslation.candidateSource.unregisterOnChangeListener(sourceListener)
         CloudCandidateTranslationRepository.removeListener(repositoryListener)
+        cancelPending()
+    }
+
+    fun deactivate() {
+        cloudAllowedForEditor = false
         cancelPending()
     }
 
@@ -290,20 +429,30 @@ internal class CloudCandidateTranslationController : InputBroadcastReceiver {
     }
 
     fun requestVisible(texts: List<String>) {
-        if (!cloudAllowedForEditor || !prefs.cloudTranslation.candidateFallback.getValue()) {
+        val sourceMode = prefs.cloudTranslation.candidateSource.getValue()
+        if (
+            !cloudAllowedForEditor ||
+            sourceMode == CandidateTranslationSourceMode.LOCAL_ONLY ||
+            !prefs.cloudTranslation.consentGranted.getValue()
+        ) {
             cancelPending()
             return
         }
-        if (!prefs.candidates.bilingualTranslation.getValue() || CloudTranslationRuntime.manager.status() != null) {
+        if (
+            !prefs.candidates.bilingualTranslation.getValue() ||
+            serviceCooldown.isActive() ||
+            CloudTranslationRuntime.manager.status() != null
+        ) {
             cancelPending()
             return
         }
         val providerFingerprint = CloudCandidateTranslationRepository.currentProviderFingerprint()
-        val misses = selectCloudCandidateMisses(texts) {
+        val misses = selectCloudCandidates(sourceMode, texts) {
             CloudCandidateTranslationRepository.shouldRequest(providerFingerprint, it)
         }
         if (misses.isEmpty()) return
-        val requestKey = "$providerFingerprint\u0000${misses.joinToString("\u0000")}"
+        val requestKey = "$sourceMode\u0000$providerFingerprint\u0000" +
+            misses.joinToString("\u0000", transform = ::candidateTextFingerprint)
         if (requestKey == lastRequestKey && requestJob?.isActive == true) return
         cancelPending(clearRequestKey = false)
         lastRequestKey = requestKey
@@ -325,7 +474,7 @@ internal class CloudCandidateTranslationController : InputBroadcastReceiver {
                     CloudCandidateTranslationRepository.put(providerFingerprint, values)
                 }
                 is CloudTranslationResult.Failure -> {
-                    CloudCandidateTranslationRepository.markNegative(providerFingerprint, misses)
+                    serviceCooldown.record(result)
                 }
             }
             requestJob = null

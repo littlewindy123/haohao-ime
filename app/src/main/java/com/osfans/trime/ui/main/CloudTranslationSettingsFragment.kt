@@ -16,6 +16,7 @@ import com.osfans.trime.R
 import com.osfans.trime.data.prefs.AppPrefs
 import com.osfans.trime.data.translation.AliyunTranslationCredentials
 import com.osfans.trime.data.translation.AliyunTranslationProvider
+import com.osfans.trime.data.translation.CandidateTranslationSourceMode
 import com.osfans.trime.data.translation.CloudTranslationConfigStore
 import com.osfans.trime.data.translation.CloudTranslationProvider
 import com.osfans.trime.data.translation.CloudTranslationProviderType
@@ -26,7 +27,9 @@ import com.osfans.trime.data.translation.CustomTranslationProvider
 import com.osfans.trime.data.translation.HaoHaoTranslationProvider
 import com.osfans.trime.data.translation.TRANSLATION_REQUEST_TIMEOUT_MS
 import com.osfans.trime.data.translation.TranslationPurpose
+import com.osfans.trime.data.translation.internalCloudProvider
 import com.osfans.trime.data.translation.isAllowedTranslationEndpoint
+import com.osfans.trime.data.translation.isInternalCloudConfigured
 import com.osfans.trime.databinding.FragmentCloudTranslationSettingsBinding
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.launch
@@ -48,25 +51,23 @@ class CloudTranslationSettingsFragment : Fragment(R.layout.fragment_cloud_transl
         super.onViewCreated(view, savedInstanceState)
         viewBinding = FragmentCloudTranslationSettingsBinding.bind(view)
         selectedProvider = config.activeProvider()
-        binding.customEndpoint.setText(config.custom()?.endpoint.orEmpty())
-        binding.aliyunAccessKeyId.setText(config.aliyun()?.accessKeyId.orEmpty())
-        binding.candidateFallbackSwitch.isChecked = prefs.cloudTranslation.candidateFallback.getValue()
+        if (!BuildConfig.INTERNAL_CLOUD_ENABLED) {
+            binding.customEndpoint.setText(config.custom()?.endpoint.orEmpty())
+            binding.aliyunAccessKeyId.setText(config.aliyun()?.accessKeyId.orEmpty())
+        }
+        renderCandidateSource(prefs.cloudTranslation.candidateSource.getValue())
         binding.providerPublic.setOnClickListener { selectProvider(CloudTranslationProviderType.HAOHAO) }
         binding.providerAliyun.setOnClickListener { selectProvider(CloudTranslationProviderType.ALIYUN) }
         binding.providerCustom.setOnClickListener { selectProvider(CloudTranslationProviderType.CUSTOM) }
         binding.testApplyButton.setOnClickListener { ensureConsent(::testAndApply) }
-        binding.candidateFallbackSwitch.setOnCheckedChangeListener { _, enabled ->
-            if (!enabled) {
-                prefs.cloudTranslation.candidateFallback.setValue(false)
-            } else if (prefs.cloudTranslation.consentGranted.getValue()) {
-                prefs.cloudTranslation.candidateFallback.setValue(true)
-            } else {
-                binding.candidateFallbackSwitch.isChecked = false
-                ensureConsent {
-                    prefs.cloudTranslation.candidateFallback.setValue(true)
-                    binding.candidateFallbackSwitch.isChecked = true
-                }
-            }
+        binding.candidateSourceLocal.setOnClickListener {
+            applyCandidateSource(CandidateTranslationSourceMode.LOCAL_ONLY)
+        }
+        binding.candidateSourceCloud.setOnClickListener {
+            ensureConsent { applyCandidateSource(CandidateTranslationSourceMode.CLOUD_ONLY) }
+        }
+        binding.candidateSourceHybrid.setOnClickListener {
+            ensureConsent { applyCandidateSource(CandidateTranslationSourceMode.LOCAL_THEN_CLOUD) }
         }
         renderProvider()
     }
@@ -84,6 +85,27 @@ class CloudTranslationSettingsFragment : Fragment(R.layout.fragment_cloud_transl
 
     private fun renderProvider() {
         if (viewBinding == null) return
+        if (BuildConfig.INTERNAL_CLOUD_ENABLED) {
+            binding.testApplyButton.setText(R.string.cloud_translation_test_connection)
+            binding.providerSelector.isVisible = false
+            binding.publicSection.isVisible = false
+            binding.aliyunSection.isVisible = false
+            binding.customSection.isVisible = false
+            binding.testApplyButton.isEnabled = !testing && isInternalCloudConfigured()
+            binding.statusText.text = when {
+                testing -> getString(R.string.cloud_translation_status_testing)
+                isInternalCloudConfigured() -> getString(
+                    R.string.cloud_translation_internal_ready,
+                    BuildConfig.INTERNAL_CLOUD_EXPIRES_AT,
+                )
+                else -> getString(
+                    R.string.cloud_translation_internal_expired,
+                    BuildConfig.INTERNAL_CLOUD_EXPIRES_AT,
+                )
+            }
+            return
+        }
+        binding.providerSelector.isVisible = true
         binding.providerPublic.isSelected = selectedProvider == CloudTranslationProviderType.HAOHAO
         binding.providerAliyun.isSelected = selectedProvider == CloudTranslationProviderType.ALIYUN
         binding.providerCustom.isSelected = selectedProvider == CloudTranslationProviderType.CUSTOM
@@ -128,6 +150,18 @@ class CloudTranslationSettingsFragment : Fragment(R.layout.fragment_cloud_transl
             .show()
     }
 
+    private fun applyCandidateSource(mode: CandidateTranslationSourceMode) {
+        prefs.cloudTranslation.candidateSource.setValue(mode)
+        renderCandidateSource(mode)
+    }
+
+    private fun renderCandidateSource(mode: CandidateTranslationSourceMode) {
+        if (viewBinding == null) return
+        binding.candidateSourceLocal.isSelected = mode == CandidateTranslationSourceMode.LOCAL_ONLY
+        binding.candidateSourceCloud.isSelected = mode == CandidateTranslationSourceMode.CLOUD_ONLY
+        binding.candidateSourceHybrid.isSelected = mode == CandidateTranslationSourceMode.LOCAL_THEN_CLOUD
+    }
+
     private fun testAndApply() {
         val candidate = buildCandidateProvider() ?: return
         testing = true
@@ -141,7 +175,7 @@ class CloudTranslationSettingsFragment : Fragment(R.layout.fragment_cloud_transl
                     )
                 }
             } catch (_: TimeoutCancellationException) {
-                CloudTranslationResult.Failure(CloudTranslationResult.Failure.Kind.NETWORK, "timeout")
+                CloudTranslationResult.Failure(CloudTranslationResult.Failure.Kind.NETWORK)
             }
             if (viewBinding == null) return@launch
             testing = false
@@ -159,65 +193,75 @@ class CloudTranslationSettingsFragment : Fragment(R.layout.fragment_cloud_transl
         }
     }
 
-    private fun buildCandidateProvider(): CandidateProvider? = when (selectedProvider) {
-        CloudTranslationProviderType.HAOHAO -> {
-            val url = BuildConfig.HAOHAO_TRANSLATION_BASE_URL
-            if (url.isBlank()) {
-                binding.statusText.setText(R.string.cloud_translation_status_preparing)
-                null
-            } else {
-                CandidateProvider(
-                    provider = HaoHaoTranslationProvider(url, config.installId()),
-                    apply = config::selectPublic,
-                )
+    private fun buildCandidateProvider(): CandidateProvider? {
+        if (BuildConfig.INTERNAL_CLOUD_ENABLED) {
+            val provider = internalCloudProvider()
+            if (provider == null) {
+                binding.statusText.setText(R.string.cloud_translation_error_expired)
+                return null
             }
+            return CandidateProvider(provider = provider, apply = {})
         }
-        CloudTranslationProviderType.ALIYUN -> {
-            val id = binding.aliyunAccessKeyId.text?.toString()?.trim().orEmpty()
-            val secret = binding.aliyunAccessKeySecret.text?.toString()?.trim().orEmpty()
-            val existing = config.aliyun()
-            val credentials = when {
-                id.isEmpty() && secret.isEmpty() -> existing
-                id.isNotEmpty() && secret.isNotEmpty() -> AliyunTranslationCredentials(id, secret)
-                else -> null
+        return when (selectedProvider) {
+            CloudTranslationProviderType.HAOHAO -> {
+                val url = BuildConfig.HAOHAO_TRANSLATION_BASE_URL
+                if (url.isBlank()) {
+                    binding.statusText.setText(R.string.cloud_translation_status_preparing)
+                    null
+                } else {
+                    CandidateProvider(
+                        provider = HaoHaoTranslationProvider(url, config.installId()),
+                        apply = config::selectPublic,
+                    )
+                }
             }
-            if (credentials == null) {
-                binding.statusText.setText(R.string.cloud_translation_required_fields)
-                null
-            } else {
-                CandidateProvider(
-                    provider = AliyunTranslationProvider(credentials.accessKeyId, credentials.accessKeySecret),
-                    apply = {
-                        config.saveAliyun(credentials)
-                        binding.aliyunAccessKeySecret.text?.clear()
-                    },
-                )
+            CloudTranslationProviderType.ALIYUN -> {
+                val id = binding.aliyunAccessKeyId.text?.toString()?.trim().orEmpty()
+                val secret = binding.aliyunAccessKeySecret.text?.toString()?.trim().orEmpty()
+                val existing = config.aliyun()
+                val credentials = when {
+                    id.isEmpty() && secret.isEmpty() -> existing
+                    id.isNotEmpty() && secret.isNotEmpty() -> AliyunTranslationCredentials(id, secret)
+                    else -> null
+                }
+                if (credentials == null) {
+                    binding.statusText.setText(R.string.cloud_translation_required_fields)
+                    null
+                } else {
+                    CandidateProvider(
+                        provider = AliyunTranslationProvider(credentials.accessKeyId, credentials.accessKeySecret),
+                        apply = {
+                            config.saveAliyun(credentials)
+                            binding.aliyunAccessKeySecret.text?.clear()
+                        },
+                    )
+                }
             }
-        }
-        CloudTranslationProviderType.CUSTOM -> {
-            val endpoint = binding.customEndpoint.text?.toString()?.trim().orEmpty()
-            if (!isAllowedTranslationEndpoint(endpoint, BuildConfig.DEBUG)) {
-                binding.statusText.setText(
-                    if (endpoint.startsWith("http://", ignoreCase = true)) {
-                        R.string.cloud_translation_https_required
-                    } else {
-                        R.string.cloud_translation_required_fields
-                    },
-                )
-                null
-            } else {
-                val enteredToken = binding.customToken.text?.toString()?.trim().orEmpty()
-                val existing = config.custom()
-                val token = enteredToken.takeIf(String::isNotEmpty)
-                    ?: existing?.bearerToken.takeIf { existing?.endpoint == endpoint }
-                val credentials = CustomTranslationCredentials(endpoint, token)
-                CandidateProvider(
-                    provider = CustomTranslationProvider(endpoint, token),
-                    apply = {
-                        config.saveCustom(credentials)
-                        binding.customToken.text?.clear()
-                    },
-                )
+            CloudTranslationProviderType.CUSTOM -> {
+                val endpoint = binding.customEndpoint.text?.toString()?.trim().orEmpty()
+                if (!isAllowedTranslationEndpoint(endpoint, BuildConfig.DEBUG)) {
+                    binding.statusText.setText(
+                        if (endpoint.startsWith("http://", ignoreCase = true)) {
+                            R.string.cloud_translation_https_required
+                        } else {
+                            R.string.cloud_translation_required_fields
+                        },
+                    )
+                    null
+                } else {
+                    val enteredToken = binding.customToken.text?.toString()?.trim().orEmpty()
+                    val existing = config.custom()
+                    val token = enteredToken.takeIf(String::isNotEmpty)
+                        ?: existing?.bearerToken.takeIf { existing?.endpoint == endpoint }
+                    val credentials = CustomTranslationCredentials(endpoint, token)
+                    CandidateProvider(
+                        provider = CustomTranslationProvider(endpoint, token),
+                        apply = {
+                            config.saveCustom(credentials)
+                            binding.customToken.text?.clear()
+                        },
+                    )
+                }
             }
         }
     }
@@ -231,12 +275,18 @@ class CloudTranslationSettingsFragment : Fragment(R.layout.fragment_cloud_transl
             binding.aliyunAccessKeySecret,
             binding.customEndpoint,
             binding.customToken,
-            binding.candidateFallbackSwitch,
+            binding.candidateSourceLocal,
+            binding.candidateSourceCloud,
+            binding.candidateSourceHybrid,
         ).forEach { it.isEnabled = enabled }
         binding.testApplyButton.isEnabled = enabled
     }
 
     private fun renderSelectionOnly() {
+        if (BuildConfig.INTERNAL_CLOUD_ENABLED) {
+            binding.testApplyButton.isEnabled = isInternalCloudConfigured()
+            return
+        }
         binding.providerPublic.isSelected = selectedProvider == CloudTranslationProviderType.HAOHAO
         binding.providerAliyun.isSelected = selectedProvider == CloudTranslationProviderType.ALIYUN
         binding.providerCustom.isSelected = selectedProvider == CloudTranslationProviderType.CUSTOM
@@ -248,6 +298,7 @@ class CloudTranslationSettingsFragment : Fragment(R.layout.fragment_cloud_transl
         CloudTranslationResult.Failure.Kind.AUTHENTICATION -> R.string.cloud_translation_error_auth
         CloudTranslationResult.Failure.Kind.RATE_LIMITED -> R.string.cloud_translation_error_rate
         CloudTranslationResult.Failure.Kind.QUOTA_EXCEEDED -> R.string.cloud_translation_error_quota
+        CloudTranslationResult.Failure.Kind.CONFIGURATION_EXPIRED -> R.string.cloud_translation_error_expired
         CloudTranslationResult.Failure.Kind.INVALID_RESPONSE -> R.string.cloud_translation_error_response
         CloudTranslationResult.Failure.Kind.NOT_CONFIGURED,
         CloudTranslationResult.Failure.Kind.INVALID_REQUEST,

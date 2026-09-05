@@ -1,14 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/haohao_page_background"
-    android:orientation="vertical">
+    android:focusableInTouchMode="true"
+    android:background="@color/haohao_page_background">
+
+    <com.google.android.material.appbar.AppBarLayout
+        android:id="@+id/word_header"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/haohao_page_background"
+        android:stateListAnimator="@null"
+        app:elevation="0dp">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@color/haohao_brand_header"
+        app:layout_scrollFlags="scroll|enterAlways"
+        android:background="@color/haohao_page_background"
         android:orientation="vertical"
         android:paddingStart="20dp"
         android:paddingTop="16dp"
@@ -19,7 +29,7 @@
             android:id="@+id/footprint_summary"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textColor="@color/haohao_header_foreground"
+            android:textColor="@color/haohao_cocoa"
             android:textSize="17sp"
             android:textStyle="bold" />
 
@@ -28,8 +38,31 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="5dp"
             android:text="@string/input_footprints_privacy"
-            android:textColor="@color/haohao_header_foreground"
+            android:textColor="@color/haohao_cocoa_secondary"
             android:textSize="13sp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:orientation="horizontal">
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/quick_review"
+                style="@style/Widget.HaoHao.HeaderButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:minWidth="0dp"
+                android:text="@string/words_quick_review" />
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/daily_plan"
+                style="@style/Widget.HaoHao.SegmentButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:layout_weight="1"
+                android:text="@string/words_daily_plan" />
+        </LinearLayout>
     </LinearLayout>
 
     <LinearLayout
@@ -42,14 +75,14 @@
 
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="48dp"
+            android:layout_height="wrap_content"
             android:orientation="horizontal">
 
             <androidx.appcompat.widget.AppCompatButton
                 android:id="@+id/recent_tab"
                 style="@style/Widget.HaoHao.SegmentButton"
                 android:layout_width="0dp"
-                android:layout_height="48dp"
+                android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="@string/input_footprints_recent" />
 
@@ -57,10 +90,19 @@
                 android:id="@+id/favorites_tab"
                 style="@style/Widget.HaoHao.SegmentButton"
                 android:layout_width="0dp"
-                android:layout_height="48dp"
+                android:layout_height="wrap_content"
                 android:layout_marginStart="8dp"
                 android:layout_weight="1"
                 android:text="@string/input_footprints_favorites" />
+
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/learning_tab"
+                style="@style/Widget.HaoHao.SegmentButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:layout_weight="1"
+                android:text="@string/words_learning" />
         </LinearLayout>
 
         <LinearLayout
@@ -76,7 +118,8 @@
                 android:layout_height="48dp"
                 android:contentDescription="@null"
                 android:padding="12dp"
-                android:src="@drawable/ic_baseline_search_24" />
+                android:src="@drawable/ic_baseline_search_24"
+                app:tint="@color/haohao_cocoa_secondary" />
 
             <androidx.appcompat.widget.AppCompatEditText
                 android:id="@+id/search_input"
@@ -99,15 +142,18 @@
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:contentDescription="@string/input_footprints_clear_menu"
                 android:padding="12dp"
-                android:src="@drawable/ic_baseline_delete_sweep_24" />
+                android:src="@drawable/ic_baseline_delete_sweep_24"
+                app:tint="@color/haohao_cocoa_secondary" />
         </LinearLayout>
     </LinearLayout>
 
+    </com.google.android.material.appbar.AppBarLayout>
+
     <FrameLayout
         android:layout_width="match_parent"
-        android:layout_height="0dp"
+        android:layout_height="match_parent"
         android:layout_marginTop="8dp"
-        android:layout_weight="1">
+        app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/footprint_list"
@@ -126,6 +172,13 @@
             android:orientation="vertical"
             android:padding="32dp">
 
+            <ImageView
+                android:layout_width="72dp"
+                android:layout_height="72dp"
+                android:layout_marginBottom="16dp"
+                android:contentDescription="@null"
+                android:src="@drawable/haohao_golden_foreground" />
+
             <TextView
                 android:id="@+id/empty_title"
                 android:layout_width="wrap_content"
@@ -142,4 +195,4 @@
                 android:textSize="14sp" />
         </LinearLayout>
     </FrameLayout>
-</LinearLayout>
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

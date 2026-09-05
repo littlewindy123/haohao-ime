@@ -299,6 +299,8 @@ class CommonKeyboardActionListener {
                             service.toast(R.string.haohao_translation_not_configured)
                         CloudTranslationResult.Failure.Kind.INVALID_REQUEST ->
                             service.toast(R.string.haohao_translation_sensitive_disabled)
+                        CloudTranslationResult.Failure.Kind.CONFIGURATION_EXPIRED ->
+                            service.toast(R.string.cloud_translation_error_expired)
                         else -> service.toast(R.string.cloud_translation_error_network)
                     }
                 }
@@ -319,10 +321,12 @@ class CommonKeyboardActionListener {
 
             private fun activateHaoHaoTranslation() {
                 val failure = translationController.activate() ?: return
-                if (failure.kind == CloudTranslationResult.Failure.Kind.INVALID_REQUEST) {
-                    service.toast(R.string.haohao_translation_sensitive_disabled)
-                } else {
-                    service.toast(R.string.haohao_translation_not_configured)
+                when (failure.kind) {
+                    CloudTranslationResult.Failure.Kind.INVALID_REQUEST ->
+                        service.toast(R.string.haohao_translation_sensitive_disabled)
+                    CloudTranslationResult.Failure.Kind.CONFIGURATION_EXPIRED ->
+                        service.toast(R.string.cloud_translation_error_expired)
+                    else -> service.toast(R.string.haohao_translation_not_configured)
                 }
             }
 
@@ -541,7 +545,6 @@ class CommonKeyboardActionListener {
 
             override fun onText(input: String) {
                 if (input.isEmpty()) return
-                Timber.d("onText: $input")
                 val status = rime.run { statusCached }
                 if (!input[0].isAsciiPrintable() && status.isComposing) {
                     service.postRimeJob { commitComposition() }
