@@ -486,3 +486,7 @@ app/src/main/jni/boost/
 /.playwright-mcp/
 /design-demos/haohao-learning/measurements/*.perfetto-trace
 
+# Translation gateway secrets and runtime state
+service/translation-gateway/.env
+service/translation-gateway/.env.*
+service/translation-gateway/data/
