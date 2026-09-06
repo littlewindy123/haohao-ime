@@ -1,42 +1,69 @@
 # 好好输入法 · Brand Spec
 
-> 采集日期：2026-08-28
-> 资产完整度：完整（官网首版所需）
+> 更新日期：2026-09-06
+> 定位：面向普通用户的对外官网，保持与当前 Android App 的品牌一致。
+> 设计方向：亲切、有辨识度的消费产品官网。不是开源项目介绍页。
 
 ## 核心资产
 
-- Logo：`website/assets/haohao-icon.png`，192×192，保持正方形比例，不重画、不变色。
+- Logo：`website/assets/haohao-golden.png`，432×432，逐字节复用 Android 的 `drawable-xxxhdpi/haohao_golden_foreground.png`，不重画、不变色。
+- 首屏大尺寸展示金色小狗与「好」字吊牌，导航、下载区和 favicon 使用同一资产。
+- 旧蓝色 `haohao-icon.png` 只作为历史资源保留，不再用于页面内品牌展示。
 - 浅色候选：`website/assets/screenshot-light.png`，1080×2400。
 - 深色候选：`website/assets/screenshot-dark.png`，1080×2400。
 - 展开候选：`website/assets/screenshot-expanded.png`，1080×2400。
-- 分享卡：`website/assets/og.png`，1200×630，本次延续现有品牌，不替换。
+- 分享卡：`website/assets/og.png`，1200×630，本次未获得社交分享卡重做请求，保留文件与原有 metadata。
 
 ## 色板
 
-- Background：`#F2F3F5`
-- Surface：`#F7F8FA`
-- Ink：`#202124`
-- Muted：`#656B74`
-- HaoHao Blue：`#3F6FE5`
-- Soft Blue：`#DCE7FF`
-- Dark：`#1F2125`
+- 页面：`#FFFDF8`；辅助表面：`#F7F4EC`。
+- 主文字：`#513A32`；辅助文字：`#6F5E55`，比 App 原辅助色略深以满足网页小字对比度。
+- 蜂蜜金：`#F4BF61`，所有主要下载按钮统一使用；按压色 `#E8AC43`。
+- 薄荷绿：`#A9D2BE`；辅助浅绿：`#DCECE2`。
+- 色源：`app/src/main/res/values/colors.xml` 和 App 正式图标。不是另造暖色模板。
+- 系统深色模式统一替换语义色板，不在滚动途中把某一章节突然切成另一主题。
 
 ## 字型与排印
 
-- 中文正文：`"PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif`
-- 西文标签与数字：`"Bahnschrift", "Aptos", "Segoe UI", sans-serif`
+- 中文正文：`"PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif`
+- 西文与数字：`"Aptos", "Segoe UI", Arial, sans-serif`
 - 不加载外部字体；通过字号、字重、行长和非对称构图建立识别度。
 - 中文正文 16–18px、行高 1.7–1.8；标题使用 `text-wrap: balance`，正文使用 `text-wrap: pretty`。
 
 ## 视觉母题
 
-- 「中文 / English / IPA」三行候选结构是全站签名细节。
-- 大面积米灰留白配少量好好蓝；深色只作为真实产品画面的舞台，不做通用霓虹科技风。
-- 以细分隔线、编辑式编号、真实截图代替三等分圆角卡片。
+- 金色小狗和品牌名称是首屏主角，「中文 / English / IPA」是功能表达。
+- 五个内容场景：品牌、功能、真实画面与隐私、用户要求的 GitHub Star 邀请、下载；旧锚点 `#opensource` 保留在页脚致谢说明。
+- 技术背景、渠道信息与签名迁移只放在相应折叠说明，保留必要事实，不当作营销卖点。
+- 不重复小标签、编号、左右分栏解释头或三等分功能卡。
+- 形状规则：主视觉 32px，内容面板 24px，字段 12px，键盘按键 8px，操作按钮胶囊形。
+- Taste 设计参数：DESIGN_VARIANCE 7 / MOTION_INTENSITY 5 / VISUAL_DENSITY 4。提高宽屏利用率，不增加文案密度。
+- GSAP Core 3.15.0 自托管，仅用于品牌顺序入场和一次性章节出现；不加载全部插件。
+- 不劫持滚动，不做无意义的无限漂浮；隐藏页面、减少动态效果或卸载时清理动画上下文。
 
 ## 禁区
 
 - 不使用紫粉蓝 AI 渐变、装饰 Emoji、虚假评价、虚假下载量或无来源数据。
 - 不用 CSS 或手绘 SVG 伪造手机和产品界面。
-- 不新增外部字体、统计、Cookie、GitHub API、框架或动画依赖。
+- 不新增外部字体、统计、Cookie、GitHub API 或前端框架。动画仅使用经校验的官方固定 GSAP 核心库。
 
+## 本次审计
+
+### 宽屏与社区入口迭代
+
+- 用户认为两侧空白太大、背景偏薄，明确要求提高高级感并引导 GitHub Star。
+- 旧 `.shell` 上限为 1160px，在 1920px 屏幕只利用约 60% 宽度。改为视口宽度减两侧流式边距：桌面 4vw，最大 88px；移动端 16–24px。
+- 全幅品牌色背景和内容容器分离；段落仍限制行长、演示最大 760px。不是调用浏览器的全屏模式。
+- 品牌首屏使用浅薄荷底与一片静态弧形色面，真实 Logo 保持不变；截图区浅蜂蜜背景，社区区浅薄荷背景，均有对应深色 token。
+- 参考 Apple AirPods 产品页的大画面与简短功能表达（https://www.apple.com.cn/airpods-pro/），以及 Zed 官网将下载与源码入口并列展示的方式（https://zed.dev/）。仅借鉴信息组织，不复制资产、代码或品牌样式。
+- Star 为真实外链，导航与独立邀请区强化入口，保留页脚链接；不发起点赞操作、不伪造数字，也不添加第三方请求。
+- CSS 静态尺寸约束覆盖 320–2560px，浅深色背景文字对比度检查；不是浏览器渲染结果，本轮仍未获得明确浏览器测试请求。
+
+### 前一轮品牌统一
+
+- 原官网仍使用 8 月旧蓝标，当前 App 已换为金色小狗；这是品牌不统一的主要原因。
+- 原主标题没有品牌名；开源、ARM64、签名维护占据核心页面位置，与普通下载用户无关。
+- 原页面含重复分栏标题和编号、均分功能卡，以及与 App 色板无关的蓝灰主题。
+- 保留：下载路径、测试性质与迁移提醒、真实截图、互动候选能力、隐私原文和开源致谢。
+- 验证：静态结构、双主题文字对比度、键盘事件、GSAP 时间线与清理、发布资源完整性。
+- 本轮没有用户明确要求浏览器测试，遵循 Sites 规则未进行截图、DOM 检查或 Lighthouse，不声称已经完成浏览器视觉验收。

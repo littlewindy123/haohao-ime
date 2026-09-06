@@ -1,0 +1,18 @@
+{
+  "version": "3.3.12",
+  "versionCode": 20260921,
+  "date": "2026-09-06",
+  "applicationId": "com.osfans.trime.debug",
+  "variant": "debug",
+  "abi": "arm64-v8a",
+  "minSdk": 21,
+  "recommendedAndroid": "Android 11+",
+  "filename": "haohao-ime-3.3.12-20260921-arm64-v8a-debug.apk",
+  "bytes": 52062232,
+  "sha256": "fa5822a13145461699a4c5d15908cff2a6b82fa275e0cfb5d1facc7f327283e0",
+  "signerSha256": "6278edd3637cf54377d63f78f7134ac1ab6e4b5b3721229719201e8262ab3215",
+  "internalCloudEnabled": false,
+  "baseCommit": "2f4b296ed04fc5e25a703d8e24c4485da9abed6e",
+  "speechCloudEnabled": false,
+  "notes": ["更紧凑的候选与英文排版，首选整句优先", "优化数字键盘，新增雾蓝、暖杏、石墨三套配色及夜间版本", "保留词本、收藏与复习进度，沿用固定签名", "云翻译须主动同意并配置，不内置共享密钥；腾讯云发音尚未启用"]
+}
