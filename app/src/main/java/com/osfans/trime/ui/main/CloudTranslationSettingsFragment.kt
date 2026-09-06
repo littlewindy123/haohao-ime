@@ -25,15 +25,14 @@ import com.osfans.trime.data.translation.CloudTranslationResult
 import com.osfans.trime.data.translation.CustomTranslationCredentials
 import com.osfans.trime.data.translation.CustomTranslationProvider
 import com.osfans.trime.data.translation.HaoHaoTranslationProvider
-import com.osfans.trime.data.translation.TRANSLATION_REQUEST_TIMEOUT_MS
 import com.osfans.trime.data.translation.TranslationPurpose
+import com.osfans.trime.data.translation.executeTranslationRequest
 import com.osfans.trime.data.translation.internalCloudProvider
 import com.osfans.trime.data.translation.isAllowedTranslationEndpoint
 import com.osfans.trime.data.translation.isInternalCloudConfigured
 import com.osfans.trime.databinding.FragmentCloudTranslationSettingsBinding
-import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeout
 
 class CloudTranslationSettingsFragment : Fragment(R.layout.fragment_cloud_translation_settings) {
     private val prefs = AppPrefs.defaultInstance()
@@ -74,6 +73,7 @@ class CloudTranslationSettingsFragment : Fragment(R.layout.fragment_cloud_transl
 
     override fun onDestroyView() {
         viewBinding = null
+        testing = false
         super.onDestroyView()
     }
 
@@ -164,32 +164,37 @@ class CloudTranslationSettingsFragment : Fragment(R.layout.fragment_cloud_transl
 
     private fun testAndApply() {
         val candidate = buildCandidateProvider() ?: return
+        val testedBinding = binding
         testing = true
         setFormEnabled(false)
         renderProvider()
         viewLifecycleOwner.lifecycleScope.launch {
-            val result = try {
-                withTimeout(TRANSLATION_REQUEST_TIMEOUT_MS.toLong()) {
-                    candidate.provider.translate(
-                        CloudTranslationRequest(listOf("你好"), TranslationPurpose.SENTENCE),
-                    )
+            try {
+                val result = executeTranslationRequest(
+                    candidate.provider,
+                    CloudTranslationRequest(listOf("你好"), TranslationPurpose.SENTENCE),
+                )
+                if (viewBinding !== testedBinding) return@launch
+                when (result) {
+                    is CloudTranslationResult.Success -> {
+                        candidate.apply()
+                        binding.statusText.setText(R.string.cloud_translation_status_success)
+                    }
+                    is CloudTranslationResult.Failure -> binding.statusText.setText(errorMessage(result.kind))
                 }
-            } catch (_: TimeoutCancellationException) {
-                CloudTranslationResult.Failure(CloudTranslationResult.Failure.Kind.NETWORK)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                if (viewBinding === testedBinding) {
+                    binding.statusText.setText(R.string.cloud_translation_status_failed)
+                }
+            } finally {
+                if (viewBinding === testedBinding) {
+                    testing = false
+                    setFormEnabled(true)
+                    renderSelectionOnly()
+                }
             }
-            if (viewBinding == null) return@launch
-            testing = false
-            setFormEnabled(true)
-            when (result) {
-                is CloudTranslationResult.Success -> {
-                    candidate.apply()
-                    binding.statusText.setText(R.string.cloud_translation_status_success)
-                }
-                is CloudTranslationResult.Failure -> {
-                    binding.statusText.setText(errorMessage(result.kind))
-                }
-            }
-            renderSelectionOnly()
         }
     }
 
@@ -295,6 +300,7 @@ class CloudTranslationSettingsFragment : Fragment(R.layout.fragment_cloud_transl
     }
 
     private fun errorMessage(kind: CloudTranslationResult.Failure.Kind): Int = when (kind) {
+        CloudTranslationResult.Failure.Kind.TIMEOUT -> R.string.cloud_translation_error_timeout
         CloudTranslationResult.Failure.Kind.AUTHENTICATION -> R.string.cloud_translation_error_auth
         CloudTranslationResult.Failure.Kind.RATE_LIMITED -> R.string.cloud_translation_error_rate
         CloudTranslationResult.Failure.Kind.QUOTA_EXCEEDED -> R.string.cloud_translation_error_quota

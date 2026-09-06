@@ -7,6 +7,9 @@ package com.osfans.trime.ime.keyboard
 
 import android.content.Context
 import com.osfans.trime.data.prefs.AppPrefs
+import com.osfans.trime.data.theme.DEFAULT_THEME_ID
+import com.osfans.trime.data.theme.ThemeManager
+import com.osfans.trime.ime.haohao.usesLandscapeKeyboardMetrics
 import com.osfans.trime.util.isLandscape
 
 object KeyboardPrefs {
@@ -20,6 +23,12 @@ object KeyboardPrefs {
         AppPrefs.Keyboard.LandscapeMode.ALWAYS -> true
         else -> false
     }
+
+    fun Context.useLandscapeMetrics(): Boolean = usesLandscapeKeyboardMetrics(
+        haoHaoTheme = ThemeManager.prefs.selectedTheme.getValue() == DEFAULT_THEME_ID,
+        landscapeScreen = resources.configuration.isLandscape(),
+        landscapeLayout = isLandscapeMode(),
+    )
 
     private fun Context.isWideScreen(): Boolean {
         val metrics = resources.displayMetrics

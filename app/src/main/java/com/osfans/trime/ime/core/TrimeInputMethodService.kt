@@ -91,7 +91,8 @@ open class TrimeInputMethodService : LifecycleInputMethodService() {
     private lateinit var lastKnownConfig: Configuration
     private var inputView: InputView? = null
     private var candidatesView: CandidatesView? = null
-    private var bootstrapView: LinearLayout? = null
+    private var bootstrapView: FrameLayout? = null
+    private var bootstrapPanel: LinearLayout? = null
     private var bootstrapStatusView: TextView? = null
     private var bootstrapRepairButton: Button? = null
     private var bootstrapCopyButton: Button? = null
@@ -423,9 +424,9 @@ open class TrimeInputMethodService : LifecycleInputMethodService() {
 
     private fun replaceInputView(theme: Theme): InputView {
         val newInputView = InputView(this, rime, theme)
-        setInputView(newInputView)
-        inputDeviceManager.setInputView(newInputView)
         inputView = newInputView
+        inputDeviceManager.setInputView(newInputView)
+        setInputView(newInputView)
         return newInputView
     }
 
@@ -448,6 +449,7 @@ open class TrimeInputMethodService : LifecycleInputMethodService() {
     override fun onDestroy() {
         inputViewRequested = false
         bootstrapView = null
+        bootstrapPanel = null
         bootstrapStatusView = null
         bootstrapRepairButton = null
         bootstrapCopyButton = null
@@ -629,14 +631,43 @@ open class TrimeInputMethodService : LifecycleInputMethodService() {
     }
 
     private val inputViewLocation = intArrayOf(0, 0)
+    private var lastInputGeometry: Triple<Int, Int, Int>? = null
+
+    private fun bootstrapHeight(): Int = minOf(
+        (232f * resources.displayMetrics.density).toInt(),
+        resources.displayMetrics.heightPixels / 2,
+    ).coerceAtLeast(1)
 
     override fun onComputeInsets(outInsets: Insets) {
         if (inputDeviceManager.useVirtualKeyboard) {
-            inputView?.keyboardView?.getLocationInWindow(inputViewLocation)
+            val panel = when (installedInputView) {
+                inputView -> inputView?.keyboardView
+                bootstrapView -> bootstrapPanel
+                else -> null
+            }
+            val measured = panel != null && panel.isAttachedToWindow && panel.isShown &&
+                panel.width > 0 && panel.height > 0
+            val height = decorView.height.coerceAtLeast(0)
+            val width = decorView.width.coerceAtLeast(0)
+            inputViewLocation.fill(0)
+            if (measured) panel.getLocationInWindow(inputViewLocation)
+            val previousHeight = lastInputGeometry?.takeIf { it.first == width && it.second == height }?.third
+            val top = ImeInsetsPolicy.contentTop(
+                windowHeight = height,
+                inputVisible = isInputViewShown,
+                measuredTop = inputViewLocation[1].takeIf { measured },
+                measuredHeight = panel?.height ?: 0,
+                fallbackHeight = previousHeight ?: bootstrapHeight(),
+            )
+            if (measured && top == inputViewLocation[1] && top in 1 until height) {
+                lastInputGeometry = Triple(width, height, height - top)
+            }
             outInsets.apply {
-                contentTopInsets = inputViewLocation[1]
-                visibleTopInsets = inputViewLocation[1]
-                touchableInsets = Insets.TOUCHABLE_INSETS_VISIBLE
+                contentTopInsets = top
+                visibleTopInsets = top
+                touchableInsets = Insets.TOUCHABLE_INSETS_REGION
+                touchableRegion.setEmpty()
+                if (isInputViewShown && top < height) touchableRegion.set(0, top, width, height)
             }
         } else {
             val n = decorView.findViewById<View>(android.R.id.navigationBarBackground)?.height ?: 0
@@ -659,6 +690,19 @@ open class TrimeInputMethodService : LifecycleInputMethodService() {
         Timber.d("onCreateInputView")
         inputViewRequested = true
         val snapshot = RimeDaemon.runtimeSnapshot.value
+        val theme = ThemeManager.activeThemeOrNull
+        if (!themeInitializationFailed && RimeDaemon.runtimeState.value == RimeRuntimeState.READY && theme != null) {
+            // onDetachedFromWindow tears an InputView down permanently. Create a ready view
+            // directly instead of first mounting a full-window loading page or reusing a dead view.
+            val view = InputView(this, rime, theme)
+            inputView = view
+            inputDeviceManager.setInputView(view)
+            replaceCandidateView(theme)
+            navBarManager.evaluate(window.window!!, inputDeviceManager.useVirtualKeyboard)
+            installedInputView = view
+            renderedInputAttemptId = snapshot.attemptId
+            return view
+        }
         val view = configureBootstrapView(
             failed = RimeDaemon.runtimeState.value == RimeRuntimeState.FAILED || themeInitializationFailed,
             snapshot = snapshot,
@@ -679,6 +723,7 @@ open class TrimeInputMethodService : LifecycleInputMethodService() {
             ImeBootstrapState.READY -> {
                 val theme = ThemeManager.activeThemeOrNull ?: return
                 bootstrapView = null
+                bootstrapPanel = null
                 bootstrapStatusView = null
                 bootstrapRepairButton = null
                 bootstrapCopyButton = null
@@ -701,15 +746,16 @@ open class TrimeInputMethodService : LifecycleInputMethodService() {
     private fun configureBootstrapView(
         failed: Boolean,
         snapshot: RimeRuntimeSnapshot,
-    ): LinearLayout {
+    ): FrameLayout {
         val density = resources.displayMetrics.density
-        val view = bootstrapView ?: LinearLayout(this).also { container ->
+        val view = bootstrapView ?: ImeBootstrapLayout(this).also { root ->
+            val container = root.panel
+            bootstrapPanel = container
             container.orientation = LinearLayout.VERTICAL
             container.gravity = Gravity.CENTER
             container.setBackgroundColor(ContextCompat.getColor(this, R.color.haohao_page_background))
             val padding = (24f * density).toInt()
             container.setPadding(padding, padding, padding, padding)
-            container.minimumHeight = (232f * density).toInt()
 
             val status = TextView(this).apply {
                 gravity = Gravity.CENTER
@@ -762,7 +808,7 @@ open class TrimeInputMethodService : LifecycleInputMethodService() {
                     ViewGroup.LayoutParams.WRAP_CONTENT,
                 ),
             )
-            bootstrapView = container
+            bootstrapView = root
         }
         bootstrapStatusView?.setText(
             if (failed) {
@@ -788,8 +834,8 @@ open class TrimeInputMethodService : LifecycleInputMethodService() {
     }
 
     override fun setInputView(view: View) {
-        super.setInputView(view)
         installedInputView = view
+        super.setInputView(view)
         val inputArea = contentView.findViewById<FrameLayout>(android.R.id.inputArea)
         inputArea.updateLayoutParams<ViewGroup.LayoutParams> {
             height = ViewGroup.LayoutParams.MATCH_PARENT
@@ -811,6 +857,7 @@ open class TrimeInputMethodService : LifecycleInputMethodService() {
         attribute: EditorInfo,
         restarting: Boolean,
     ) {
+        com.osfans.trime.data.speech.SpeechPlayback.stop()
         if (!restarting || activeInputSessionId == 0L) {
             activeInputSessionId = nextInputSessionId.incrementAndGet()
         }
@@ -872,6 +919,7 @@ open class TrimeInputMethodService : LifecycleInputMethodService() {
     }
 
     override fun onFinishInputView(finishingInput: Boolean) {
+        com.osfans.trime.data.speech.SpeechPlayback.stop()
         Timber.d("onFinishInputView: finishingInput=$finishingInput")
         decorLocationUpdated = false
         inputView?.deactivateCloudTranslation()

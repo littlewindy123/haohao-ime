@@ -317,36 +317,47 @@
 
                 <LinearLayout
                     android:layout_width="match_parent"
-                    android:layout_height="64dp"
+                    android:layout_height="112dp"
                     android:gravity="center_vertical"
-                    android:orientation="horizontal">
+                    android:orientation="vertical">
 
                     <TextView
-                        android:layout_width="0dp"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_weight="1"
+                        android:layout_marginBottom="8dp"
                         android:text="@string/compact_translation_mode"
                         android:textAppearance="@style/TextAppearance.HaoHao.SettingTitle" />
 
                     <LinearLayout
-                        android:layout_width="wrap_content"
+                        android:layout_width="match_parent"
                         android:layout_height="48dp"
                         android:orientation="horizontal">
 
                         <androidx.appcompat.widget.AppCompatButton
                             android:id="@+id/translation_mode_word"
                             style="@style/Widget.HaoHao.SegmentButton"
-                            android:layout_width="80dp"
+                            android:layout_width="0dp"
+                            android:layout_weight="1"
                             android:layout_height="48dp"
                             android:text="@string/compact_translation_mode_word" />
 
                         <androidx.appcompat.widget.AppCompatButton
                             android:id="@+id/translation_mode_adaptive"
                             style="@style/Widget.HaoHao.SegmentButton"
-                            android:layout_width="80dp"
+                            android:layout_width="0dp"
+                            android:layout_weight="1"
                             android:layout_height="48dp"
                             android:layout_marginStart="4dp"
                             android:text="@string/compact_translation_mode_adaptive" />
+
+                        <androidx.appcompat.widget.AppCompatButton
+                            android:id="@+id/translation_mode_sentence"
+                            style="@style/Widget.HaoHao.SegmentButton"
+                            android:layout_width="0dp"
+                            android:layout_weight="1"
+                            android:layout_height="48dp"
+                            android:layout_marginStart="4dp"
+                            android:text="@string/compact_translation_mode_sentence" />
                     </LinearLayout>
                 </LinearLayout>
 

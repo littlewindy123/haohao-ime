@@ -14,8 +14,10 @@ import com.osfans.trime.core.CompositionProto
 import com.osfans.trime.core.RimeMessage
 import com.osfans.trime.core.SchemaItem
 import com.osfans.trime.daemon.RimeSession
+import com.osfans.trime.data.theme.DEFAULT_THEME_ID
 import com.osfans.trime.data.theme.KeyActionManager
 import com.osfans.trime.data.theme.Theme
+import com.osfans.trime.data.theme.ThemeManager
 import com.osfans.trime.data.theme.model.TextKeyboard
 import com.osfans.trime.ime.broadcast.EnterKeyDisplayDelegate
 import com.osfans.trime.ime.broadcast.InputBroadcastReceiver
@@ -27,7 +29,6 @@ import com.osfans.trime.ime.window.ResidentWindow
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.runBlocking
 import org.kodein.di.instance
 import splitties.views.dsl.core.add
 import splitties.views.dsl.core.frameLayout
@@ -88,6 +89,10 @@ class KeyboardWindow :
         return keyboardView
     }
 
+    override fun enterAnimation(lastWindow: com.osfans.trime.ime.window.BoardWindow): androidx.transition.Transition? = if (ThemeManager.prefs.selectedTheme.getValue() == DEFAULT_THEME_ID) null else super.enterAnimation(lastWindow)
+
+    override fun exitAnimation(nextWindow: com.osfans.trime.ime.window.BoardWindow): androidx.transition.Transition? = if (ThemeManager.prefs.selectedTheme.getValue() == DEFAULT_THEME_ID) null else super.exitAnimation(nextWindow)
+
     private fun detachCurrentView() {
         currentKeyboardView?.also {
             it.onDetach()
@@ -119,7 +124,7 @@ class KeyboardWindow :
         }
 
         keyboard.also {
-            runBlocking { _currentKeyboardHeight.emit(it.keyboardHeight) }
+            _currentKeyboardHeight.tryEmit(it.keyboardHeight)
             if (it.isLock) lastLockKeyboardId = target
             dispatchCapsState(it::setShifted)
 

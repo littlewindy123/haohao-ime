@@ -314,6 +314,9 @@ class WordLearningUiTest {
             val intent = Intent(context, WordLearningActivity::class.java).putExtra("words.mode", "review")
             ActivityScenario.launch<WordLearningActivity>(intent).use { scenario ->
                 awaitButton(scenario, R.string.words_reveal)
+                scenario.onActivity { activity ->
+                    assertTrue(descendants(activity.window.decorView).any { it.contentDescription == activity.getString(R.string.input_footprints_speak) })
+                }
                 capture("review-question")
                 click(scenario, R.string.words_reveal)
                 awaitButton(scenario, R.string.words_remembered)
@@ -349,6 +352,9 @@ class WordLearningUiTest {
                 click(scenario, R.string.words_plan_start)
                 awaitButton(scenario, R.string.words_reveal)
                 assertTrue(runBlocking { store.learning.session()!!.daily && store.learning.session()!!.reverse })
+                scenario.onActivity { activity ->
+                    assertFalse("Reverse cards must not leak the English answer through a speaker", descendants(activity.window.decorView).any { it.contentDescription == activity.getString(R.string.input_footprints_speak) })
+                }
                 scenario.recreate()
                 awaitButton(scenario, R.string.words_reveal)
                 capture("plan-review")
@@ -360,8 +366,8 @@ class WordLearningUiTest {
 
     private fun click(scenario: ActivityScenario<WordLearningActivity>, title: Int) {
         scenario.onActivity { activity ->
-            val button = descendants(activity.window.decorView).filterIsInstance<TextView>()
-                .first { it.text.toString() == activity.getString(title) }
+            val button = descendants(activity.window.decorView)
+                .first { (it as? TextView)?.text?.toString() == activity.getString(title) || it.contentDescription == activity.getString(title) }
             assertTrue(button.isEnabled)
             button.performClick()
         }
@@ -393,6 +399,12 @@ class WordLearningUiTest {
                 click(scenario, R.string.input_footprints_speak)
                 SystemClock.sleep(1_000)
                 capture("speech-state")
+                instrumentation.runOnMainSync {
+                    val negative = WindowInspector.getGlobalWindowViews().flatMap { descendants(it).toList() }
+                        .first { it.id == android.R.id.button2 && it.isShown }
+                    negative.performClick()
+                }
+                assertFalse(com.osfans.trime.data.speech.SpeechPlayback.consent(context))
             }
         } finally {
             runBlocking { store.clearAll() }
@@ -402,8 +414,8 @@ class WordLearningUiTest {
     private fun awaitButton(scenario: ActivityScenario<WordLearningActivity>, title: Int) = awaitCondition {
         var found = false
         scenario.onActivity { activity ->
-            found = descendants(activity.window.decorView).filterIsInstance<TextView>()
-                .any { it.text.toString() == activity.getString(title) }
+            found = descendants(activity.window.decorView)
+                .any { (it as? TextView)?.text?.toString() == activity.getString(title) || it.contentDescription == activity.getString(title) }
         }
         found
     }

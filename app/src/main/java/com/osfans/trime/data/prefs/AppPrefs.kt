@@ -188,6 +188,7 @@ class AppPrefs(
             const val SPACEBAR_SLIDE_CURSOR = "spacebar_slide_cursor_enabled"
             const val BACKSPACE_SLIDE_DELETE = "backspace_slide_delete_enabled"
             const val HEIGHT_MODE = "haohao_keyboard_height_mode"
+            val DEFAULT_HEIGHT_MODE = KeyboardHeightMode.COMPACT
             const val ONE_HAND_MODE = "haohao_one_hand_mode"
 
             const val FEEDBACK_PRESET = "keyboard_feedback_preset"
@@ -325,7 +326,7 @@ class AppPrefs(
         val heightMode = enum(
             R.string.keyboard_height_mode,
             HEIGHT_MODE,
-            KeyboardHeightMode.STANDARD,
+            DEFAULT_HEIGHT_MODE,
         )
         val oneHandMode = enum(
             R.string.one_hand_mode,

@@ -45,6 +45,9 @@ internal data class CandidateTypography(
     val phoneticTextSize: Float,
 )
 
+/** Grow the source lane for accessibility; translation never borrows its height. */
+internal fun candidateSourceRowHeight(configuredHeight: Int, textSizeSp: Float, fontScale: Float): Int = maxOf(configuredHeight, ceil(textSizeSp * fontScale * 1.3f).toInt() + 8)
+
 internal fun resolveCandidateTypography(
     candidateTextSize: Float,
     commentTextSize: Float,

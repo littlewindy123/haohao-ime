@@ -12,11 +12,13 @@ import androidx.lifecycle.lifecycleScope
 import com.osfans.trime.data.footprints.InputFootprintPolicy
 import com.osfans.trime.data.prefs.AppPrefs
 import com.osfans.trime.data.prefs.PreferenceDelegate
+import com.osfans.trime.data.prefs.PreferenceDelegateProvider
 import com.osfans.trime.ime.broadcast.InputBroadcastReceiver
 import com.osfans.trime.ime.candidates.bilingual.CandidateTranslationEntry
 import com.osfans.trime.ime.candidates.bilingual.CandidateTranslationRepository
 import com.osfans.trime.ime.candidates.bilingual.CandidateTranslationRevealController
 import com.osfans.trime.ime.candidates.bilingual.OfflineCandidateTranslationRepository
+import com.osfans.trime.ime.candidates.compact.CompactTranslationMode
 import com.osfans.trime.ime.core.TrimeInputMethodService
 import com.osfans.trime.ime.dependency.InputDependencyManager
 import com.osfans.trime.util.appContext
@@ -327,6 +329,10 @@ internal class CloudCandidateServiceCooldown(
 
     fun isActive(): Boolean = nowMillis() < unavailableUntilMillis
 
+    fun reset() {
+        unavailableUntilMillis = 0L
+    }
+
     fun record(failure: CloudTranslationResult.Failure) {
         if (failure.kind in COOLDOWN_FAILURES) {
             unavailableUntilMillis = nowMillis() + CLOUD_CANDIDATE_SERVICE_COOLDOWN_MS
@@ -336,6 +342,7 @@ internal class CloudCandidateServiceCooldown(
     private companion object {
         val COOLDOWN_FAILURES = setOf(
             CloudTranslationResult.Failure.Kind.NETWORK,
+            CloudTranslationResult.Failure.Kind.TIMEOUT,
             CloudTranslationResult.Failure.Kind.AUTHENTICATION,
             CloudTranslationResult.Failure.Kind.RATE_LIMITED,
             CloudTranslationResult.Failure.Kind.QUOTA_EXCEEDED,
@@ -385,6 +392,59 @@ internal class CloudCandidateTranslationController : InputBroadcastReceiver {
     private var cloudAllowedForEditor = false
     private var lastRequestKey: String? = null
     private val serviceCooldown = CloudCandidateServiceCooldown()
+    private val sentenceListeners = CopyOnWriteArraySet<() -> Unit>()
+    private val sentenceSession by lazy {
+        SentenceCandidateTranslationSession(
+            scope = service.lifecycleScope,
+            translate = { CloudTranslationRuntime.manager.translate(it) },
+            cachedLookup = { text, mode -> lookupCandidateTranslation(text, mode)?.translation },
+            onState = { sentenceListeners.forEach { it() } },
+        )
+    }
+
+    val sentenceState: SentenceCandidateState get() = sentenceSession.state
+    val allowsSentencePreview: Boolean get() = cloudAllowedForEditor
+    fun addSentenceListener(listener: () -> Unit) {
+        sentenceListeners += listener
+    }
+    fun removeSentenceListener(listener: () -> Unit) {
+        sentenceListeners -= listener
+    }
+    fun retrySentence() = sentenceSession.retry()
+
+    fun requestFirst(source: String?) {
+        cancelPending()
+        sentenceSession.update(
+            source,
+            SentenceCandidateContext(
+                sourceMode = prefs.cloudTranslation.candidateSource.getValue(),
+                providerFingerprint = CloudCandidateTranslationRepository.currentProviderFingerprint(),
+                enabled = prefs.candidates.bilingualTranslation.getValue() &&
+                    prefs.candidates.compactTranslationMode.getValue() == CompactTranslationMode.SENTENCE_FIRST,
+                editorAllowed = cloudAllowedForEditor,
+                cloudFailure = CloudTranslationRuntime.manager.status()?.kind,
+            ),
+        )
+    }
+
+    @Keep
+    private val configurationListener = PreferenceDelegateProvider.OnChangeListener {
+        cancelPending()
+        sentenceSession.invalidate(clearCache = true)
+        serviceCooldown.reset()
+        revealController.notifyContentChanged()
+    }
+
+    @Keep
+    private val sentenceModeListener = PreferenceDelegate.OnChangeListener<CompactTranslationMode> { _, _ ->
+        cancelPending()
+        sentenceSession.invalidate(clearCache = true)
+    }
+
+    @Keep
+    private val sentenceEnabledListener = PreferenceDelegate.OnChangeListener<Boolean> { _, _ ->
+        sentenceSession.invalidate(clearCache = true)
+    }
 
     @Keep
     private val sourceListener = PreferenceDelegate.OnChangeListener<CandidateTranslationSourceMode> { _, mode ->
@@ -402,6 +462,9 @@ internal class CloudCandidateTranslationController : InputBroadcastReceiver {
     }
 
     fun start() {
+        prefs.candidates.compactTranslationMode.registerOnChangeListener(sentenceModeListener)
+        prefs.candidates.bilingualTranslation.registerOnChangeListener(sentenceEnabledListener)
+        prefs.cloudTranslation.registerOnChangeListener(configurationListener)
         prefs.cloudTranslation.candidateSource.registerOnChangeListener(sourceListener)
         if (prefs.cloudTranslation.candidateSource.getValue() != CandidateTranslationSourceMode.LOCAL_ONLY) {
             CloudCandidateTranslationRepository.addListener(repositoryListener)
@@ -409,6 +472,11 @@ internal class CloudCandidateTranslationController : InputBroadcastReceiver {
     }
 
     fun stop() {
+        prefs.candidates.compactTranslationMode.unregisterOnChangeListener(sentenceModeListener)
+        prefs.candidates.bilingualTranslation.unregisterOnChangeListener(sentenceEnabledListener)
+        sentenceSession.invalidate(clearCache = true)
+        sentenceListeners.clear()
+        prefs.cloudTranslation.unregisterOnChangeListener(configurationListener)
         prefs.cloudTranslation.candidateSource.unregisterOnChangeListener(sourceListener)
         CloudCandidateTranslationRepository.removeListener(repositoryListener)
         cancelPending()
@@ -416,19 +484,26 @@ internal class CloudCandidateTranslationController : InputBroadcastReceiver {
 
     fun deactivate() {
         cloudAllowedForEditor = false
+        sentenceSession.invalidate(clearCache = true)
         cancelPending()
     }
 
     override fun onStartInput(info: EditorInfo) {
         cloudAllowedForEditor = CloudTranslationPrivacyPolicy.allows(info)
+        sentenceSession.invalidate(clearCache = true)
         cancelPending()
     }
 
     override fun onRimeKeyInput() {
+        sentenceSession.invalidate()
         cancelPending()
     }
 
     fun requestVisible(texts: List<String>) {
+        if (prefs.candidates.compactTranslationMode.getValue() == CompactTranslationMode.SENTENCE_FIRST) {
+            cancelPending()
+            return
+        }
         val sourceMode = prefs.cloudTranslation.candidateSource.getValue()
         if (
             !cloudAllowedForEditor ||

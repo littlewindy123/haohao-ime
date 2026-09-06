@@ -80,6 +80,7 @@ class ToolButton(context: Context) : GestureFrame(context) {
         builtinIconSize: Int = 24,
         builtinIconColor: String = "candidate_text_color",
         builtinIconHighlightColor: String = "hilited_candidate_text_color",
+        scaleBuiltinIcon: Boolean = false,
     ) : this(context) {
         val tintList = ColorStateList(
             arrayOf(intArrayOf(android.R.attr.state_pressed), intArrayOf()),
@@ -89,6 +90,7 @@ class ToolButton(context: Context) : GestureFrame(context) {
             ),
         )
         image.imageTintList = tintList
+        if (scaleBuiltinIcon) image.scaleType = ImageView.ScaleType.FIT_CENTER
         image.padding = dp(BUILTIN_ICON_PADDING_DP)
         image.layoutParams = image.layoutParams.apply {
             val frameSize = dp(toolButtonIconFrameSizeDp(builtinIconSize))

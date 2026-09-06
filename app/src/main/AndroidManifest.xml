@@ -11,6 +11,8 @@ SPDX-License-Identifier: GPL-3.0-or-later
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
 
     <application
         android:name="com.osfans.trime.TrimeApplication"
@@ -34,6 +36,11 @@ SPDX-License-Identifier: GPL-3.0-or-later
                 android:name="android.view.im"
                 android:resource="@xml/method" />
         </service>
+
+        <service
+            android:name=".data.speech.SpeechForegroundService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
 
         <provider
             android:name=".provider.RimeDataProvider"

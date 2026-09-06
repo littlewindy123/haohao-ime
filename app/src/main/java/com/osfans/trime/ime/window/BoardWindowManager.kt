@@ -36,6 +36,7 @@ class BoardWindowManager {
         remove: View,
         add: View,
     ) {
+        if (exitAnimation == null && enterAnimation == null) return
         enterAnimation?.addTarget(add)
         exitAnimation?.addTarget(remove)
         TransitionManager.beginDelayedTransition(
@@ -55,6 +56,7 @@ class BoardWindowManager {
         if (window.key in cachedResidentWindows) {
             if (cachedResidentWindows[window.key]!!.first === window) {
                 Timber.d("Skip adding resident window $window")
+                return
             } else {
                 throw IllegalStateException("${window.key} is already occupied")
             }
@@ -71,8 +73,9 @@ class BoardWindowManager {
     }
 
     fun attachWindow(window: BoardWindow) {
-        if (window === currentWindow) {
+        if (shouldReuseAttachedWindow(window === currentWindow, currentView?.parent === view)) {
             Timber.d("Skip attaching $window")
+            return
         }
         val newView =
             if (window is ResidentWindow) {

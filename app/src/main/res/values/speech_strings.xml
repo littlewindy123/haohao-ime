@@ -1,0 +1,23 @@
+<resources>
+    <string name="speech_consent_title">Listen to English</string>
+    <string name="speech_consent_message">Only the English you choose to hear is sent to HaoHao’s server and Tencent Cloud to generate speech. No chat history or microphone is accessed. Audio stays in a private cache for up to 7 days (50 MB maximum). You can clear it or withdraw consent in My words.</string>
+    <string name="speech_allow">Allow and play</string>
+    <string name="speech_stop">Stop speech</string>
+    <string name="speech_slow">Slow · 0.8×</string>
+    <string name="speech_loading">Loading…</string>
+    <string name="speech_playing">Playing</string>
+    <string name="speech_manual">Tap to listen</string>
+    <string name="speech_clear">Clear speech cache</string>
+    <string name="speech_revoke">Turn off online speech</string>
+    <string name="speech_cache_cleared">Speech cache cleared</string>
+    <string name="speech_too_long">Speech supports up to 2,000 characters; this text cannot be split safely.</string>
+    <string name="speech_invalid_text">Select English text to hear it.</string>
+    <string name="speech_not_configured">Online speech is awaiting service setup. Cached audio still works.</string>
+    <string name="speech_expired">The speech trial has ended. Cached audio still works.</string>
+    <string name="speech_unauthorized">Speech access is unavailable. Please contact the test organizer.</string>
+    <string name="speech_quota">The speech allowance is unavailable. Try cached audio.</string>
+    <string name="speech_busy">Speech is busy. Try again later.</string>
+    <string name="speech_timeout">Speech timed out. Tap to retry.</string>
+    <string name="speech_network">Cannot load speech. Check your connection; cached audio works offline.</string>
+    <string name="speech_failed">Speech could not play. Check audio output and try again.</string>
+</resources>

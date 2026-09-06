@@ -19,7 +19,16 @@ import java.io.File
 
 class HaoHaoTypingErgonomicsTest :
     StringSpec({
+        "HaoHao rotates dimensions without changing the chosen key arrangement" {
+            usesLandscapeKeyboardMetrics(true, true, false) shouldBe true
+            usesLandscapeKeyboardMetrics(true, false, false) shouldBe false
+            usesLandscapeKeyboardMetrics(true, false, true) shouldBe true
+            usesLandscapeKeyboardMetrics(false, true, false) shouldBe false
+            usesLandscapeKeyboardMetrics(false, false, true) shouldBe true
+        }
+
         "height modes scale HaoHao keyboard only" {
+            AppPrefs.Keyboard.DEFAULT_HEIGHT_MODE shouldBe AppPrefs.Keyboard.KeyboardHeightMode.COMPACT
             AppPrefs.Keyboard.KeyboardHeightMode.COMPACT.percent shouldBe 90
             AppPrefs.Keyboard.KeyboardHeightMode.STANDARD.percent shouldBe 100
             AppPrefs.Keyboard.KeyboardHeightMode.ROOMY.percent shouldBe 110

@@ -7,6 +7,7 @@ package com.osfans.trime.ime.keyboard
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.res.Configuration
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
@@ -312,7 +313,6 @@ class KeyView(
     }
 
     private fun processKeyAction(action: KeyAction, behavior: KeyBehavior) {
-
         if (action.isModifierKey) {
             val status = rime.run { statusCached }
             if (action.modifierKeyOnMask == KeyEvent.META_SHIFT_ON &&
@@ -421,6 +421,18 @@ class KeyView(
     private fun drawBackground(canvas: Canvas, k: Key) {
         val bg = k.getBackgroundDrawable() ?: return
         val cornerRadius = dp(k.roundCorner ?: keyboard.roundCorner)
+        if (k.verticalGroupPosition >= 0) {
+            // A continuous rail with four separate touch targets; only the outer ends are rounded.
+            if (bg is GradientDrawable) {
+                val top = if (k.verticalGroupPosition == 0) cornerRadius else 0f
+                val bottom = if (k.verticalGroupPosition == 3) cornerRadius else 0f
+                bg.cornerRadii = floatArrayOf(top, top, top, top, bottom, bottom, bottom, bottom)
+                bg.setStroke(0, Color.TRANSPARENT)
+            }
+            bg.setBounds(paddingLeft, paddingTop, width - paddingRight, height - paddingBottom)
+            bg.draw(canvas)
+            return
+        }
         val geometry = calculateKeySurfaceGeometry(
             width = width,
             height = height,
@@ -600,7 +612,13 @@ class KeyView(
             val lineHeight = fontMetrics.descent - fontMetrics.ascent
             val totalHeight = lineHeight * lines.size
 
-            val centerX = (width - paddingLeft - paddingRight) / 2f + paddingLeft + sp(offsetX)
+            val cornerHint = isTop && isHaoHaoTheme && resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+            // Short landscape keycaps keep the large primary glyph; hints move into a corner.
+            val centerX = if (cornerHint) {
+                width - paddingRight - dp(4) - lines.maxOf { symbolPaint.measureText(it) } / 2f + sp(offsetX)
+            } else {
+                (width - paddingLeft - paddingRight) / 2f + paddingLeft + sp(offsetX)
+            }
             val startY = if (isTop) {
                 paddingTop - fontMetrics.top + sp(offsetY) - (totalHeight - lineHeight) / 2
             } else {

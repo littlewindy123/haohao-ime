@@ -24,10 +24,14 @@ import com.osfans.trime.ime.candidates.compact.compactCandidateCellWidth
 import com.osfans.trime.ime.candidates.compact.compactTranslationHint
 import com.osfans.trime.ime.candidates.compact.compactTranslationTextForCell
 import com.osfans.trime.ime.candidates.compact.fitCompactCandidateRow
+import com.osfans.trime.ime.candidates.compact.fitSentenceFirstCandidateRow
 import com.osfans.trime.ime.candidates.compact.resolveCompactCandidateCount
+import com.osfans.trime.ime.candidates.compact.sentenceCandidateBudget
+import com.osfans.trime.ime.candidates.compact.sentenceCandidateContentWidth
 import com.osfans.trime.ime.candidates.compact.toCompactCandidateItems
 import com.osfans.trime.ime.candidates.compact.withCompactTranslationWidth
 import com.osfans.trime.ime.candidates.unrolled.UnrolledCandidateItem
+import com.osfans.trime.ime.candidates.unrolled.sentenceCandidateSpanSize
 import com.osfans.trime.ime.candidates.unrolled.toDisplayableUnrolledCandidates
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
@@ -241,6 +245,107 @@ class BilingualCandidatePresenterTest :
             compactCandidateCellWidth(200, minWidth = 48, horizontalPadding = 10, maxWidth = 112) shouldBe 112
         }
 
+        "sentence row fills the available width instead of stopping at the translation target count" {
+            val budget = sentenceCandidateBudget(321, 48)
+            budget shouldBe 8
+            val candidates = Array(10) { CandidateProto(text = "字$it", comment = "", label = "") }.toCompactCandidateItems(budget)
+            val cells = fitSentenceFirstCandidateRow(candidates, budget, 321, minimumTrailingWidth = 1) {
+                CompactCandidateWidthBounds(48, 64)
+            }
+            cells.map { it.width } shouldBe listOf(64, 64, 64, 64, 64, 1)
+            cells.sumOf { it.width } shouldBe 321
+            cells.last().naturalSourceWidth shouldBe 64
+            sentenceCandidateBudget(0, 48) shouldBe 0
+        }
+
+        "nearly full first sentence still reveals the next candidate instead of a blank tail" {
+            val candidates = Array(3) { CandidateProto(text = "句$it", comment = "", label = "") }.toCompactCandidateItems(3)
+            val cells = fitSentenceFirstCandidateRow(candidates, 3, 300, minimumTrailingWidth = 1) {
+                if (it.globalIndex == 0) CompactCandidateWidthBounds(270, 270) else CompactCandidateWidthBounds(64, 64)
+            }
+            cells.map { it.width } shouldBe listOf(270, 30)
+        }
+
+        "an overlong first sentence owns the entire row and preserves its full Chinese source" {
+            val source = "我爱你明天晚上我们一起去吃饭然后去公园散步".repeat(8)
+            val candidates = arrayOf(
+                CandidateProto(text = source, comment = "", label = ""),
+                CandidateProto(text = "我爱你", comment = "", label = ""),
+                CandidateProto(text = "我", comment = "", label = ""),
+            ).toCompactCandidateItems(maxCount = 3)
+            val cells = fitSentenceFirstCandidateRow(candidates, targetCount = 3, availableWidth = 300) {
+                val width = it.candidate.text.length * 20 + 20
+                CompactCandidateWidthBounds(width, width)
+            }
+            cells.size shouldBe 1
+            cells.first().width shouldBe 300
+            cells.first().item.candidate.text shouldBe source
+            cells.map { it.item.globalIndex } shouldBe listOf(0)
+        }
+
+        "sentence first row never fabricates a cell for empty or unavailable space" {
+            fitSentenceFirstCandidateRow(emptyList(), 4, 300) { error("no candidate") } shouldBe emptyList()
+            val candidates = arrayOf(CandidateProto(text = "我", comment = "", label = "")).toCompactCandidateItems(1)
+            fitSentenceFirstCandidateRow(candidates, 0, 300) { error("disabled") } shouldBe emptyList()
+            fitSentenceFirstCandidateRow(candidates, 4, 0) { error("unmeasured") } shouldBe emptyList()
+        }
+
+        "first sentence growth progressively squeezes out trailing candidates without shrinking the first" {
+            val candidates = arrayOf(
+                CandidateProto(text = "首句", comment = "", label = ""),
+                CandidateProto(text = "候选二", comment = "", label = ""),
+                CandidateProto(text = "候选三", comment = "", label = ""),
+            ).toCompactCandidateItems(3)
+            for ((firstWidth, count) in listOf(100 to 3, 180 to 2, 220 to 2, 270 to 1, 500 to 1)) {
+                val cells = fitSentenceFirstCandidateRow(candidates, 3, 300) {
+                    if (it.globalIndex == 0) CompactCandidateWidthBounds(firstWidth, firstWidth) else CompactCandidateWidthBounds(60, 80)
+                }
+                cells.first().width shouldBe minOf(firstWidth, 300)
+                cells.size shouldBe count
+                (cells.sumOf { it.width } <= 300) shouldBe true
+                cells.map { it.item.globalIndex } shouldBe (0 until count).toList()
+            }
+        }
+
+        "trailing candidates keep natural letter size and the last visible one can be clipped" {
+            val candidates = arrayOf(
+                CandidateProto(text = "首句", comment = "", label = ""),
+                CandidateProto(text = "二", comment = "", label = ""),
+                CandidateProto(text = "三", comment = "", label = ""),
+            ).toCompactCandidateItems(3)
+            val cells = fitSentenceFirstCandidateRow(candidates, 3, 300) {
+                if (it.globalIndex == 0) CompactCandidateWidthBounds(180, 180) else CompactCandidateWidthBounds(60, 100)
+            }
+            cells.map { it.width } shouldBe listOf(180, 100)
+            val clipped = fitSentenceFirstCandidateRow(candidates, 3, 260) {
+                if (it.globalIndex == 0) CompactCandidateWidthBounds(180, 180) else CompactCandidateWidthBounds(160, 180)
+            }
+            clipped.map { it.width } shouldBe listOf(180, 80)
+        }
+
+        "long first sentence preserves full glyph size before its own content overflows" {
+            sentenceCandidateContentWidth(100, 300, 10) shouldBe 300
+            sentenceCandidateContentWidth(340, 300, 10) shouldBe 340
+            sentenceCandidateContentWidth(1000, 300, 10) shouldBe 1000
+            sentenceCandidateContentWidth(4000, 300, 10) shouldBe 4000
+        }
+
+        "source row grows for larger fonts without borrowing the translation lane" {
+            candidateSourceRowHeight(48, 22f, 1f) shouldBe 48
+            candidateSourceRowHeight(48, 22f, 1.3f) shouldBe 48
+            candidateSourceRowHeight(48, 22f, 2f) shouldBe 66
+        }
+
+        "expanded sentence uses a full row only when the first source outgrows a normal cell" {
+            sentenceCandidateSpanSize(true, 0, 100, 300, 3) shouldBe 1
+            sentenceCandidateSpanSize(true, 0, 101, 300, 3) shouldBe 3
+            sentenceCandidateSpanSize(true, 0, 1000, 300, 3) shouldBe 3
+            sentenceCandidateSpanSize(true, 0, 101, 900, 3) shouldBe 1
+            sentenceCandidateSpanSize(true, 1, 1000, 300, 3) shouldBe 1
+            sentenceCandidateSpanSize(false, 0, 1000, 300, 3) shouldBe 1
+            sentenceCandidateSpanSize(true, 0, 1000, 0, 3) shouldBe 1
+        }
+
         "compact candidate width excludes the branded and expand controls" {
             compactCandidateAvailableWidth(totalWidth = 360, leadingWidth = 48, trailingWidth = 40) shouldBe 272
             compactCandidateAvailableWidth(totalWidth = 80, leadingWidth = 48, trailingWidth = 40) shouldBe 0
@@ -334,8 +439,8 @@ class BilingualCandidatePresenterTest :
             ready.map { it.width } shouldBe missing.map { it.width }
         }
 
-        "compact translation defaults to word mode and accepts only one lexical word" {
-            DEFAULT_COMPACT_TRANSLATION_MODE shouldBe CompactTranslationMode.WORD
+        "compact translation defaults to sentence first while explicit word mode stays lexical" {
+            DEFAULT_COMPACT_TRANSLATION_MODE shouldBe CompactTranslationMode.SENTENCE_FIRST
 
             listOf("chicken", "Computer", "good-looking", "don't", "rock’n’roll").forEach { translation ->
                 compactTranslationHint(

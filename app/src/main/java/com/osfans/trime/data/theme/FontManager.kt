@@ -51,6 +51,9 @@ object FontManager {
         if (typefaceCache.containsKey(key)) {
             return typefaceCache[key]!!
         }
+        if (getFontFromStyle(key)?.firstOrNull() == "system:sans-serif") {
+            return Typeface.create("sans-serif", Typeface.NORMAL).also { typefaceCache[key] = it }
+        }
         Timber.d("getTypeface() key=%s", key)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             val fontFamilies = mutableListOf<FontFamily>()

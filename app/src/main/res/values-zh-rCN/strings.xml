@@ -412,7 +412,7 @@
     <string name="cloud_translation_candidate_fallback">本地无释义时在线补全</string>
     <string name="cloud_translation_candidate_fallback_summary">默认关闭；仅发送顶部可见且离线未命中的候选，最多 5 项。</string>
     <string name="cloud_translation_candidate_source">候选翻译来源</string>
-    <string name="cloud_translation_candidate_source_summary">关闭只用本地词库；开启只用云端；混合仅在本地缺失时请求云端。最多发送 5 个可见候选。</string>
+    <string name="cloud_translation_candidate_source_summary">关闭只用本地词库；开启只用云端。授权后推荐“混合”：本地优先，云端补充。最多发送 5 个可见候选。</string>
     <string name="cloud_translation_source_local">关闭</string>
     <string name="cloud_translation_source_cloud">开启</string>
     <string name="cloud_translation_source_hybrid">混合</string>
@@ -429,9 +429,11 @@
     <string name="cloud_translation_error_rate">已达到今日请求上限</string>
     <string name="cloud_translation_error_quota">已达到本月字符上限</string>
     <string name="cloud_translation_error_network">网络不可用或请求超时</string>
+    <string name="cloud_translation_error_timeout">翻译请求超时，可继续输入或重试</string>
     <string name="cloud_translation_error_response">服务返回了无法识别的结果</string>
-    <string name="haohao_translation_tool">翻译输入</string>
-    <string name="haohao_translation_title">翻译输入</string>
+    <string name="haohao_translation_tool">译成英文</string>
+    <string name="haohao_translation_title">译成英文</string>
+    <string name="haohao_translation_close">关闭</string>
     <string name="haohao_translation_draft_hint">使用键盘输入中文</string>
     <string name="haohao_translation_waiting">停顿片刻后自动翻译</string>
     <string name="haohao_translation_translating">正在翻译…</string>
@@ -447,4 +449,11 @@
     <string name="haohao_translation_sensitive_disabled">当前敏感输入框已禁用云翻译</string>
     <string name="haohao_translation_not_configured">请先配置并测试云翻译服务</string>
     <string name="haohao_translation_draft_limit">中文草稿最多 200 个字符</string>
+    <string name="compact_translation_mode_sentence">句子优先</string>
+    <string name="sentence_translation_expand">展开全文</string>
+    <string name="sentence_translation_return">返回键盘</string>
+    <string name="sentence_translation_limit">最多翻译 200 个字符，请缩短句子</string>
+    <string name="sentence_translation_local_missing">本地暂无这句的翻译</string>
+    <string name="sentence_translation_consent">请先在设置中授权云翻译</string>
+    <string name="sentence_translation_invalid">暂时无法翻译这段文字</string>
 </resources>

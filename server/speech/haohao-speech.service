@@ -1,0 +1,21 @@
+[Unit]
+Description=HaoHao private speech gateway
+After=network-online.target
+
+[Service]
+User=haohao-speech
+Group=haohao-speech
+WorkingDirectory=/opt/haohao-speech/current
+EnvironmentFile=/etc/haohao-speech/service.env
+ExecStart=/opt/haohao-speech/venv/bin/uvicorn app:application --factory --host 127.0.0.1 --port 18761 --no-access-log --no-proxy-headers
+Restart=on-failure
+UMask=0077
+StateDirectory=haohao-speech
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/haohao-speech
+
+[Install]
+WantedBy=multi-user.target

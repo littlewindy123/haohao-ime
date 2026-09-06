@@ -490,3 +490,16 @@ app/src/main/jni/boost/
 service/translation-gateway/.env
 service/translation-gateway/.env.*
 service/translation-gateway/data/
+
+# Local device captures, temporary release artifacts and private speech configuration
+/work/
+internal-speech.properties
+.env
+.env.*
+!.env.example
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+server/speech/service.env
+server/speech/*.sqlite3

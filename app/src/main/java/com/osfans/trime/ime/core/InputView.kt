@@ -44,7 +44,7 @@ import com.osfans.trime.ime.haohao.HAOHAO_ONE_HAND_RAIL_WIDTH_DP
 import com.osfans.trime.ime.haohao.HaoHaoTranslationController
 import com.osfans.trime.ime.haohao.calculateHaoHaoKeyboardViewport
 import com.osfans.trime.ime.keyboard.InputFeedbackManager
-import com.osfans.trime.ime.keyboard.KeyboardPrefs.isLandscapeMode
+import com.osfans.trime.ime.keyboard.KeyboardPrefs.useLandscapeMetrics
 import com.osfans.trime.ime.keyboard.KeyboardWindow
 import com.osfans.trime.ime.popup.PopupDelegate
 import com.osfans.trime.ime.symbol.LiquidWindow
@@ -129,7 +129,7 @@ class InputView(
     private val keyboardSidePaddingPx: Int
         get() {
             val value =
-                if (context.isLandscapeMode()) keyboardSidePaddingLandscape else keyboardSidePadding
+                if (context.useLandscapeMetrics()) keyboardSidePaddingLandscape else keyboardSidePadding
             return dp(value)
         }
 
@@ -149,7 +149,7 @@ class InputView(
     private val keyboardBottomPaddingPx: Int
         get() {
             val value =
-                if (context.isLandscapeMode()) keyboardBottomPaddingLandscape else keyboardBottomPadding
+                if (context.useLandscapeMetrics()) keyboardBottomPaddingLandscape else keyboardBottomPadding
             return dp(value)
         }
 

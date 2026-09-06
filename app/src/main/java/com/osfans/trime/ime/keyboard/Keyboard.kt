@@ -20,6 +20,7 @@ import com.osfans.trime.ime.haohao.HAOHAO_ONE_HAND_RAIL_WIDTH_DP
 import com.osfans.trime.ime.haohao.calculateHaoHaoKeyboardViewport
 import com.osfans.trime.ime.haohao.scaleHaoHaoKeyboardHeight
 import com.osfans.trime.ime.keyboard.KeyboardPrefs.isLandscapeMode
+import com.osfans.trime.ime.keyboard.KeyboardPrefs.useLandscapeMetrics
 import splitties.bitflags.hasFlag
 import splitties.dimensions.dp
 import splitties.systemservices.windowManager
@@ -102,7 +103,7 @@ class Keyboard(
     private val allowedWidth: Int
         get() {
             val padding = theme.generalStyle.run {
-                if (context.isLandscapeMode()) keyboardPaddingLand else keyboardPadding
+                if (context.useLandscapeMetrics()) keyboardPaddingLand else keyboardPadding
             }
 
             val safeWidth = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -165,7 +166,7 @@ class Keyboard(
     private val isHaoHaoTheme = ThemeManager.prefs.selectedTheme.getValue() == DEFAULT_THEME_ID
 
     internal val keyCapHeight: Int =
-        theme.generalStyle.keyCapHeight
+        (selfConfig?.keyCapHeight?.takeIf { it >= 0 } ?: theme.generalStyle.keyCapHeight)
             .takeIf { it > 0 }
             ?.let {
                 scaleHaoHaoKeyboardHeight(
@@ -392,12 +393,32 @@ class Keyboard(
                 if (key.row == 0) key.edgeFlags = key.edgeFlags or EDGE_TOP
                 if (key.row == row) key.edgeFlags = key.edgeFlags or EDGE_BOTTOM
             }
+            if (selfConfig.keyLayout == "telephone" && mKeys.size == 21) {
+                // Use the same bounds for rendering and hit testing; no transparent overlay targets.
+                val bounds = telephoneKeyBounds(allowedWidth, keyboardHeight)
+                mKeys.zip(bounds).forEachIndexed { index, (key, cell) ->
+                    key.x = cell.x
+                    key.y = cell.y
+                    key.width = cell.width
+                    key.height = cell.height
+                    key.extraWidthLeft = 0
+                    key.extraWidthRight = 0
+                    key.verticalGroupPosition = if (index < 4) index else -1
+                    key.edgeFlags = 0
+                    if (cell.x == 0) key.edgeFlags = key.edgeFlags or EDGE_LEFT
+                    if (cell.y == 0) key.edgeFlags = key.edgeFlags or EDGE_TOP
+                    if (cell.x + cell.width == allowedWidth) key.edgeFlags = key.edgeFlags or EDGE_RIGHT
+                    if (cell.y + cell.height == keyboardHeight) key.edgeFlags = key.edgeFlags or EDGE_BOTTOM
+                }
+                minWidth = allowedWidth
+                height = keyboardHeight
+            }
         }
     }
 
     private fun getKeyboardHeightFromTheme(theme: Theme): Int {
         var keyboardHeight = theme.generalStyle.keyboardHeight
-        if (context.isLandscapeMode()) {
+        if (context.useLandscapeMetrics()) {
             val keyboardHeightLand = theme.generalStyle.keyboardHeightLand
             if (keyboardHeightLand > 0) keyboardHeight = keyboardHeightLand
         }
@@ -406,7 +427,7 @@ class Keyboard(
 
     private fun getKeyboardHeightFromKeyboardConfig(textKeyboard: TextKeyboard): Int {
         var keyboardHeight = textKeyboard.keyboardHeight
-        if (context.isLandscapeMode()) {
+        if (context.useLandscapeMetrics()) {
             val keyboardHeightLand = textKeyboard.keyboardHeightLand
             if (keyboardHeightLand > 0) keyboardHeight = keyboardHeightLand
         }

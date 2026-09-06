@@ -421,7 +421,7 @@
     <string name="cloud_translation_candidate_fallback">Fill missing candidate translations online</string>
     <string name="cloud_translation_candidate_fallback_summary">Off by default. At most five visible candidates without offline definitions are sent.</string>
     <string name="cloud_translation_candidate_source">Candidate translation source</string>
-    <string name="cloud_translation_candidate_source_summary">Off uses the local dictionary only; On uses cloud only; Hybrid calls cloud only for local misses. Up to five visible candidates are sent.</string>
+    <string name="cloud_translation_candidate_source_summary">Off uses the local dictionary only; On uses cloud only. After consent, Hybrid is recommended: local first, cloud only for missing entries. Up to five visible candidates are sent.</string>
     <string name="cloud_translation_source_local">Off</string>
     <string name="cloud_translation_source_cloud">On</string>
     <string name="cloud_translation_source_hybrid">Hybrid</string>
@@ -438,9 +438,11 @@
     <string name="cloud_translation_error_rate">Daily request limit reached</string>
     <string name="cloud_translation_error_quota">Monthly character limit reached</string>
     <string name="cloud_translation_error_network">Network unavailable or request timed out</string>
+    <string name="cloud_translation_error_timeout">Translation timed out. You can keep typing or retry.</string>
     <string name="cloud_translation_error_response">The provider returned an unsupported response</string>
-    <string name="haohao_translation_tool">Translate</string>
-    <string name="haohao_translation_title">Translation input</string>
+    <string name="haohao_translation_tool">Translate to English</string>
+    <string name="haohao_translation_title">Translate to English</string>
+    <string name="haohao_translation_close">Close</string>
     <string name="haohao_translation_draft_hint">Type Chinese with the keyboard</string>
     <string name="haohao_translation_waiting">Pause briefly to translate automatically</string>
     <string name="haohao_translation_translating">Translating…</string>
@@ -456,4 +458,11 @@
     <string name="haohao_translation_sensitive_disabled">Cloud translation is disabled in this sensitive field</string>
     <string name="haohao_translation_not_configured">Configure and test a cloud translation provider first</string>
     <string name="haohao_translation_draft_limit">Draft is limited to 200 characters</string>
+    <string name="compact_translation_mode_sentence">Sentence first</string>
+    <string name="sentence_translation_expand">Read all</string>
+    <string name="sentence_translation_return">Back to keyboard</string>
+    <string name="sentence_translation_limit">Up to 200 characters; shorten the sentence</string>
+    <string name="sentence_translation_local_missing">No local translation for this sentence</string>
+    <string name="sentence_translation_consent">Enable cloud translation consent in settings</string>
+    <string name="sentence_translation_invalid">Unable to translate this text</string>
 </resources>

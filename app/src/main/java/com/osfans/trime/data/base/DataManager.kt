@@ -158,6 +158,25 @@ internal fun invalidateStaleCompiledUserData(
     return true
 }
 
+/** Source timestamps match the pinned dictionary build, so theme-only upgrades need explicit invalidation. */
+internal fun invalidateCompiledThemeData(userDataDir: File, changedAssetPaths: Set<String>): Int {
+    val themeChanged = changedAssetPaths.any { path ->
+        path.startsWith("shared/") && '/' !in path.removePrefix("shared/") &&
+            (path.endsWith(".trime.yaml") || path == "shared/trime.yaml")
+    }
+    if (!themeChanged) return 0
+    val userRoot = userDataDir.canonicalFile
+    val buildDir = userRoot.resolve("build").canonicalFile
+    check(buildDir.path.startsWith(userRoot.path + File.separator)) { "Compiled theme directory escaped user data" }
+    if (!buildDir.isDirectory) return 0
+    val cachedThemes = buildDir.listFiles()?.filter { it.isFile && (it.name.endsWith(".trime.yaml") || it.name == "trime.yaml") }.orEmpty()
+    cachedThemes.forEach { file ->
+        check(file.canonicalFile.parentFile == buildDir) { "Compiled theme escaped build directory" }
+        check(file.delete()) { "Failed to invalidate compiled theme: $file" }
+    }
+    return cachedThemes.size
+}
+
 internal data class ManagedPrebuiltSyncResult(
     val copiedFiles: Int,
     val copiedBytes: Long,
@@ -493,6 +512,10 @@ object DataManager {
         }
         if (invalidateStaleCompiledUserData(userDataDir, prebuilt.copiedFiles > 0)) {
             Timber.i("Removed stale compiled user data after updating Rime prebuilt files")
+        }
+        val invalidatedThemes = invalidateCompiledThemeData(userDataDir, diffs.map { it.path }.toSet())
+        if (invalidatedThemes > 0) {
+            Timber.i("Invalidated %d compiled themes after bundled theme update", invalidatedThemes)
         }
 
         if (shouldUpdateManagedChecksums(oldChecksums, newChecksums, prebuilt.copiedFiles)) {

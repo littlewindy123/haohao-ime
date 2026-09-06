@@ -12,12 +12,14 @@ import com.osfans.trime.data.base.DataManager
 import com.osfans.trime.data.base.LEGACY_SIMPLIFIED_SCHEMA_CUSTOM_PATCH
 import com.osfans.trime.data.base.SIMPLIFIED_SCHEMA_CUSTOM_PATCH
 import com.osfans.trime.data.base.alignManagedRimeSourceTimestamps
+import com.osfans.trime.data.base.invalidateCompiledThemeData
 import com.osfans.trime.data.base.invalidatePrebuiltRimeData
 import com.osfans.trime.data.base.managedSchemaDisplayName
 import com.osfans.trime.data.base.migrateLegacyRimeData
 import com.osfans.trime.data.base.pinyinCorrectionSha256
 import com.osfans.trime.data.base.repairManagedRimeData
 import com.osfans.trime.data.base.upgradeSimplifiedSchemaCustomPatch
+import com.osfans.trime.data.theme.model.ColorScheme
 import com.osfans.trime.data.theme.model.GeneralStyle
 import com.osfans.trime.data.theme.model.KeyActionToken
 import com.osfans.trime.data.theme.model.TextKeyboard
@@ -39,6 +41,7 @@ import com.osfans.trime.ime.keyboard.KeySurfaceRect
 import com.osfans.trime.ime.keyboard.calculateKeySurfaceGeometry
 import com.osfans.trime.ime.keyboard.calculateKeyVerticalPadding
 import com.osfans.trime.ime.keyboard.resolveHaoHaoModeLabel
+import com.osfans.trime.ui.main.settings.prioritizeHaoHaoPalettes
 import com.osfans.trime.util.yaml.Yaml
 import com.osfans.trime.util.yaml.boolean
 import com.osfans.trime.util.yaml.float
@@ -75,6 +78,57 @@ class HaoHaoDefaultsTest :
 
         fun keyboard(id: String): TextKeyboard = TextKeyboard.decode(requireNotNull(keyboards[id]?.mapping))
 
+        "new palette choices appear first without removing inherited user choices" {
+            val ids = listOf("inherited", "haohao_graphite", "haohao_mist", "default", "haohao_apricot", "another")
+            val result = prioritizeHaoHaoPalettes(ids.map { ColorScheme(it, emptyMap()) })
+            result.map { it.id } shouldBe listOf("default", "haohao_mist", "haohao_apricot", "haohao_graphite", "inherited", "another")
+        }
+
+        "compact typography shares regular system fonts and leaves room inside symbol keys" {
+            decodedStyle.candidateFont shouldBe listOf("system:sans-serif")
+            decodedStyle.keyFont shouldBe decodedStyle.candidateFont
+            decodedStyle.commentFont shouldBe decodedStyle.candidateFont
+            decodedStyle.symbolFont shouldBe decodedStyle.candidateFont
+            for ((layout, token) in listOf("default" to "HaoHaoSymbols", "number" to "HaoHaoNumberSymbols")) {
+                val key = keyboard(layout).keys.single {
+                    (it.behaviors[KeyBehavior.CLICK] as? KeyActionToken.Plain)?.token == token
+                }
+                key.keyTextSize shouldBe 16f
+            }
+            toolButtonIconFrameSizeDp(32) shouldBe 40
+        }
+
+        "three new palettes each have a complete reversible night pair and readable text" {
+            val required = requireNotNull(colorSchemes["default"]?.mapping).keys.mapNotNull { it.string }
+                .filterNot { it in setOf("dark_scheme", "light_scheme") }
+            fun luminance(rgb: Int): Double {
+                fun channel(shift: Int): Double {
+                    val value = ((rgb shr shift) and 255) / 255.0
+                    return if (value <= 0.04045) value / 12.92 else Math.pow((value + 0.055) / 1.055, 2.4)
+                }
+                return 0.2126 * channel(16) + 0.7152 * channel(8) + 0.0722 * channel(0)
+            }
+            for (id in listOf("haohao_mist", "haohao_apricot", "haohao_graphite")) {
+                val light = requireNotNull(colorSchemes[id]?.mapping)
+                val dark = requireNotNull(colorSchemes["${id}_dark"]?.mapping)
+                light["dark_scheme"]?.string shouldBe "${id}_dark"
+                dark["light_scheme"]?.string shouldBe id
+                for (palette in listOf(light, dark)) {
+                    required.forEach { palette[it] shouldNotBe null }
+                    for ((foreground, background) in listOf(
+                        "key_text_color" to "key_back_color",
+                        "candidate_text_color" to "candidate_background",
+                        "comment_text_color" to "candidate_background",
+                        "on_key_text_color" to "on_key_back_color",
+                    )) {
+                        val a = luminance(requireNotNull(palette[foreground]?.int))
+                        val b = luminance(requireNotNull(palette[background]?.int))
+                        ((maxOf(a, b) + 0.05) / (minOf(a, b) + 0.05) >= 4.5) shouldBe true
+                    }
+                }
+            }
+        }
+
         fun clickTokens(keyboard: TextKeyboard): List<String> = keyboard.keys.mapNotNull { key ->
             (key.behaviors[KeyBehavior.CLICK] as? KeyActionToken.Plain)?.token
         }
@@ -108,7 +162,7 @@ class HaoHaoDefaultsTest :
             SIMPLIFIED_SCHEMA_CUSTOM_PATCH.contains("- charset_filter") shouldBe true
             SIMPLIFIED_SCHEMA_CUSTOM_PATCH.contains("translator/enable_charset_filter: true") shouldBe true
             config["__include"]?.string shouldBe "trime:/"
-            config["config_version"]?.string shouldBe "2.6"
+            config["config_version"]?.string shouldBe "3.1"
             config["name"]?.string shouldBe "好好输入法"
             DEFAULT_FOLLOW_SYSTEM_DAY_NIGHT shouldBe true
 
@@ -137,8 +191,9 @@ class HaoHaoDefaultsTest :
 
         "compact theme defines reference geometry and light-dark palettes" {
             style["key_height"]?.int shouldBe 50
-            style["key_cap_height"]?.int shouldBe 54
-            style["candidate_text_size"]?.float shouldBe 16f
+            style["key_cap_height"]?.int shouldBe 0
+            style["candidate_text_size"]?.float shouldBe 20f
+            style["candidate_view_height"]?.int shouldBe 40
             style["comment_text_size"]?.float shouldBe 12f
             style["key_text_size"]?.float shouldBe 20f
             style["key_long_text_size"]?.float shouldBe 16f
@@ -146,7 +201,7 @@ class HaoHaoDefaultsTest :
             style["label_text_size"]?.float shouldBe 16f
             style["popup_text_size"]?.float shouldBe 16f
             style["horizontal_gap"]?.int shouldBe 3
-            style["vertical_gap"]?.int shouldBe 11
+            style["vertical_gap"]?.int shouldBe 8
             style["keyboard_padding"]?.int shouldBe 3
             style["keyboard_height"]?.int shouldBe 252
             style["round_corner"]?.float shouldBe 7f
@@ -154,10 +209,10 @@ class HaoHaoDefaultsTest :
             style["key_press_offset_y"]?.float shouldBe 1f
             style["key_shadow_offset_y"]?.float shouldBe 1f
             style["candidate_corner_radius"]?.float shouldBe 8f
-            decodedStyle.compactCandidateTextSize shouldBe 16f
-            decodedStyle.compactTranslationTextSize shouldBe 12f
+            decodedStyle.compactCandidateTextSize shouldBe 20f
+            decodedStyle.compactTranslationTextSize shouldBe 13f
             decodedStyle.compactPhoneticTextSize shouldBe 10f
-            decodedStyle.keyCapHeight shouldBe 54
+            decodedStyle.keyCapHeight shouldBe 0
 
             val preedit = requireNotNull(config["preedit"]?.mapping)
             requireNotNull(preedit["foreground"]?.mapping)["font_size"]?.float shouldBe 14f
@@ -313,8 +368,8 @@ class HaoHaoDefaultsTest :
         }
 
         "functional keys use compact icon labels" {
-            presetKeys["BackSpace"]?.mapping?.get("label")?.string shouldBe "⌫"
-            presetKeys["Shift_L"]?.mapping?.get("label")?.string shouldBe "⇧"
+            presetKeys["BackSpace"]?.mapping?.get("label")?.string shouldBe "ic@backspace_outline"
+            presetKeys["Shift_L"]?.mapping?.get("label")?.string shouldBe "ic@apple_keyboard_shift"
             presetKeys["Shift_L"]?.mapping?.get("send")?.string shouldBe "Shift_L"
             presetKeys["Shift_L"]?.mapping?.get("shift_lock")?.string shouldBe "long"
             presetKeys["Mode_switch"]?.mapping?.get("states")?.sequence?.mapNotNull { it.string } shouldContainExactly
@@ -323,9 +378,9 @@ class HaoHaoDefaultsTest :
             resolveHaoHaoModeLabel(asciiMode = true) shouldBe HaoHaoModeLabel("英", "中", 20f, 10f)
             presetKeys["HaoHaoReturn"]?.mapping?.get("label")?.string shouldBe "ic@keyboard_return"
             val spaceLabel = presetKeys["HaoHaoSpace"]?.mapping?.get("label")?.string
-            spaceLabel shouldBe " "
+            spaceLabel shouldBe "ic@keyboard_space"
             spaceLabel?.isNotEmpty() shouldBe true
-            spaceLabel?.isBlank() shouldBe true
+            spaceLabel?.isBlank() shouldBe false
             presetKeys["HaoHaoSpace"]?.mapping?.get("slide_cursor")?.boolean shouldBe true
             presetKeys["BackSpace"]?.mapping?.get("slide_delete")?.boolean shouldBe true
             listOf(
@@ -333,13 +388,15 @@ class HaoHaoDefaultsTest :
                 "Shift_L",
                 "Mode_switch",
                 "HaoHaoNumber",
+                "HaoHaoNumberSymbols",
+                "HaoHaoNumberBack",
                 "HaoHaoSymbols",
                 "HaoHaoLetters",
                 "HaoHaoReturn",
             ).all { id -> presetKeys[id]?.mapping?.get("functional")?.boolean == true } shouldBe true
         }
 
-        "HaoHao idle toolbar exposes four reliable actions" {
+        "HaoHao idle toolbar follows the six reference positions and retains clipboard access" {
             val primaryButton = requireNotNull(toolBar["primary_button"]?.mapping)
             val foreground = requireNotNull(primaryButton["foreground"]?.mapping)
             val decodedToolBar = ToolBar.decode(toolBar)
@@ -366,17 +423,21 @@ class HaoHaoDefaultsTest :
             val toolbarActions = decodedToolBar.buttons.map { it.action }
             toolbarActions shouldContainExactly listOf(
                 "Hide",
+                "HaoHaoKeyboardMenu",
                 "liquid_keyboard_emoji",
-                "clipboard_window",
+                "HaoHaoEditor",
+                "VOICE_ASSIST",
             )
             decodedToolBar.equalWidthButtonsInDisplayOrder().map { it.action } shouldContainExactly listOf(
                 "HaoHaoToolbox",
+                "HaoHaoKeyboardMenu",
                 "liquid_keyboard_emoji",
-                "clipboard_window",
+                "HaoHaoEditor",
+                "VOICE_ASSIST",
                 "Hide",
             )
-            decodedToolBar.buttons.single { it.action == "clipboard_window" }
-                .foreground.style shouldBe "ic@clipboard_text_outline"
+            decodedToolBar.buttons.single { it.action == "HaoHaoEditor" }
+                .longPressAction shouldBe "clipboard_window"
 
             val toolboxKey = requireNotNull(presetKeys["HaoHaoToolbox"]?.mapping)
             toolboxKey["send"]?.string shouldBe "FUNCTION"
@@ -503,10 +564,10 @@ class HaoHaoDefaultsTest :
             val expectedSymbols = linkedMapOf(
                 "q" to "1", "w" to "2", "e" to "3", "r" to "4", "t" to "5",
                 "y" to "6", "u" to "7", "i" to "8", "o" to "9", "p" to "0",
-                "a" to "~", "s" to "@", "d" to "#", "f" to "!", "g" to "%",
-                "h" to "&", "j" to "*", "k" to "(", "l" to ")",
-                "z" to "`", "x" to "/", "c" to "-", "v" to "_", "b" to ":",
-                "n" to ";", "m" to "?",
+                "a" to "~", "s" to "!", "d" to "@", "f" to "#", "g" to "%",
+                "h" to "“", "j" to "”", "k" to "*", "l" to "?",
+                "z" to "(", "x" to ")", "c" to "-", "v" to "_", "b" to ":",
+                "n" to ";", "m" to "、",
             )
             expectedSymbols.forEach { (click, symbol) ->
                 val key = main.keys.single { it.behaviors[KeyBehavior.CLICK] == KeyActionToken.Plain(click) }
@@ -521,13 +582,13 @@ class HaoHaoDefaultsTest :
                 .keyTextSize shouldBe 18f
 
             val bottomWidths = listOf(
-                "HaoHaoSymbols" to 14f,
-                "HaoHaoNumber" to 12f,
+                "HaoHaoSymbols" to 15.5f,
+                "HaoHaoNumber" to 11.5f,
                 "," to 10f,
-                "HaoHaoSpace" to 28f,
+                "HaoHaoSpace" to 26f,
                 "." to 10f,
-                "Mode_switch" to 12f,
-                "HaoHaoReturn" to 14f,
+                "Mode_switch" to 11.5f,
+                "HaoHaoReturn" to 15.5f,
             )
             bottomWidths.forEach { (click, width) ->
                 main.keys.single { it.behaviors[KeyBehavior.CLICK] == KeyActionToken.Plain(click) }.width shouldBe width
@@ -665,20 +726,103 @@ class HaoHaoDefaultsTest :
 
         "number and common-symbol pages always provide a path back to letters" {
             val number = keyboard("number")
+            val numberSymbols = keyboard("number_symbols")
             val symbols = keyboard("symbols")
 
             number.height shouldBe 50f
             symbols.height shouldBe 50f
-            rowWidths(number) shouldContainExactly listOf(100f, 100f, 100f, 100f)
+            number.keyLayout shouldBe "telephone"
             rowWidths(symbols) shouldContainExactly listOf(100f, 100f, 100f, 100f)
-            clickTokens(number).contains("HaoHaoLetters") shouldBe true
-            clickTokens(number).contains("HaoHaoSymbols") shouldBe true
-            clickTokens(number).contains("HaoHaoSpace") shouldBe true
+            clickTokens(number).contains("HaoHaoNumberBack") shouldBe true
+            clickTokens(number).contains("HaoHaoNumberSymbols") shouldBe true
+            clickTokens(number).contains("HaoHaoNumberSpace") shouldBe true
             clickTokens(number).contains(".") shouldBe true
             clickTokens(symbols).contains("HaoHaoLetters") shouldBe true
             clickTokens(symbols).contains("HaoHaoSpace") shouldBe true
             clickTokens(symbols).contains("HaoHaoNumber") shouldBe true
             clickTokens(symbols).contains("；") shouldBe true
+            rowWidths(numberSymbols) shouldContainExactly listOf(100f, 100f, 100f, 100f)
+            clickTokens(numberSymbols).containsAll(listOf("HaoHaoLetters", "HaoHaoNumber", "%", "=", "*", "$", "￥", "[", "]", "{", "}")) shouldBe true
+            presetKeys["HaoHaoNumberSymbols"]?.mapping?.get("select")?.string shouldBe "number_symbols"
+            presetKeys["HaoHaoNumber"]?.mapping?.get("select")?.string shouldBe "number"
+        }
+
+        "number pad centers a large telephone-order digit grid with fixed actions" {
+            val number = keyboard("number")
+            number.columns shouldBe 5
+            number.width shouldBe 22f
+            number.keyLayout shouldBe "telephone"
+            number.keyCapHeight shouldBe 0
+            number.verticalGap shouldBe 4
+            clickTokens(number) shouldContainExactly listOf(
+                "%", "/", "-", "+",
+                "1", "2", "3", "BackSpace",
+                "4", "5", "6", ".",
+                "7", "8", "9", "@",
+                "HaoHaoNumberSymbols", "HaoHaoNumberBack", "0", "HaoHaoNumberSpace", "HaoHaoReturn",
+            )
+            val digits = number.keys.filter { (it.behaviors[KeyBehavior.CLICK] as? KeyActionToken.Plain)?.token?.singleOrNull()?.isDigit() == true }
+            digits.size shouldBe 10
+            digits.all { (it.width.takeIf { width -> width > 0 } ?: number.width) == 22f && it.keyTextSize == 22f } shouldBe true
+            number.keys.size shouldBe 21
+            number.keys[18].keyTextSize shouldBe 22f
+            // ASCII mode renders action labels rather than per-key label overrides.
+            presetKeys["HaoHaoNumberBack"]?.mapping?.get("label")?.string shouldBe "返回"
+            presetKeys["HaoHaoNumberSpace"]?.mapping?.get("label")?.string shouldBe "ic@keyboard_space"
+            number.keys.last().keyBackColor shouldBe "on_key_back_color"
+        }
+
+        "numeric layer keeps ASCII punctuation and existing deletion and cursor gestures" {
+            val number = keyboard("number")
+            number.asciiMode shouldBe true
+            keyboard("number_symbols").asciiMode shouldBe true
+            keyboard("default").asciiMode shouldBe false
+            keyboard("default").resetAsciiMode shouldBe true
+            number.keys.take(4).all { it.behaviors[KeyBehavior.LONG_CLICK] == null && it.labelSymbol.isEmpty() } shouldBe true
+            presetKeys["BackSpace"]?.mapping?.get("repeatable")?.boolean shouldBe true
+            presetKeys["BackSpace"]?.mapping?.get("slide_delete")?.boolean shouldBe true
+            presetKeys["HaoHaoSpace"]?.mapping?.get("slide_cursor")?.boolean shouldBe true
+            presetKeys["HaoHaoLetters"]?.mapping?.get("select")?.string shouldBe ".default"
+            presetKeys["HaoHaoNumberBack"]?.mapping?.get("select")?.string shouldBe ".default"
+            presetKeys["HaoHaoNumberSpace"]?.mapping?.get("slide_cursor")?.boolean shouldBe true
+            presetKeys["HaoHaoNumberSpace"]?.mapping?.get("send")?.string shouldBe "space"
+        }
+
+        "theme-only upgrades invalidate inherited theme caches and retain dictionaries and user customization" {
+            val user = Files.createTempDirectory("haohao-theme-upgrade").toFile()
+            try {
+                val build = user.resolve("build").apply { mkdirs() }
+                listOf("haohao.trime.yaml", "tongwenfeng.trime.yaml", "trime.yaml", "luna_pinyin_simp.schema.yaml", "luna_pinyin.table.bin").forEach {
+                    build.resolve(it).writeText("existing data")
+                }
+                user.resolve("haohao.trime.custom.yaml").writeText("user customization")
+                user.resolve("haohao.trime.yaml").writeText("user theme source")
+                invalidateCompiledThemeData(user, setOf("shared/haohao.trime.yaml")) shouldBe 3
+                build.listFiles()!!.map { it.name }.sorted() shouldContainExactly listOf("luna_pinyin.table.bin", "luna_pinyin_simp.schema.yaml")
+                user.resolve("haohao.trime.custom.yaml").readText() shouldBe "user customization"
+                user.resolve("haohao.trime.yaml").readText() shouldBe "user theme source"
+                invalidateCompiledThemeData(user, setOf("shared/haohao.trime.yaml")) shouldBe 0
+            } finally {
+                user.deleteRecursively()
+            }
+        }
+
+        "unchanged assets keep compiled themes and default-theme changes invalidate dependents" {
+            val user = Files.createTempDirectory("haohao-theme-cache").toFile()
+            try {
+                invalidateCompiledThemeData(user, setOf("shared/trime.yaml")) shouldBe 0
+                val cached = user.resolve("build/haohao.trime.yaml").apply {
+                    parentFile!!.mkdirs()
+                    writeText("compiled")
+                }
+                invalidateCompiledThemeData(user, emptySet()) shouldBe 0
+                invalidateCompiledThemeData(user, setOf("shared/default.yaml", "dictionary/haohao.trime.yaml")) shouldBe 0
+                cached.readText() shouldBe "compiled"
+                invalidateCompiledThemeData(user, setOf("shared/trime.yaml")) shouldBe 1
+                cached.exists() shouldBe false
+            } finally {
+                user.deleteRecursively()
+            }
         }
 
         "manifest does not request broad external storage access" {

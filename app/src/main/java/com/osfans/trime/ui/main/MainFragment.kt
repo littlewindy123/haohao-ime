@@ -214,6 +214,7 @@ class MainFragment : Fragment(R.layout.fragment_main) {
             listOf(
                 binding.translationModeWord to CompactTranslationMode.WORD,
                 binding.translationModeAdaptive to CompactTranslationMode.ADAPTIVE,
+                binding.translationModeSentence to CompactTranslationMode.SENTENCE_FIRST,
             ),
         ) { prefs.candidates.compactTranslationMode.setValue(it) }
 
@@ -406,6 +407,7 @@ class MainFragment : Fragment(R.layout.fragment_main) {
         binding.phoneticSwitch.isEnabled = translationEnabled
         binding.translationModeWord.isEnabled = translationEnabled
         binding.translationModeAdaptive.isEnabled = translationEnabled
+        binding.translationModeSentence.isEnabled = translationEnabled
         binding.translationDelaySlider.isEnabled = translationEnabled
         binding.translationDelayLabel.isEnabled = translationEnabled
         binding.translationDelayValue.isEnabled = translationEnabled
@@ -416,6 +418,7 @@ class MainFragment : Fragment(R.layout.fragment_main) {
             listOf(
                 binding.translationModeWord to CompactTranslationMode.WORD,
                 binding.translationModeAdaptive to CompactTranslationMode.ADAPTIVE,
+                binding.translationModeSentence to CompactTranslationMode.SENTENCE_FIRST,
             ),
             translationMode,
         )
@@ -522,7 +525,7 @@ class MainFragment : Fragment(R.layout.fragment_main) {
     private fun schedulePreview() {
         previewJob?.cancel()
         val adaptive =
-            prefs.candidates.compactTranslationMode.getValue() == CompactTranslationMode.ADAPTIVE
+            prefs.candidates.compactTranslationMode.getValue() != CompactTranslationMode.WORD
         binding.previewPinyin.setText(
             if (adaptive) R.string.quick_settings_preview_adaptive_pinyin else R.string.quick_settings_preview_pinyin,
         )

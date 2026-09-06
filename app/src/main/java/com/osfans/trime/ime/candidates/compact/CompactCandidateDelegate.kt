@@ -11,12 +11,13 @@ import android.graphics.Paint
 import android.text.TextPaint
 import android.util.TypedValue
 import android.view.View
+import android.view.inputmethod.EditorInfo
+import android.widget.LinearLayout
 import androidx.annotation.Keep
+import androidx.core.view.updateLayoutParams
 import androidx.lifecycle.lifecycleScope
+import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.google.android.flexbox.FlexWrap
-import com.google.android.flexbox.FlexboxLayoutManager
-import com.google.android.flexbox.JustifyContent
 import com.osfans.trime.R
 import com.osfans.trime.core.CandidateProto
 import com.osfans.trime.core.Candidates
@@ -24,6 +25,7 @@ import com.osfans.trime.core.CompositionProto
 import com.osfans.trime.daemon.RimeSession
 import com.osfans.trime.data.prefs.AppPrefs
 import com.osfans.trime.data.prefs.PreferenceDelegate
+import com.osfans.trime.data.theme.ColorManager
 import com.osfans.trime.data.theme.FontManager
 import com.osfans.trime.data.theme.Theme
 import com.osfans.trime.data.theme.model.GeneralStyle
@@ -33,12 +35,18 @@ import com.osfans.trime.data.translation.ConfiguredCandidateTranslationRepositor
 import com.osfans.trime.ime.bar.InputBarDelegate
 import com.osfans.trime.ime.bar.UnrollButtonStateMachine
 import com.osfans.trime.ime.broadcast.InputBroadcastReceiver
+import com.osfans.trime.ime.candidates.bilingual.CandidateTranslationRevealController
+import com.osfans.trime.ime.candidates.bilingual.CandidateTranslationRevealListener
+import com.osfans.trime.ime.candidates.bilingual.CandidateTranslationRevealState
+import com.osfans.trime.ime.candidates.bilingual.bilingualTranslationLineHeight
+import com.osfans.trime.ime.candidates.bilingual.candidateSourceRowHeight
 import com.osfans.trime.ime.candidates.bilingual.resolveCandidateTypography
 import com.osfans.trime.ime.candidates.unrolled.UnrolledCandidateItem
 import com.osfans.trime.ime.candidates.unrolled.toDisplayableUnrolledCandidates
 import com.osfans.trime.ime.core.InputView
 import com.osfans.trime.ime.core.TrimeInputMethodService
 import com.osfans.trime.ime.dependency.InputDependencyManager
+import com.osfans.trime.ime.window.BoardWindowManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.BufferOverflow
@@ -49,6 +57,7 @@ import kotlinx.coroutines.withContext
 import org.kodein.di.instance
 import splitties.dimensions.dp
 import splitties.views.dsl.recyclerview.recyclerView
+import kotlin.math.ceil
 import kotlin.math.max
 import kotlin.math.roundToInt
 
@@ -61,7 +70,7 @@ internal const val COMPACT_CANDIDATE_PORTRAIT_DEFAULT = 4
 internal const val COMPACT_CANDIDATE_LANDSCAPE_MIN = 5
 internal const val COMPACT_CANDIDATE_LANDSCAPE_MAX = 8
 internal const val COMPACT_CANDIDATE_LANDSCAPE_DEFAULT = 6
-internal const val COMPACT_CANDIDATE_TRAILING_CONTROL_WIDTH_DP = 40
+internal const val COMPACT_CANDIDATE_TRAILING_CONTROL_WIDTH_DP = 48
 private const val COMPACT_PRIMARY_TRANSLATION_MIN_LETTERS = 8
 private const val COMPACT_PRIMARY_TRANSLATION_MAX_LETTERS = 10
 private const val COMPACT_SECONDARY_TRANSLATION_MAX_LETTERS = 8
@@ -77,6 +86,9 @@ internal fun compactCandidateAvailableWidth(
     leadingWidth: Int,
     trailingWidth: Int,
 ): Int = (totalWidth - leadingWidth - trailingWidth).coerceAtLeast(0)
+
+/** Keep enough source candidates to fill the viewport, independent of translation count. */
+internal fun sentenceCandidateBudget(availableWidth: Int, minimumCellWidth: Int): Int = if (availableWidth <= 0) 0 else ceil(availableWidth.toDouble() / minimumCellWidth.coerceAtLeast(1)).toInt() + 1
 
 internal fun resolveCompactCandidateCount(
     isLandscape: Boolean,
@@ -133,6 +145,8 @@ internal data class CompactCandidateCell(
     val item: UnrolledCandidateItem,
     val width: Int,
     val compactTranslation: String? = null,
+    val separateTranslationLane: Boolean = false,
+    val naturalSourceWidth: Int = 0,
 )
 
 internal data class CompactCandidateWidthBounds(
@@ -239,6 +253,33 @@ internal fun fitCompactCandidateRow(
     return selected.mapIndexed { index, (item, _) -> CompactCandidateCell(item, widths[index]) }
 }
 
+/** The first sentence owns its natural width before any trailing candidate is allocated space. */
+internal fun fitSentenceFirstCandidateRow(
+    candidates: List<UnrolledCandidateItem>,
+    targetCount: Int,
+    availableWidth: Int,
+    minimumTrailingWidth: Int = 48,
+    widthOf: (UnrolledCandidateItem) -> CompactCandidateWidthBounds,
+): List<CompactCandidateCell> {
+    if (targetCount <= 0 || availableWidth <= 0 || candidates.isEmpty()) return emptyList()
+    val first = candidates.first()
+    val bounds = widthOf(first)
+    val firstWidth = maxOf(1, bounds.minimum, bounds.preferred).coerceAtMost(availableWidth)
+    var remaining = availableWidth - firstWidth
+    val cells = mutableListOf(CompactCandidateCell(first, firstWidth, naturalSourceWidth = maxOf(bounds.minimum, bounds.preferred)))
+    for (candidate in candidates.drop(1).take(targetCount - 1)) {
+        if (remaining < minimumTrailingWidth.coerceAtLeast(1)) break
+        val next = widthOf(candidate)
+        val width = maxOf(1, next.minimum, next.preferred).coerceAtMost(remaining)
+        cells += CompactCandidateCell(candidate, width, naturalSourceWidth = maxOf(next.minimum, next.preferred))
+        remaining -= width
+    }
+    return cells
+}
+
+/** Text owns its natural width. Longer sentences move through the viewport, never shrink. */
+internal fun sentenceCandidateContentWidth(naturalWidth: Int, viewportWidth: Int, horizontalPadding: Int): Int = maxOf(1, viewportWidth, naturalWidth, horizontalPadding.coerceAtLeast(0) * 2)
+
 class CompactCandidateDelegate : InputBroadcastReceiver {
     private val di = InputDependencyManager.getInstance().di
     private val context: Context by di.instance()
@@ -249,6 +290,55 @@ class CompactCandidateDelegate : InputBroadcastReceiver {
     val bar: InputBarDelegate by di.instance()
     private val candidatePreferences: AppPrefs.Candidates = AppPrefs.defaultInstance().candidates
     private val cloudCandidateController: CloudCandidateTranslationController by di.instance()
+    private val revealController: CandidateTranslationRevealController by di.instance()
+    private val windowManager: BoardWindowManager by di.instance()
+    private var renderedCells = emptyList<CompactCandidateCell>()
+    private val sentenceListener: () -> Unit = { renderSentenceStrip() }
+    private val revealListener = CandidateTranslationRevealListener {
+        if (it == CandidateTranslationRevealState.READY) requestSentence()
+        renderSentenceStrip()
+    }
+
+    private val sentenceStrip by lazy {
+        SentenceTranslationStrip(
+            context,
+            typography.translationTextSize,
+            ColorManager.getColor("comment_text_color"),
+            FontManager.getTypeface("comment_font"),
+            context.dp(theme.generalStyle.candidatePadding),
+            onExpand = { state ->
+                if (state == cloudCandidateController.sentenceState) {
+                    windowManager.attachWindow(SentenceTranslationPreviewWindow(state))
+                }
+            },
+            onRetry = cloudCandidateController::retrySentence,
+        )
+    }
+
+    private fun isSentenceMode() = candidatePreferences.compactTranslationMode.getValue() == CompactTranslationMode.SENTENCE_FIRST &&
+        candidatePreferences.bilingualTranslation.getValue()
+
+    private fun requestSentence() {
+        if (!isSentenceMode()) return
+        cloudCandidateController.requestFirst(
+            renderedCells.firstOrNull()?.item?.candidate?.text?.takeIf { !currentPreedit.isNullOrBlank() },
+        )
+    }
+
+    private fun renderSentenceStrip() {
+        if (!isSentenceMode()) return
+        val state = cloudCandidateController.sentenceState
+        val matching = state.source == renderedCells.firstOrNull()?.item?.candidate?.text
+        sentenceStrip.bind(
+            state,
+            renderedCells.map { cell ->
+                val entry = ConfiguredCandidateTranslationRepository.lookup(cell.item.candidate.text)
+                SentenceTranslationCell(cell.width, entry?.translation, entry?.phonetic?.takeIf { candidatePreferences.bilingualPhonetic.getValue() })
+            },
+            revealed = matching && cloudCandidateController.allowsSentencePreview &&
+                revealController.state == CandidateTranslationRevealState.READY,
+        )
+    }
 
     private var latestCandidates: Candidates.Bulk? = null
     private var latestCandidatePresentationVersion = 0L
@@ -378,13 +468,13 @@ class CompactCandidateDelegate : InputBroadcastReceiver {
             contentWidth = contentWidth,
             minWidth = context.dp(COMPACT_CANDIDATE_MIN_WIDTH_DP),
             horizontalPadding = context.dp(theme.generalStyle.candidatePadding),
-            maxWidth = context.dp(COMPACT_CANDIDATE_MAX_WIDTH_DP),
+            maxWidth = if (mode == CompactTranslationMode.SENTENCE_FIRST && candidatePreferences.bilingualTranslation.getValue()) Int.MAX_VALUE else context.dp(COMPACT_CANDIDATE_MAX_WIDTH_DP),
         )
         val preferred = compactCandidateCellWidth(
             contentWidth = contentWidth,
             minWidth = minimum,
             horizontalPadding = context.dp(COMPACT_CANDIDATE_HORIZONTAL_PADDING_DP),
-            maxWidth = context.dp(COMPACT_CANDIDATE_MAX_WIDTH_DP),
+            maxWidth = if (mode == CompactTranslationMode.SENTENCE_FIRST && candidatePreferences.bilingualTranslation.getValue()) Int.MAX_VALUE else context.dp(COMPACT_CANDIDATE_MAX_WIDTH_DP),
         )
         return CompactCandidateWidthBounds(minimum, preferred)
             .withCompactTranslationWidth(mode, translationHint)
@@ -446,26 +536,38 @@ class CompactCandidateDelegate : InputBroadcastReceiver {
         renderJob?.cancel()
         renderJob = service.lifecycleScope.launch(Dispatchers.Default) {
             val startedAt = System.nanoTime()
-            val targetCount = targetCandidateCount()
-            val candidates = data.candidates.toCompactCandidateItems(targetCount, preedit)
             val translationMode = candidatePreferences.compactTranslationMode.getValue()
             val translationEnabled = candidatePreferences.bilingualTranslation.getValue()
+            val separateTranslationLane = translationEnabled && translationMode == CompactTranslationMode.SENTENCE_FIRST
+            val targetCount = if (separateTranslationLane) {
+                sentenceCandidateBudget(availableWidth, context.dp(COMPACT_CANDIDATE_MIN_WIDTH_DP))
+            } else {
+                targetCandidateCount()
+            }
+            val candidates = data.candidates.toCompactCandidateItems(targetCount, preedit)
             val translationHints = candidates.associateWith { translationHintFor(it, translationMode) }
             // Translation arrivals may reveal text, but must not move the Chinese touch targets.
             val reusableGeometry = rowGeometry.takeIf {
                 it?.candidates == candidates && it.width == availableWidth && it.mode == translationMode && it.enabled == translationEnabled
             }?.cells
-            val geometry = reusableGeometry ?: fitCompactCandidateRow(
-                candidates = candidates,
-                targetCount = targetCount,
-                availableWidth = availableWidth,
-                translationLimits = translationWidthLimits(translationMode),
-                widthOf = { item ->
-                    measureCandidateWidth(item, translationMode, translationHints[item])
-                },
-            )
+            val geometry = reusableGeometry ?: if (separateTranslationLane) {
+                fitSentenceFirstCandidateRow(candidates, targetCount, availableWidth, minimumTrailingWidth = 1) { item ->
+                    measureCandidateWidth(item, translationMode, null)
+                }
+            } else {
+                fitCompactCandidateRow(
+                    candidates = candidates,
+                    targetCount = targetCount,
+                    availableWidth = availableWidth,
+                    translationLimits = translationWidthLimits(translationMode),
+                    widthOf = { item ->
+                        measureCandidateWidth(item, translationMode, translationHints[item])
+                    },
+                )
+            }
             val cells = geometry.map { cell ->
                 cell.copy(
+                    separateTranslationLane = separateTranslationLane,
                     compactTranslation = compactTranslationTextForCell(
                         translationHints[cell.item],
                         cell.width,
@@ -481,10 +583,27 @@ class CompactCandidateDelegate : InputBroadcastReceiver {
                     return@withContext
                 }
                 service.recordCandidateModelBuild(elapsedNanos)
+                val changedCandidates = rowGeometry?.candidates != candidates
                 rowGeometry = RowGeometry(candidates, availableWidth, translationMode, translationEnabled, geometry)
                 adapter.updateCandidates(cells, data.total, data.highlighted)
+                if (changedCandidates) {
+                    view.stopScroll()
+                    layoutManager.scrollToPositionWithOffset(0, 0)
+                }
+                renderedCells = cells
+                view.updateLayoutParams<LinearLayout.LayoutParams> {
+                    height = if (separateTranslationLane) context.dp(candidateSourceRowHeight(theme.generalStyle.candidateViewHeight, typography.candidateTextSize, context.resources.configuration.fontScale)) else LinearLayout.LayoutParams.WRAP_CONTENT
+                    marginEnd = if (separateTranslationLane) context.dp(COMPACT_CANDIDATE_TRAILING_CONTROL_WIDTH_DP) else 0
+                }
+                sentenceStrip.root.visibility = if (separateTranslationLane) View.VISIBLE else View.GONE
+                bar.refreshCandidateHeight()
                 renderedCandidatePresentationVersion = latestCandidatePresentationVersion
-                cloudCandidateController.requestVisible(cells.map { it.item.candidate.text })
+                if (separateTranslationLane) {
+                    requestSentence()
+                    renderSentenceStrip()
+                } else {
+                    cloudCandidateController.requestVisible(cells.map { it.item.candidate.text })
+                }
                 if (cells.isEmpty()) refreshUnrolled(0)
             }
         }
@@ -507,7 +626,7 @@ class CompactCandidateDelegate : InputBroadcastReceiver {
         bar.unrollButtonStateMachine.push(
             UnrollButtonStateMachine.TransitionEvent.UnrolledCandidatesUpdated,
             UnrollButtonStateMachine.BooleanKey.UnrolledCandidatesEmpty to
-                (adapter.total == childCount),
+                (adapter.total == childCount && adapter.items.none { it.naturalSourceWidth > it.width }),
         )
     }
 
@@ -536,12 +655,7 @@ class CompactCandidateDelegate : InputBroadcastReceiver {
     }
 
     val layoutManager by lazy {
-        object : FlexboxLayoutManager(context) {
-            init {
-                flexWrap = FlexWrap.NOWRAP
-                justifyContent = JustifyContent.FLEX_START
-            }
-
+        object : LinearLayoutManager(context, HORIZONTAL, false) {
             override fun canScrollHorizontally(): Boolean = false
 
             override fun canScrollVertically(): Boolean = false
@@ -565,6 +679,8 @@ class CompactCandidateDelegate : InputBroadcastReceiver {
             addOnAttachStateChangeListener(
                 object : View.OnAttachStateChangeListener {
                     override fun onViewAttachedToWindow(view: View) {
+                        cloudCandidateController.addSentenceListener(sentenceListener)
+                        revealController.addListener(revealListener)
                         candidatePreferences.bilingualTranslation
                             .registerOnChangeListener(translationEnabledListener)
                         candidatePreferences.compactTranslationMode
@@ -573,6 +689,8 @@ class CompactCandidateDelegate : InputBroadcastReceiver {
                     }
 
                     override fun onViewDetachedFromWindow(view: View) {
+                        cloudCandidateController.removeSentenceListener(sentenceListener)
+                        revealController.removeListener(revealListener)
                         candidatePreferences.bilingualTranslation
                             .unregisterOnChangeListener(translationEnabledListener)
                         candidatePreferences.compactTranslationMode
@@ -587,17 +705,47 @@ class CompactCandidateDelegate : InputBroadcastReceiver {
         }
     }
 
+    val candidateView by lazy {
+        LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(view, LinearLayout.LayoutParams(-1, -2))
+            val lineHeight = bilingualTranslationLineHeight(
+                typography.translationTextSize * context.resources.configuration.fontScale,
+                theme.generalStyle.commentHeight,
+            )
+            addView(sentenceStrip.root, LinearLayout.LayoutParams(-1, context.dp(lineHeight * 2)))
+            sentenceStrip.root.visibility = View.GONE
+        }
+    }
+
+    override fun onRimeKeyInput() {
+        renderGeneration++
+        renderJob?.cancel()
+        renderJob = null
+        renderedCells = emptyList()
+        renderSentenceStrip()
+    }
+
+    override fun onStartInput(info: EditorInfo) {
+        onRimeKeyInput()
+        latestCandidates = null
+        currentPreedit = null
+        rowGeometry = null
+    }
+
     override fun onCompositionUpdate(data: CompositionProto) {
         currentPreedit = data.preedit
     }
 
     override fun onCandidateListUpdate(data: Candidates.Bulk) {
         val presentationVersion = inputView.currentPresentationVersion
-        if (latestCandidates == data) {
+        if (latestCandidates == data && renderedCells.isNotEmpty()) {
             latestCandidates = data
             latestCandidatePresentationVersion = presentationVersion
             if (renderJob?.isActive != true) {
                 renderedCandidatePresentationVersion = presentationVersion
+                requestSentence()
+                renderSentenceStrip()
             }
             return
         }

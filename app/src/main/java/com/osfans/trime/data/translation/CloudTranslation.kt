@@ -15,7 +15,6 @@ import com.osfans.trime.data.prefs.AppPrefs
 import com.osfans.trime.util.appContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -23,7 +22,8 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -88,6 +88,7 @@ internal sealed interface CloudTranslationResult {
             UNSUPPORTED_DEVICE,
             INVALID_REQUEST,
             NETWORK,
+            TIMEOUT,
             AUTHENTICATION,
             RATE_LIMITED,
             QUOTA_EXCEEDED,
@@ -100,6 +101,29 @@ internal sealed interface CloudTranslationResult {
 
 internal fun interface CloudTranslationProvider {
     suspend fun translate(request: CloudTranslationRequest): CloudTranslationResult
+}
+
+/** One error/timeout boundary shared by settings, sentence translation and candidate requests. */
+internal suspend fun executeTranslationRequest(
+    provider: CloudTranslationProvider,
+    request: CloudTranslationRequest,
+    timeoutMillis: Long = TRANSLATION_REQUEST_TIMEOUT_MS.toLong(),
+): CloudTranslationResult = try {
+    val result = withTimeoutOrNull(timeoutMillis) { provider.translate(request) }
+        ?: CloudTranslationResult.Failure(CloudTranslationResult.Failure.Kind.TIMEOUT)
+    if (
+        result is CloudTranslationResult.Success &&
+        (result.translations.size != request.texts.size || result.translations.any(String::isBlank))
+    ) {
+        CloudTranslationResult.Failure(CloudTranslationResult.Failure.Kind.INVALID_RESPONSE)
+    } else {
+        result
+    }
+} catch (error: CancellationException) {
+    throw error
+} catch (_: Exception) {
+    // Never log provider errors: exception messages can contain credentials or submitted text.
+    CloudTranslationResult.Failure(CloudTranslationResult.Failure.Kind.NETWORK)
 }
 
 internal data class TranslationHttpRequest(
@@ -514,14 +538,16 @@ internal class BaiduTranslationProvider(
 internal class DirectDualCloudTranslationProvider(
     private val primary: CloudTranslationProvider,
     private val fallback: CloudTranslationProvider,
+    private val primaryTimeoutMillis: Long = 2_500,
+    private val fallbackTimeoutMillis: Long = 3_000,
 ) : CloudTranslationProvider {
     override suspend fun translate(request: CloudTranslationRequest): CloudTranslationResult {
-        val primaryResult = primary.translate(request)
+        val primaryResult = executeTranslationRequest(primary, request, primaryTimeoutMillis)
         return if (
             primaryResult is CloudTranslationResult.Failure &&
             primaryResult.kind in FALLBACK_FAILURES
         ) {
-            fallback.translate(request)
+            executeTranslationRequest(fallback, request, fallbackTimeoutMillis)
         } else {
             primaryResult
         }
@@ -530,6 +556,7 @@ internal class DirectDualCloudTranslationProvider(
     private companion object {
         val FALLBACK_FAILURES = setOf(
             CloudTranslationResult.Failure.Kind.NETWORK,
+            CloudTranslationResult.Failure.Kind.TIMEOUT,
             CloudTranslationResult.Failure.Kind.AUTHENTICATION,
             CloudTranslationResult.Failure.Kind.RATE_LIMITED,
             CloudTranslationResult.Failure.Kind.QUOTA_EXCEEDED,
@@ -562,10 +589,12 @@ internal fun isInternalCloudConfigurationValid(
         return false
     }
     if (!INTERNAL_CLOUD_EXPIRY_PATTERN.matches(expiresAt)) return false
-    val expiresAtEnd = SimpleDateFormat("yyyy-MM-dd", Locale.ROOT).apply {
-        isLenient = false
-        timeZone = TimeZone.getTimeZone("UTC")
-    }.parse(expiresAt)?.time?.plus(MILLIS_PER_DAY) ?: return false
+    val expiresAtEnd = runCatching {
+        SimpleDateFormat("yyyy-MM-dd", Locale.ROOT).apply {
+            isLenient = false
+            timeZone = TimeZone.getTimeZone("Asia/Shanghai")
+        }.parse(expiresAt)?.time?.plus(MILLIS_PER_DAY)
+    }.getOrNull() ?: return false
     return nowMillis < expiresAtEnd
 }
 
@@ -856,26 +885,24 @@ internal class CloudTranslationManager(
         }
     }
 
-    suspend fun translate(request: CloudTranslationRequest): CloudTranslationResult {
-        status()?.let { return it }
-        val provider = directProvider ?: when (config.activeProvider()) {
-            CloudTranslationProviderType.HAOHAO ->
-                HaoHaoTranslationProvider(BuildConfig.HAOHAO_TRANSLATION_BASE_URL, config.installId(), transport)
-            CloudTranslationProviderType.ALIYUN ->
-                config.aliyun()?.let { AliyunTranslationProvider(it.accessKeyId, it.accessKeySecret, transport) }
-                    ?: return CloudTranslationResult.Failure(CloudTranslationResult.Failure.Kind.NOT_CONFIGURED)
-            CloudTranslationProviderType.CUSTOM ->
-                config.custom()?.let { CustomTranslationProvider(it.endpoint, it.bearerToken, transport) }
-                    ?: return CloudTranslationResult.Failure(CloudTranslationResult.Failure.Kind.NOT_CONFIGURED)
-        }
-        return try {
-            withTimeout(TRANSLATION_REQUEST_TIMEOUT_MS.toLong()) {
-                provider.translate(request)
+    suspend fun translate(request: CloudTranslationRequest): CloudTranslationResult = executeTranslationRequest(
+        provider = CloudTranslationProvider {
+            withContext(Dispatchers.IO) {
+                status()?.let { return@withContext it }
+                val provider = directProvider ?: when (config.activeProvider()) {
+                    CloudTranslationProviderType.HAOHAO ->
+                        HaoHaoTranslationProvider(BuildConfig.HAOHAO_TRANSLATION_BASE_URL, config.installId(), transport)
+                    CloudTranslationProviderType.ALIYUN ->
+                        config.aliyun()?.let { AliyunTranslationProvider(it.accessKeyId, it.accessKeySecret, transport) }
+                    CloudTranslationProviderType.CUSTOM ->
+                        config.custom()?.let { CustomTranslationProvider(it.endpoint, it.bearerToken, transport) }
+                }
+                provider?.translate(request)
+                    ?: CloudTranslationResult.Failure(CloudTranslationResult.Failure.Kind.NOT_CONFIGURED)
             }
-        } catch (_: TimeoutCancellationException) {
-            CloudTranslationResult.Failure(CloudTranslationResult.Failure.Kind.NETWORK)
-        }
-    }
+        },
+        request = request,
+    )
 }
 
 internal fun isAllowedTranslationEndpoint(endpoint: String, allowLoopbackHttp: Boolean): Boolean = runCatching {

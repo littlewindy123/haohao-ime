@@ -85,6 +85,7 @@ class InputDependencyManager(
     fun start() {
         translationRevealController.start()
         cloudCandidateTranslationController.start()
+        haoHaoTranslationController.start()
         broadcaster.addReceiver(translationRevealController)
         val receivers: List<InputBroadcastReceiver> by di.allInstances()
         receivers.forEach { broadcaster.addReceiver(it) }

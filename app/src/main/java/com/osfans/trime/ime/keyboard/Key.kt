@@ -47,6 +47,9 @@ class Key(
     var row = 0
     var column = 0
 
+    /** Position within a contiguous four-button vertical symbol surface, or -1 for ordinary keys. */
+    var verticalGroupPosition = -1
+
     var extraWidthLeft = 0
     var extraWidthRight = 0
 

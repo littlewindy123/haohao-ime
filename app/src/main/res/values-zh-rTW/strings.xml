@@ -406,7 +406,7 @@
     <string name="cloud_translation_candidate_fallback">本地無釋義時線上補全</string>
     <string name="cloud_translation_candidate_fallback_summary">預設關閉；僅傳送頂部可見且離線未命中的候選，最多 5 項。</string>
     <string name="cloud_translation_candidate_source">候選翻譯來源</string>
-    <string name="cloud_translation_candidate_source_summary">關閉只用本地詞庫；開啟只用雲端；混合僅在本地缺失時請求雲端。最多傳送 5 個可見候選。</string>
+    <string name="cloud_translation_candidate_source_summary">關閉只用本地詞庫；開啟只用雲端。授權後推薦「混合」：本地優先，雲端補充。最多傳送 5 個可見候選。</string>
     <string name="cloud_translation_source_local">關閉</string>
     <string name="cloud_translation_source_cloud">開啟</string>
     <string name="cloud_translation_source_hybrid">混合</string>
@@ -423,9 +423,11 @@
     <string name="cloud_translation_error_rate">已達到今日請求上限</string>
     <string name="cloud_translation_error_quota">已達到本月字元上限</string>
     <string name="cloud_translation_error_network">網路不可用或請求逾時</string>
+    <string name="cloud_translation_error_timeout">翻譯請求逾時，可繼續輸入或重試</string>
     <string name="cloud_translation_error_response">服務傳回了無法識別的結果</string>
-    <string name="haohao_translation_tool">翻譯輸入</string>
-    <string name="haohao_translation_title">翻譯輸入</string>
+    <string name="haohao_translation_tool">譯成英文</string>
+    <string name="haohao_translation_title">譯成英文</string>
+    <string name="haohao_translation_close">關閉</string>
     <string name="haohao_translation_draft_hint">使用鍵盤輸入中文</string>
     <string name="haohao_translation_waiting">停頓片刻後自動翻譯</string>
     <string name="haohao_translation_translating">正在翻譯…</string>
@@ -441,4 +443,11 @@
     <string name="haohao_translation_sensitive_disabled">目前敏感輸入框已停用雲端翻譯</string>
     <string name="haohao_translation_not_configured">請先設定並測試雲端翻譯服務</string>
     <string name="haohao_translation_draft_limit">中文草稿最多 200 個字元</string>
+    <string name="compact_translation_mode_sentence">句子優先</string>
+    <string name="sentence_translation_expand">展開全文</string>
+    <string name="sentence_translation_return">返回鍵盤</string>
+    <string name="sentence_translation_limit">最多翻譯 200 個字元，請縮短句子</string>
+    <string name="sentence_translation_local_missing">本地暫無這句的翻譯</string>
+    <string name="sentence_translation_consent">請先在設定中授權雲翻譯</string>
+    <string name="sentence_translation_invalid">暫時無法翻譯這段文字</string>
 </resources>

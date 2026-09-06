@@ -45,6 +45,12 @@ constructor(
     }
 
     var scaleMode = Mode.None
+        set(value) {
+            if (field == value) return
+            field = value
+            needsCalculateTransform = true
+            invalidate()
+        }
 
     private lateinit var text: CharSequence
 

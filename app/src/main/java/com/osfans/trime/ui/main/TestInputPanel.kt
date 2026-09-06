@@ -67,6 +67,8 @@ constructor(
     defStyleAttr: Int = 0,
 ) : LinearLayout(context, attrs, defStyleAttr) {
 
+    private val shortWindow = resources.configuration.screenHeightDp < 480
+
     data class InputTypeOption(
         @StringRes val label: Int,
         @StringRes val hint: Int,
@@ -102,12 +104,13 @@ constructor(
             isClickable = true
             isFocusable = true
             textSize = 13f
+            minimumHeight = dp(48)
             setPaddingDp(8, 4, 8, 4)
             setText(option.label)
             val imageDrawable = ctx.drawable(option.icon)!!.apply {
                 setTintList(textColors)
             }
-            setCompoundDrawablesRelativeWithIntrinsicBounds(imageDrawable, null, null, null)
+            if (!shortWindow) setCompoundDrawablesRelativeWithIntrinsicBounds(imageDrawable, null, null, null)
 
             setOnClickListener {
                 selectInputType(this@PillUi)
@@ -149,6 +152,16 @@ constructor(
         }
     }
 
+    private val dismissButton = imageButton {
+        background = styledDrawable(android.R.attr.selectableItemBackgroundBorderless)
+        imageDrawable = drawable(R.drawable.ic_outline_cancel_24)!!.apply {
+            setTint(styledColor(android.R.attr.colorControlNormal))
+        }
+        contentDescription = context.getString(R.string.haohao_translation_close)
+        setPaddingDp(10)
+        setOnClickListener { dismiss() }
+    }
+
     private val header = horizontalLayout {
         add(
             imageView {
@@ -173,19 +186,14 @@ constructor(
                 marginStart = dp(8)
             },
         )
-        add(
-            imageButton {
-                background = styledDrawable(android.R.attr.selectableItemBackgroundBorderless)
-                imageDrawable = drawable(R.drawable.ic_outline_cancel_24)!!.apply {
-                    setTint(styledColor(android.R.attr.colorControlNormal))
-                }
-                setPaddingDp(6)
-                setOnClickListener { dismiss() }
-            },
-            lParams(dp(36), dp(36)) {
-                gravity = gravityVerticalCenter
-            },
-        )
+        if (!shortWindow) {
+            add(
+                dismissButton,
+                lParams(dp(48), dp(48)) {
+                    gravity = gravityVerticalCenter
+                },
+            )
+        }
     }
 
     private val input: EditText = editText {
@@ -211,7 +219,8 @@ constructor(
         inputType = InputType.TYPE_CLASS_TEXT
         minimumHeight = dp(48)
         textSize = 16f
-        setPadding(dp(14))
+        setPadding(dp(if (shortWindow) 8 else 14))
+        if (shortWindow) maxLines = 1
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             importantForAutofill = IMPORTANT_FOR_AUTOFILL_NO
         }
@@ -235,6 +244,7 @@ constructor(
     }
 
     private val content = verticalLayout {
+        if (shortWindow) orientation = HORIZONTAL
         add(
             constraintLayout {
                 pills.forEachIndexed { i, pillUi ->
@@ -248,7 +258,9 @@ constructor(
                     )
                 }
             },
-            lParams(matchParent, wrapContent),
+            lParams(if (shortWindow) dp(160) else matchParent, wrapContent) {
+                gravity = gravityVerticalCenter
+            },
         )
         add(
             frameLayout {
@@ -261,31 +273,43 @@ constructor(
                     },
                 )
             },
-            lParams(matchParent, wrapContent) {
-                topMargin = dp(10)
+            lParams(if (shortWindow) 0 else matchParent, wrapContent, weight = if (shortWindow) 1f else 0f) {
+                topMargin = if (shortWindow) 0 else dp(10)
+                if (shortWindow) marginStart = dp(8)
+                gravity = gravityVerticalCenter
             },
         )
+        if (shortWindow) {
+            add(
+                dismissButton,
+                lParams(dp(48), dp(48)) {
+                    gravity = gravityVerticalCenter
+                },
+            )
+        }
     }
 
     init {
         elevation = dp(4f)
         orientation = VERTICAL
-        setPadding(dp(12))
+        setPadding(dp(if (shortWindow) 4 else 12))
         background = GradientDrawable().apply {
             val r = dp(8f)
             cornerRadii = floatArrayOf(r, r, r, r, 0f, 0f, 0f, 0f)
             setColor(styledColor(android.R.attr.colorBackground))
         }
-        add(
-            header,
-            lParams(matchParent, wrapContent) {
-                gravity = gravityCenter
-            },
-        )
+        if (!shortWindow) {
+            add(
+                header,
+                lParams(matchParent, wrapContent) {
+                    gravity = gravityCenter
+                },
+            )
+        }
         add(
             content,
             lParams(matchParent, wrapContent) {
-                topMargin = dp(8)
+                topMargin = if (shortWindow) 0 else dp(8)
             },
         )
         selectInputType(pills[0])

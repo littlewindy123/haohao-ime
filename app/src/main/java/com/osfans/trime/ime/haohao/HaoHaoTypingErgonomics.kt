@@ -12,6 +12,13 @@ import kotlin.math.roundToInt
 
 internal const val HAOHAO_ONE_HAND_RAIL_WIDTH_DP = 52
 
+/** Screen-fit dimensions must not depend on opting into a different key arrangement. */
+internal fun usesLandscapeKeyboardMetrics(
+    haoHaoTheme: Boolean,
+    landscapeScreen: Boolean,
+    landscapeLayout: Boolean,
+): Boolean = landscapeLayout || (haoHaoTheme && landscapeScreen)
+
 internal data class HaoHaoKeyboardViewport(
     val leftInset: Int,
     val rightInset: Int,

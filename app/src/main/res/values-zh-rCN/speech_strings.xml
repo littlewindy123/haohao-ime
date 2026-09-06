@@ -1,0 +1,23 @@
+<resources>
+    <string name="speech_consent_title">听英文发音</string>
+    <string name="speech_consent_message">仅将你主动选择朗读的英文发送给好好服务器及腾讯云生成语音，不读取聊天记录、不使用麦克风。音频保存在手机私有缓存，最多 50MB、保留 7 天，可在“我的单词”清空缓存或关闭联网发音。</string>
+    <string name="speech_allow">同意并播放</string>
+    <string name="speech_stop">停止发音</string>
+    <string name="speech_slow">慢速 · 0.8×</string>
+    <string name="speech_loading">正在加载…</string>
+    <string name="speech_playing">正在播放</string>
+    <string name="speech_manual">点击听发音</string>
+    <string name="speech_clear">清空语音缓存</string>
+    <string name="speech_revoke">关闭联网发音</string>
+    <string name="speech_cache_cleared">语音缓存已清空</string>
+    <string name="speech_too_long">朗读最多支持 2,000 个字符，当前内容过长或无法安全分段。</string>
+    <string name="speech_invalid_text">请选择英文内容听发音。</string>
+    <string name="speech_not_configured">联网发音等待服务配置，已缓存的语音仍可播放。</string>
+    <string name="speech_expired">发音内测已到期，已缓存的语音仍可播放。</string>
+    <string name="speech_unauthorized">发音授权不可用，请联系内测组织者。</string>
+    <string name="speech_quota">发音额度暂不可用，已缓存的语音仍可播放。</string>
+    <string name="speech_busy">发音请求较多，请稍后再试。</string>
+    <string name="speech_timeout">发音加载超时，可点击重试。</string>
+    <string name="speech_network">语音加载失败，请检查网络；已缓存内容可离线播放。</string>
+    <string name="speech_failed">语音未能播放，请检查声音输出后重试。</string>
+</resources>

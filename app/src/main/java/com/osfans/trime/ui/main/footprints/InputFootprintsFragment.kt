@@ -216,6 +216,14 @@ class InputFootprintsFragment : Fragment(R.layout.fragment_input_footprints) {
 
     private fun showClearMenu(anchor: View) {
         PopupMenu(requireContext(), anchor).apply {
+            menu.add(R.string.speech_clear).setOnMenuItemClickListener {
+                com.osfans.trime.data.speech.SpeechPlayback.clearCache(requireContext())
+                true
+            }
+            menu.add(R.string.speech_revoke).setOnMenuItemClickListener {
+                com.osfans.trime.data.speech.SpeechPlayback.setConsent(requireContext(), false)
+                true
+            }
             menu.add(MENU_GROUP, MENU_CLEAR_RECENT, MENU_CLEAR_RECENT, R.string.input_footprints_clear_recent)
             menu.add(MENU_GROUP, MENU_CLEAR_ALL, MENU_CLEAR_ALL, R.string.input_footprints_clear_all)
             setOnMenuItemClickListener { item ->

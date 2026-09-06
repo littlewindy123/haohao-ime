@@ -23,9 +23,10 @@ enum class CompactTranslationMode(
 ) : PreferenceDelegateEnum {
     WORD(R.string.compact_translation_mode_word),
     ADAPTIVE(R.string.compact_translation_mode_adaptive),
+    SENTENCE_FIRST(R.string.compact_translation_mode_sentence),
 }
 
-internal val DEFAULT_COMPACT_TRANSLATION_MODE = CompactTranslationMode.WORD
+internal val DEFAULT_COMPACT_TRANSLATION_MODE = CompactTranslationMode.SENTENCE_FIRST
 
 internal data class CompactTranslationHint(
     val text: String,
@@ -33,6 +34,8 @@ internal data class CompactTranslationHint(
 )
 
 private val COMPACT_ENGLISH_WORD = Regex("[A-Za-z]+(?:['’-][A-Za-z]+)*")
+
+internal fun needsSentenceTranslationLane(translation: String, requiredWidth: Int, cellWidth: Int): Boolean = !COMPACT_ENGLISH_WORD.matches(translation) || requiredWidth > cellWidth
 
 internal fun compactTranslationHint(
     mode: CompactTranslationMode,

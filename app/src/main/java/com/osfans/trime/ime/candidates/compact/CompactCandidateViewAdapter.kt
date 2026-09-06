@@ -8,8 +8,8 @@ package com.osfans.trime.ime.candidates.compact
 import android.content.Context
 import android.view.ViewGroup
 import androidx.core.view.updateLayoutParams
+import androidx.recyclerview.widget.RecyclerView
 import com.chad.library.adapter4.BaseQuickAdapter
-import com.google.android.flexbox.FlexboxLayoutManager
 import com.osfans.trime.data.theme.Theme
 import com.osfans.trime.ime.candidates.CandidateItemUi
 import com.osfans.trime.ime.candidates.CandidateViewHolder
@@ -48,7 +48,7 @@ internal class CompactCandidateViewAdapter(
     ): CandidateViewHolder {
         val ui = CandidateItemUi(context, theme)
         ui.root.apply {
-            layoutParams = FlexboxLayoutManager.LayoutParams(wrapContent, matchParent)
+            layoutParams = RecyclerView.LayoutParams(wrapContent, matchParent)
         }
         return CandidateViewHolder(ui)
     }
@@ -62,15 +62,12 @@ internal class CompactCandidateViewAdapter(
         val candidate = item.item.candidate
         val globalIndex = item.item.globalIndex
         val isHighlighted = globalIndex == highlightedIdx
-        holder.ui.updateCompact(candidate, isHighlighted, item.compactTranslation)
+        holder.ui.updateCompact(candidate, isHighlighted, item.compactTranslation, item.separateTranslationLane, firstCandidate = position == 0)
         holder.text = candidate.text
         holder.comment = candidate.comment
         holder.idx = globalIndex
-        holder.ui.root.updateLayoutParams<FlexboxLayoutManager.LayoutParams> {
+        holder.ui.root.updateLayoutParams<RecyclerView.LayoutParams> {
             width = item.width
-            flexBasisPercent = FlexboxLayoutManager.LayoutParams.FLEX_BASIS_PERCENT_DEFAULT
-            flexGrow = 0f
-            flexShrink = 0f
         }
     }
 }

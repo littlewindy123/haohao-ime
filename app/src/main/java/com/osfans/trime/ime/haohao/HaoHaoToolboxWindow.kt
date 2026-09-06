@@ -145,6 +145,9 @@ internal fun resolveHaoHaoToolAvailability(
 class HaoHaoToolboxWindow :
     BoardWindow.BarBoardWindow(),
     InputBroadcastReceiver {
+    override fun enterAnimation(lastWindow: BoardWindow): androidx.transition.Transition? = null
+    override fun exitAnimation(nextWindow: BoardWindow): androidx.transition.Transition? = null
+
     private data class ToolTile(
         val root: LinearLayout,
         val summary: TextView,

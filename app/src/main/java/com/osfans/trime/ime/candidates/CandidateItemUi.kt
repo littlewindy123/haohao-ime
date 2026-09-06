@@ -13,8 +13,11 @@ import android.text.TextUtils
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.widget.FrameLayout
+import android.widget.HorizontalScrollView
 import androidx.annotation.Keep
 import androidx.constraintlayout.widget.ConstraintLayout
+import androidx.core.view.doOnLayout
 import androidx.core.view.isVisible
 import com.osfans.trime.core.CandidateProto
 import com.osfans.trime.data.theme.ColorManager
@@ -28,8 +31,10 @@ import com.osfans.trime.ime.candidates.bilingual.UNROLLED_CANDIDATE_MIN_HEIGHT_D
 import com.osfans.trime.ime.candidates.bilingual.UNROLLED_CANDIDATE_PHONETIC_HEIGHT_DP
 import com.osfans.trime.ime.candidates.bilingual.bilingualPhoneticLineHeight
 import com.osfans.trime.ime.candidates.bilingual.bilingualTranslationLineHeight
+import com.osfans.trime.ime.candidates.bilingual.candidateSourceRowHeight
 import com.osfans.trime.ime.candidates.bilingual.defaultBilingualCandidatePresenter
 import com.osfans.trime.ime.candidates.bilingual.resolveCandidateTypography
+import com.osfans.trime.ime.candidates.compact.sentenceCandidateContentWidth
 import com.osfans.trime.ime.core.AutoScaleTextView
 import com.osfans.trime.ime.dependency.InputDependencyManager
 import com.osfans.trime.ime.keyboard.GestureFrame
@@ -59,6 +64,7 @@ import splitties.views.dsl.core.verticalLayout
 import splitties.views.dsl.core.view
 import splitties.views.dsl.core.wrapContent
 import splitties.views.horizontalPadding
+import kotlin.math.ceil
 
 class CandidateItemUi(
     override val ctx: Context,
@@ -112,6 +118,14 @@ class CandidateItemUi(
     private var boundHighlighted = false
     private var restrictCompactTranslation = false
     private var boundCompactTranslation: String? = null
+    private var separateTranslationLane = false
+    private var readableSourceViewport = false
+    private var followSourceTail = false
+    private var viewportSource: String? = null
+    private var viewportWidth = 0
+    private var viewportContentWidth = 0
+    private var viewportFollowTail = false
+    private var viewportGeneration = 0
 
     @Keep
     private val revealListener = CandidateTranslationRevealListener {
@@ -239,11 +253,37 @@ class CandidateItemUi(
         }
     }
 
+    private val candidateContentTouch: GestureFrame = object : GestureFrame(ctx) {
+        override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+            // HorizontalScrollView normally measures its child with an unspecified width.
+            // Honor natural text width so the viewport clips/pans without reducing glyph size.
+            val contentWidth = layoutParams?.width ?: -1
+            val widthSpec = if (contentWidth > 0) MeasureSpec.makeMeasureSpec(contentWidth, MeasureSpec.EXACTLY) else widthMeasureSpec
+            super.onMeasure(widthSpec, heightMeasureSpec)
+        }
+    }.apply {
+        add(content, FrameLayout.LayoutParams(-1, -1))
+        // The inner gesture target lets HorizontalScrollView cancel taps/long presses when dragging.
+        setOnClickListener { root.performClick() }
+        setOnLongClickListener { root.performLongClick() }
+    }
+
+    private val candidateContentViewport = HorizontalScrollView(ctx).apply {
+        isFillViewport = true
+        isHorizontalScrollBarEnabled = false
+        isFocusable = false
+        descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
+        addView(candidateContentTouch, FrameLayout.LayoutParams(-1, -1))
+        addOnLayoutChangeListener { _, left, _, right, _, oldLeft, _, oldRight, _ ->
+            if (right - left != oldRight - oldLeft) boundItem?.let(::updateCandidateViewport)
+        }
+    }
+
     private val stackedContent = verticalLayout {
         gravity = itemGravity
         add(
-            content,
-            lParams(itemWidth, dp(theme.generalStyle.candidateViewHeight)) {
+            candidateContentViewport,
+            lParams(itemWidth, dp(candidateSourceRowHeight(theme.generalStyle.candidateViewHeight, textSize, ctx.resources.configuration.fontScale))) {
                 gravity = itemGravity
             },
         )
@@ -261,9 +301,12 @@ class CandidateItemUi(
         )
     }
 
-    override val root = view(::GestureFrame) {
+    override val root: GestureFrame = view(::GestureFrame) {
         if (isExpanded) minimumHeight = dp(UNROLLED_CANDIDATE_MIN_HEIGHT_DP)
         addOnAttachStateChangeListener(attachStateListener)
+        addOnLayoutChangeListener { _, left, _, right, _, oldLeft, _, oldRight, _ ->
+            if (right - left != oldRight - oldLeft) boundItem?.let(::renderCandidateText)
+        }
         /**
          * candidate long press feedback is handled by `showCandidateActionMenu`
          */
@@ -279,23 +322,75 @@ class CandidateItemUi(
     fun update(
         item: CandidateProto,
         highlighted: Boolean,
+        prioritizeSource: Boolean = false,
     ) {
         boundItem = item
         boundHighlighted = highlighted
         restrictCompactTranslation = false
+        separateTranslationLane = false
+        readableSourceViewport = prioritizeSource
+        followSourceTail = prioritizeSource
         boundCompactTranslation = null
         render(item, highlighted)
+    }
+
+    private fun renderCandidateText(item: CandidateProto) {
+        root.contentDescription = item.text
+        text.scaleMode = if (readableSourceViewport) AutoScaleTextView.Mode.None else AutoScaleTextView.Mode.Proportional
+        text.gravity = if (readableSourceViewport) Gravity.LEFT or Gravity.CENTER_VERTICAL else itemGravity
+        text.text = item.text
+        updateCandidateViewport(item)
+    }
+
+    private fun updateCandidateViewport(item: CandidateProto) {
+        val width = candidateContentViewport.width
+        if (width <= 0) return
+        val sourceWidth = ceil(text.paint.measureText(item.text)).toInt()
+        val commentWidth = ceil(comment.paint.measureText(item.comment)).toInt()
+        val contentWidth = if (commentPosition == GeneralStyle.CommentPosition.RIGHT) {
+            sourceWidth + if (item.comment.isEmpty()) 0 else commentWidth + ctx.dp(1)
+        } else {
+            maxOf(sourceWidth, commentWidth)
+        }
+        val padding = ctx.dp(theme.generalStyle.candidatePadding)
+        val naturalWidth = contentWidth + padding * 2
+        val desiredWidth = if (readableSourceViewport) sentenceCandidateContentWidth(naturalWidth, width, padding) else width
+        val changed = viewportSource != item.text || viewportWidth != width || viewportContentWidth != desiredWidth || viewportFollowTail != followSourceTail
+        if (!changed) return // A translation arriving must not disturb manual inspection of the source.
+        viewportSource = item.text
+        viewportWidth = width
+        viewportContentWidth = desiredWidth
+        viewportFollowTail = followSourceTail
+        val generation = ++viewportGeneration
+        if (candidateContentTouch.layoutParams.width != desiredWidth) {
+            candidateContentTouch.layoutParams = candidateContentTouch.layoutParams.apply { this.width = desiredWidth }
+        }
+        candidateContentTouch.doOnLayout {
+            // Run after the parent's layout; HorizontalScrollView restores/clamps its scroll
+            // position after laying out this child and would otherwise undo the tail update.
+            candidateContentViewport.post {
+                if (generation == viewportGeneration && candidateContentViewport.isAttachedToWindow) {
+                    val tail = (candidateContentTouch.width - candidateContentViewport.width).coerceAtLeast(0)
+                    candidateContentViewport.scrollTo(if (followSourceTail && !isExpanded) tail else 0, 0)
+                }
+            }
+        }
     }
 
     fun updateCompact(
         item: CandidateProto,
         highlighted: Boolean,
         compactTranslation: String?,
+        separateTranslationLane: Boolean = false,
+        firstCandidate: Boolean = false,
     ) {
         boundItem = item
         boundHighlighted = highlighted
         restrictCompactTranslation = true
         boundCompactTranslation = compactTranslation
+        this.separateTranslationLane = separateTranslationLane
+        readableSourceViewport = separateTranslationLane
+        followSourceTail = separateTranslationLane && firstCandidate
         render(item, highlighted)
     }
 
@@ -308,10 +403,10 @@ class CandidateItemUi(
         val tColor = if (highlighted) hlTextColor else textColor
         val cColor = if (highlighted) hlCommentColor else commentColor
         val cornerRadius = if (isExpanded) 0f else ctx.dp(theme.generalStyle.candidateCornerRadius)
-        val contentColor = if (highlighted) hlBackColor else Color.TRANSPARENT
+        val contentColor = if (highlighted && !separateTranslationLane) hlBackColor else Color.TRANSPARENT
 
         root.background = roundedRippleDrawable(hlBackColor, cornerRadius, contentColor)
-        text.text = item.text
+        renderCandidateText(item)
         text.setTextColor(tColor)
 
         val commentText = item.comment
@@ -320,7 +415,7 @@ class CandidateItemUi(
         comment.isVisible = commentText.isNotEmpty()
 
         val translationText = presentation.translation.takeIf {
-            !restrictCompactTranslation || it == boundCompactTranslation
+            !separateTranslationLane && (!restrictCompactTranslation || it == boundCompactTranslation)
         }
         val revealTranslation = translation.text.isNullOrEmpty() && !translationText.isNullOrEmpty()
         translation.animate().cancel()
@@ -331,6 +426,7 @@ class CandidateItemUi(
         translation.setTextColor(cColor)
         translation.visibility =
             when {
+                separateTranslationLane -> View.GONE
                 !translationText.isNullOrEmpty() -> View.VISIBLE
                 presentation.reserveTranslationLine -> View.INVISIBLE
                 else -> View.GONE
@@ -341,6 +437,7 @@ class CandidateItemUi(
         phonetic.setTextColor(cColor)
         phonetic.visibility =
             when {
+                separateTranslationLane -> View.GONE
                 !phoneticText.isNullOrEmpty() -> View.VISIBLE
                 presentation.reservePhoneticLine -> View.INVISIBLE
                 else -> View.GONE

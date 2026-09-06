@@ -24,15 +24,15 @@ import com.osfans.trime.daemon.RimeSession
 import com.osfans.trime.data.footprints.InputFootprintPolicy
 import com.osfans.trime.data.footprints.InputFootprints
 import com.osfans.trime.data.prefs.AppPrefs
-import com.osfans.trime.data.translation.ConfiguredCandidateTranslationRepository
-import com.osfans.trime.data.translation.CandidateTranslationSourceMode
-import com.osfans.trime.ui.main.footprints.WordLearningActivity
 import com.osfans.trime.data.theme.ColorManager
 import com.osfans.trime.data.theme.Theme
 import com.osfans.trime.data.theme.ThemeManager
 import com.osfans.trime.data.theme.ThemePrefs
+import com.osfans.trime.data.translation.CandidateTranslationSourceMode
+import com.osfans.trime.data.translation.ConfiguredCandidateTranslationRepository
 import com.osfans.trime.ime.candidates.bilingual.OfflineCandidateTranslationRepository
 import com.osfans.trime.ime.keyboard.InputFeedbackManager
+import com.osfans.trime.ui.main.footprints.WordLearningActivity
 import com.osfans.trime.util.toast
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -99,6 +99,7 @@ abstract class BaseInputView(
     val themedContext = context.withTheme(android.R.style.Theme_DeviceDefault_Settings)
 
     private var candidateActionMenu: PopupMenu? = null
+    private var candidateSpeech: com.osfans.trime.ui.main.footprints.WordSpeech? = null
 
     fun showCandidateActionMenu(
         idx: Int,
@@ -130,9 +131,13 @@ abstract class BaseInputView(
             }
             val canViewMeaning = editorInfo != null && footprintStore != null &&
                 InputFootprintPolicy.canRecord(editorInfo.inputType, editorInfo.imeOptions)
-            val meaning = if (canViewMeaning) withContext(Dispatchers.IO) {
-                ConfiguredCandidateTranslationRepository.lookup(text)
-            } else null
+            val meaning = if (canViewMeaning) {
+                withContext(Dispatchers.IO) {
+                    ConfiguredCandidateTranslationRepository.lookup(text)
+                }
+            } else {
+                null
+            }
             val source = when (AppPrefs.defaultInstance().cloudTranslation.candidateSource.getValue()) {
                 CandidateTranslationSourceMode.LOCAL_ONLY -> "offline"
                 CandidateTranslationSourceMode.CLOUD_ONLY -> "cloud"
@@ -145,6 +150,22 @@ abstract class BaseInputView(
                         isEnabled = false
                     }
                     if (canViewMeaning) {
+                        meaning?.translation?.takeIf { it.isNotBlank() }?.let { english ->
+                            fun listen(rate: com.osfans.trime.data.speech.SpeechRate) {
+                                val speech = candidateSpeech ?: com.osfans.trime.ui.main.footprints.WordSpeech(themedContext).also { candidateSpeech = it }
+                                speech.speak(english, rate) {
+                                    view.isAttachedToWindow && service.currentInputEditorInfo === editorInfo && currentPresentationVersion == presentationVersion
+                                }
+                            }
+                            menu.add(R.string.input_footprints_speak).setOnMenuItemClickListener {
+                                listen(com.osfans.trime.data.speech.SpeechRate.NORMAL)
+                                true
+                            }
+                            menu.add(R.string.speech_slow).setOnMenuItemClickListener {
+                                listen(com.osfans.trime.data.speech.SpeechRate.SLOW)
+                                true
+                            }
+                        }
                         menu.add(R.string.words_detail).setOnMenuItemClickListener {
                             val currentEditor = service.currentInputEditorInfo
                             if (currentEditor != null && currentEditor === editorInfo && InputFootprintPolicy.canRecord(currentEditor.inputType, currentEditor.imeOptions)) {
@@ -241,6 +262,8 @@ abstract class BaseInputView(
     }
 
     override fun onDetachedFromWindow() {
+        candidateSpeech?.close()
+        candidateSpeech = null
         handleMessages = false
         candidateActionMenu?.dismiss()
         candidateActionMenu = null

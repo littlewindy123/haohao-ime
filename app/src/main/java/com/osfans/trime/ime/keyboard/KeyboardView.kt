@@ -92,9 +92,9 @@ class KeyboardView(
             )
         setPadding(
             keyboard.horizontalGap / 2 + key.extraWidthLeft,
-            paddingTop,
+            if (key.verticalGroupPosition > 0) 0 else paddingTop,
             keyboard.horizontalGap / 2 + key.extraWidthRight,
-            paddingBottom,
+            if (key.verticalGroupPosition in 0..2) 0 else paddingBottom,
         )
     }
 

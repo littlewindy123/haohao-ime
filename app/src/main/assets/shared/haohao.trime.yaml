@@ -5,30 +5,37 @@
 # 仅覆盖面向普通中文用户的键盘布局与基础按键。
 __include: trime:/
 
-config_version: "2.6"
+config_version: "3.1"
 name: 好好输入法
 author: HaoHao IME contributors
 
 style:
-  candidate_padding: 4
+  # Use the device's regular sans-serif, consistently across Chinese and Latin.
+  candidate_font: ["system:sans-serif"]
+  key_font: ["system:sans-serif"]
+  comment_font: ["system:sans-serif"]
+  symbol_font: ["system:sans-serif"]
+  text_font: ["system:sans-serif"]
+  candidate_padding: 10
   candidate_spacing: 2
   candidate_border: 0
   candidate_border_round: 0
-  candidate_view_height: 30
+  candidate_view_height: 40
   candidate_corner_radius: 8
-  candidate_text_size: 16
+  candidate_text_size: 20
   comment_text_size: 12
-  compact_candidate_text_size: 16
-  compact_translation_text_size: 12
+  comment_height: 0
+  compact_candidate_text_size: 20
+  compact_translation_text_size: 13
   compact_phonetic_text_size: 10
   horizontal_gap: 3
-  vertical_gap: 11
+  vertical_gap: 8
   keyboard_padding: 3
-  keyboard_padding_bottom: 4
+  keyboard_padding_bottom: 40
   keyboard_padding_land: 24
   keyboard_padding_land_bottom: 6
   key_height: 50
-  key_cap_height: 54
+  key_cap_height: 0
   key_text_size: 20
   key_long_text_size: 16
   symbol_text_size: 11
@@ -38,7 +45,7 @@ style:
   label_text_size: 16
   popup_text_size: 16
   keyboard_height: 252
-  keyboard_height_land: 220
+  keyboard_height_land: 180
   preview_height: 54
   preview_offset: -10
   preview_text_size: 18
@@ -88,28 +95,39 @@ tool_bar:
     action: HaoHaoToolbox
   buttons:
     - size: [48, 48]
-      foreground: {style: "ic@keyboard_close", normal: toolbar_icon_color, highlight: hilited_toolbar_icon_color, font_size: 18, padding: 10}
+      foreground: {style: "ic@chevron_down", normal: toolbar_icon_color, highlight: hilited_toolbar_icon_color, font_size: 18, padding: 10}
       action: Hide
+    - size: [48, 48]
+      foreground: {style: "ic@keyboard_outline", normal: toolbar_icon_color, highlight: hilited_toolbar_icon_color, font_size: 18, padding: 10}
+      action: HaoHaoKeyboardMenu
     - size: [48, 48]
       foreground: {style: "ic@emoticon_outline", normal: toolbar_icon_color, highlight: hilited_toolbar_icon_color, font_size: 18, padding: 10}
       action: liquid_keyboard_emoji
     - size: [48, 48]
-      foreground: {style: "ic@clipboard_text_outline", normal: toolbar_icon_color, highlight: hilited_toolbar_icon_color, font_size: 18, padding: 10}
-      action: clipboard_window
+      foreground: {style: "ic@cursor_text", normal: toolbar_icon_color, highlight: hilited_toolbar_icon_color, font_size: 18, padding: 10}
+      action: HaoHaoEditor
+      long_press_action: clipboard_window
+    - size: [48, 48]
+      foreground: {style: "ic@microphone_outline", normal: toolbar_icon_color, highlight: hilited_toolbar_icon_color, font_size: 18, padding: 10}
+      action: VOICE_ASSIST
 
 preset_keys:
-  BackSpace: {label: "⌫", preview: "", repeatable: true, slide_delete: true, functional: true, send: BackSpace}
-  Shift_L: {label: "⇧", preview: "", functional: true, send: Shift_L, shift_lock: long}
+  BackSpace: {label: "ic@backspace_outline", preview: "", repeatable: true, slide_delete: true, functional: true, send: BackSpace}
+  Shift_L: {label: "ic@apple_keyboard_shift", preview: "", functional: true, send: Shift_L, shift_lock: long}
   Mode_switch: {toggle: ascii_mode, preview: "", functional: true, send: SWITCH_CHARSET, states: [中, 英]}
   HaoHaoNumber: {label: "123", preview: "", functional: true, send: Eisu_toggle, select: number}
+  HaoHaoNumberSymbols: {label: 符, preview: "", functional: true, send: Eisu_toggle, select: number_symbols}
+  HaoHaoNumberBack: {label: 返回, preview: "", functional: true, send: Eisu_toggle, select: .default}
+  HaoHaoNumberSpace: {label: "ic@keyboard_space", preview: "", slide_cursor: true, functional: false, send: space}
   HaoHaoSymbols: {label: 符, preview: "", functional: true, send: Eisu_toggle, select: symbols}
   HaoHaoLetters: {label: ABC, preview: "", functional: true, send: Eisu_toggle, select: .default}
-  HaoHaoSpace: {label: " ", preview: "", slide_cursor: true, functional: false, send: space}
+  HaoHaoSpace: {label: "ic@keyboard_space", preview: "", slide_cursor: true, functional: false, send: space}
   HaoHaoReturn: {label: "ic@keyboard_return", preview: "", functional: true, send: Return}
   HaoHaoToolbox: {label: "好", preview: "", functional: true, send: FUNCTION, command: haohao_toolbox}
   HaoHaoTranslation: {label: 翻译, preview: "", functional: true, send: FUNCTION, command: haohao_translation}
   HaoHaoInputFootprints: {label: 单词, preview: "", functional: true, send: FUNCTION, command: haohao_input_footprints}
   HaoHaoEditor: {label: 编辑, preview: "", functional: true, send: FUNCTION, command: haohao_editor}
+  HaoHaoKeyboardMenu: {label: 键盘, preview: "", functional: true, send: FUNCTION, command: menu_keyboard}
 
 preset_color_schemes:
   default:
@@ -152,7 +170,7 @@ preset_color_schemes:
     hilited_on_key_text_color: 0x513a32
     hilited_on_key_symbol_color: 0xfffdf8
     hilited_candidate_back_color: 0xdcece2
-    hilited_candidate_text_color: 0x513a32
+    hilited_candidate_text_color: 0x367553
     hilited_comment_text_color: 0x426c54
     hilited_back_color: 0xdcece2
     hilited_text_color: 0x426c54
@@ -200,13 +218,302 @@ preset_color_schemes:
     hilited_on_key_text_color: 0x3d2c26
     hilited_on_key_symbol_color: 0x3d2c26
     hilited_candidate_back_color: 0x354d41
-    hilited_candidate_text_color: 0xfffdf8
+    hilited_candidate_text_color: 0x9bd4bb
     hilited_comment_text_color: 0xf0bd60
     hilited_back_color: 0x354d41
     hilited_text_color: 0xf0bd60
     preview_back_color: 0xf4ece2
     preview_text_color: 0x3d2c26
     shadow_color: 0x000000
+
+  haohao_mist:
+    name: 雾蓝
+    author: HaoHao IME contributors
+    dark_scheme: haohao_mist_dark
+    back_color: 0xf2f6fa
+    root_background: 0xf2f6fa
+    keyboard_back_color: 0xe0e7ee
+    candidate_background: 0xf2f6fa
+    candidate_border_color: 0xcdd7e1
+    candidate_separator_color: 0xcdd7e1
+    border_color: 0xcdd7e1
+    candidate_text_color: 0x263d50
+    comment_text_color: 0x5b7082
+    label_color: 0x5b7082
+    text_color: 0x263d50
+    text_back_color: 0xf2f6fa
+    key_back_color: 0xffffff
+    key_border_color: 0xcdd7e1
+    key_shadow_color: 0x18000000
+    key_highlight_color: 0x66ffffff
+    key_text_color: 0x263d50
+    key_symbol_color: 0x8696a5
+    off_key_back_color: 0xcfdfeb
+    off_key_text_color: 0x263d50
+    off_key_symbol_color: 0x8696a5
+    toolbar_icon_color: 0x5b7082
+    hilited_toolbar_icon_color: 0x285e82
+    on_key_back_color: 0x356c91
+    on_key_text_color: 0xffffff
+    on_key_symbol_color: 0xffffff
+    hilited_key_back_color: 0xcfdfeb
+    hilited_key_text_color: 0x263d50
+    hilited_key_symbol_color: 0x285e82
+    hilited_off_key_back_color: 0xbad0e0
+    hilited_off_key_text_color: 0x263d50
+    hilited_off_key_symbol_color: 0x285e82
+    hilited_on_key_back_color: 0x285e82
+    hilited_on_key_text_color: 0xffffff
+    hilited_on_key_symbol_color: 0xffffff
+    hilited_candidate_back_color: 0xcfdfeb
+    hilited_candidate_text_color: 0x285e82
+    hilited_comment_text_color: 0x285e82
+    hilited_back_color: 0xcfdfeb
+    hilited_text_color: 0x285e82
+    preview_back_color: 0x263d50
+    preview_text_color: 0xffffff
+    shadow_color: 0x000000
+
+  haohao_mist_dark:
+    name: 雾蓝 · 夜
+    author: HaoHao IME contributors
+    light_scheme: haohao_mist
+    back_color: 0x1b2631
+    root_background: 0x1b2631
+    keyboard_back_color: 0x17222c
+    candidate_background: 0x1b2631
+    candidate_border_color: 0x405363
+    candidate_separator_color: 0x405363
+    border_color: 0x405363
+    candidate_text_color: 0xe9f1f8
+    comment_text_color: 0xb0c2d1
+    label_color: 0xb0c2d1
+    text_color: 0xe9f1f8
+    text_back_color: 0x1b2631
+    key_back_color: 0x293a49
+    key_border_color: 0x405363
+    key_shadow_color: 0x66000000
+    key_highlight_color: 0x18ffffff
+    key_text_color: 0xe9f1f8
+    key_symbol_color: 0x8199ac
+    off_key_back_color: 0x304f67
+    off_key_text_color: 0xe9f1f8
+    off_key_symbol_color: 0x8199ac
+    toolbar_icon_color: 0xb0c2d1
+    hilited_toolbar_icon_color: 0xa9d1ec
+    on_key_back_color: 0x97c4e4
+    on_key_text_color: 0x183449
+    on_key_symbol_color: 0x183449
+    hilited_key_back_color: 0x304f67
+    hilited_key_text_color: 0xe9f1f8
+    hilited_key_symbol_color: 0xa9d1ec
+    hilited_off_key_back_color: 0x3c617c
+    hilited_off_key_text_color: 0xe9f1f8
+    hilited_off_key_symbol_color: 0xa9d1ec
+    hilited_on_key_back_color: 0xa9d1ec
+    hilited_on_key_text_color: 0x183449
+    hilited_on_key_symbol_color: 0x183449
+    hilited_candidate_back_color: 0x304f67
+    hilited_candidate_text_color: 0xa9d1ec
+    hilited_comment_text_color: 0xa9d1ec
+    hilited_back_color: 0x304f67
+    hilited_text_color: 0xa9d1ec
+    preview_back_color: 0xe9f1f8
+    preview_text_color: 0x293a49
+    shadow_color: 0x000000
+
+  haohao_apricot:
+    name: 暖杏
+    author: HaoHao IME contributors
+    dark_scheme: haohao_apricot_dark
+    back_color: 0xfbf3eb
+    root_background: 0xfbf3eb
+    keyboard_back_color: 0xeee1d5
+    candidate_background: 0xfbf3eb
+    candidate_border_color: 0xdccabb
+    candidate_separator_color: 0xdccabb
+    border_color: 0xdccabb
+    candidate_text_color: 0x513c32
+    comment_text_color: 0x796052
+    label_color: 0x796052
+    text_color: 0x513c32
+    text_back_color: 0xfbf3eb
+    key_back_color: 0xfffaf5
+    key_border_color: 0xdccabb
+    key_shadow_color: 0x18000000
+    key_highlight_color: 0x66ffffff
+    key_text_color: 0x513c32
+    key_symbol_color: 0xa08877
+    off_key_back_color: 0xf0d9c3
+    off_key_text_color: 0x513c32
+    off_key_symbol_color: 0xa08877
+    toolbar_icon_color: 0x796052
+    hilited_toolbar_icon_color: 0x97532f
+    on_key_back_color: 0xa15d38
+    on_key_text_color: 0xfffaf5
+    on_key_symbol_color: 0xfffaf5
+    hilited_key_back_color: 0xf0d9c3
+    hilited_key_text_color: 0x513c32
+    hilited_key_symbol_color: 0x97532f
+    hilited_off_key_back_color: 0xe5c2a4
+    hilited_off_key_text_color: 0x513c32
+    hilited_off_key_symbol_color: 0x97532f
+    hilited_on_key_back_color: 0x97532f
+    hilited_on_key_text_color: 0xfffaf5
+    hilited_on_key_symbol_color: 0xfffaf5
+    hilited_candidate_back_color: 0xf0d9c3
+    hilited_candidate_text_color: 0x97532f
+    hilited_comment_text_color: 0x97532f
+    hilited_back_color: 0xf0d9c3
+    hilited_text_color: 0x97532f
+    preview_back_color: 0x513c32
+    preview_text_color: 0xfffaf5
+    shadow_color: 0x000000
+
+  haohao_apricot_dark:
+    name: 暖杏 · 夜
+    author: HaoHao IME contributors
+    light_scheme: haohao_apricot
+    back_color: 0x2b221e
+    root_background: 0x2b221e
+    keyboard_back_color: 0x231c19
+    candidate_background: 0x2b221e
+    candidate_border_color: 0x584437
+    candidate_separator_color: 0x584437
+    border_color: 0x584437
+    candidate_text_color: 0xf6e9df
+    comment_text_color: 0xd1b5a0
+    label_color: 0xd1b5a0
+    text_color: 0xf6e9df
+    text_back_color: 0x2b221e
+    key_back_color: 0x3b2e28
+    key_border_color: 0x584437
+    key_shadow_color: 0x66000000
+    key_highlight_color: 0x18ffffff
+    key_text_color: 0xf6e9df
+    key_symbol_color: 0xa58974
+    off_key_back_color: 0x62422f
+    off_key_text_color: 0xf6e9df
+    off_key_symbol_color: 0xa58974
+    toolbar_icon_color: 0xd1b5a0
+    hilited_toolbar_icon_color: 0xf2c59e
+    on_key_back_color: 0xecc095
+    on_key_text_color: 0x3a271d
+    on_key_symbol_color: 0x3a271d
+    hilited_key_back_color: 0x62422f
+    hilited_key_text_color: 0xf6e9df
+    hilited_key_symbol_color: 0xf2c59e
+    hilited_off_key_back_color: 0x78503a
+    hilited_off_key_text_color: 0xf6e9df
+    hilited_off_key_symbol_color: 0xf2c59e
+    hilited_on_key_back_color: 0xf2c59e
+    hilited_on_key_text_color: 0x3a271d
+    hilited_on_key_symbol_color: 0x3a271d
+    hilited_candidate_back_color: 0x62422f
+    hilited_candidate_text_color: 0xf2c59e
+    hilited_comment_text_color: 0xf2c59e
+    hilited_back_color: 0x62422f
+    hilited_text_color: 0xf2c59e
+    preview_back_color: 0xf6e9df
+    preview_text_color: 0x3b2e28
+    shadow_color: 0x000000
+
+  haohao_graphite:
+    name: 石墨
+    author: HaoHao IME contributors
+    dark_scheme: haohao_graphite_dark
+    back_color: 0xf3f4f5
+    root_background: 0xf3f4f5
+    keyboard_back_color: 0xe3e5e7
+    candidate_background: 0xf3f4f5
+    candidate_border_color: 0xd0d3d6
+    candidate_separator_color: 0xd0d3d6
+    border_color: 0xd0d3d6
+    candidate_text_color: 0x292d31
+    comment_text_color: 0x606870
+    label_color: 0x606870
+    text_color: 0x292d31
+    text_back_color: 0xf3f4f5
+    key_back_color: 0xffffff
+    key_border_color: 0xd0d3d6
+    key_shadow_color: 0x18000000
+    key_highlight_color: 0x66ffffff
+    key_text_color: 0x292d31
+    key_symbol_color: 0x8b939b
+    off_key_back_color: 0xd7dde2
+    off_key_text_color: 0x292d31
+    off_key_symbol_color: 0x8b939b
+    toolbar_icon_color: 0x606870
+    hilited_toolbar_icon_color: 0x263e50
+    on_key_back_color: 0x414d58
+    on_key_text_color: 0xffffff
+    on_key_symbol_color: 0xffffff
+    hilited_key_back_color: 0xd7dde2
+    hilited_key_text_color: 0x292d31
+    hilited_key_symbol_color: 0x263e50
+    hilited_off_key_back_color: 0xc5cdd4
+    hilited_off_key_text_color: 0x292d31
+    hilited_off_key_symbol_color: 0x263e50
+    hilited_on_key_back_color: 0x263e50
+    hilited_on_key_text_color: 0xffffff
+    hilited_on_key_symbol_color: 0xffffff
+    hilited_candidate_back_color: 0xd7dde2
+    hilited_candidate_text_color: 0x263e50
+    hilited_comment_text_color: 0x263e50
+    hilited_back_color: 0xd7dde2
+    hilited_text_color: 0x263e50
+    preview_back_color: 0x292d31
+    preview_text_color: 0xffffff
+    shadow_color: 0x000000
+
+  haohao_graphite_dark:
+    name: 石墨 · 夜
+    author: HaoHao IME contributors
+    light_scheme: haohao_graphite
+    back_color: 0x202326
+    root_background: 0x202326
+    keyboard_back_color: 0x191c1f
+    candidate_background: 0x202326
+    candidate_border_color: 0x474e55
+    candidate_separator_color: 0x474e55
+    border_color: 0x474e55
+    candidate_text_color: 0xf0f2f4
+    comment_text_color: 0xb6bec6
+    label_color: 0xb6bec6
+    text_color: 0xf0f2f4
+    text_back_color: 0x202326
+    key_back_color: 0x30353a
+    key_border_color: 0x474e55
+    key_shadow_color: 0x66000000
+    key_highlight_color: 0x18ffffff
+    key_text_color: 0xf0f2f4
+    key_symbol_color: 0x8e99a3
+    off_key_back_color: 0x414b55
+    off_key_text_color: 0xf0f2f4
+    off_key_symbol_color: 0x8e99a3
+    toolbar_icon_color: 0xb6bec6
+    hilited_toolbar_icon_color: 0xd2e2ef
+    on_key_back_color: 0xb9cad9
+    on_key_text_color: 0x222e38
+    on_key_symbol_color: 0x222e38
+    hilited_key_back_color: 0x414b55
+    hilited_key_text_color: 0xf0f2f4
+    hilited_key_symbol_color: 0xd2e2ef
+    hilited_off_key_back_color: 0x55616d
+    hilited_off_key_text_color: 0xf0f2f4
+    hilited_off_key_symbol_color: 0xd2e2ef
+    hilited_on_key_back_color: 0xd2e2ef
+    hilited_on_key_text_color: 0x222e38
+    hilited_on_key_symbol_color: 0x222e38
+    hilited_candidate_back_color: 0x414b55
+    hilited_candidate_text_color: 0xd2e2ef
+    hilited_comment_text_color: 0xd2e2ef
+    hilited_back_color: 0x414b55
+    hilited_text_color: 0xd2e2ef
+    preview_back_color: 0xf0f2f4
+    preview_text_color: 0x30353a
+    shadow_color: 0x000000
+
 
 preset_keyboards:
   qwerty:
@@ -217,6 +524,7 @@ preset_keyboards:
     ascii_mode: 0
     reset_ascii_mode: true
     lock: true
+    label_transform: uppercase
     width: 10
     height: 50
     keys:
@@ -232,34 +540,69 @@ preset_keyboards:
       - {click: p, label_symbol: "0", long_click: "0"}
       - {width: 5}
       - {click: a, label_symbol: "~", long_click: "~"}
-      - {click: s, label_symbol: "@", long_click: "@"}
-      - {click: d, label_symbol: "#", long_click: "#"}
-      - {click: f, label_symbol: "!", long_click: "!"}
+      - {click: s, label_symbol: "!", long_click: "!"}
+      - {click: d, label_symbol: "@", long_click: "@"}
+      - {click: f, label_symbol: "#", long_click: "#"}
       - {click: g, label_symbol: "%", long_click: "%"}
-      - {click: h, label_symbol: "&", long_click: "&"}
-      - {click: j, label_symbol: "*", long_click: "*"}
-      - {click: k, label_symbol: "(", long_click: "("}
-      - {click: l, label_symbol: ")", long_click: ")"}
+      - {click: h, label_symbol: "“", long_click: "“"}
+      - {click: j, label_symbol: "”", long_click: "”"}
+      - {click: k, label_symbol: "*", long_click: "*"}
+      - {click: l, label_symbol: "?", long_click: "?"}
       - {width: 5}
-      - {click: Shift_L, long_click: Shift_L, label_symbol: "\u200B", width: 15}
-      - {click: z, label_symbol: "`", long_click: "`"}
-      - {click: x, label_symbol: "/", long_click: "/"}
+      - {click: Shift_L, long_click: Shift_L, label_symbol: "\u200B", width: 15, key_text_size: 22}
+      - {click: z, label_symbol: "(", long_click: "("}
+      - {click: x, label_symbol: ")", long_click: ")"}
       - {click: c, label_symbol: "-", long_click: "-"}
       - {click: v, label_symbol: "_", long_click: "_"}
       - {click: b, label_symbol: ":", long_click: ":"}
       - {click: n, label_symbol: ";", long_click: ";"}
-      - {click: m, label_symbol: "?", long_click: "?"}
-      - {click: BackSpace, width: 15}
-      - {click: HaoHaoSymbols, width: 14}
-      - {click: HaoHaoNumber, width: 12}
+      - {click: m, label_symbol: "、", long_click: "、"}
+      - {click: BackSpace, width: 15, key_text_size: 22}
+      - {click: HaoHaoSymbols, width: 15.5, key_text_size: 16}
+      - {click: HaoHaoNumber, width: 11.5}
       - {click: ",", label: "，", width: 10, key_text_offset_y: -3}
-      - {click: HaoHaoSpace, width: 28}
+      - {click: HaoHaoSpace, width: 26, key_text_size: 28}
       - {click: ".", label: "。", width: 10, key_text_offset_y: -1}
-      - {click: Mode_switch, width: 12}
-      - {click: HaoHaoReturn, width: 14, key_text_size: 18, key_back_color: on_key_back_color, key_text_color: on_key_text_color}
+      - {click: Mode_switch, width: 11.5}
+      - {click: HaoHaoReturn, width: 15.5, key_text_size: 18, key_back_color: on_key_back_color, key_text_color: on_key_text_color}
 
   number:
     name: 好好数字
+    author: HaoHao IME contributors
+    ascii_mode: 1
+    reset_ascii_mode: false
+    key_layout: telephone
+    key_cap_height: 0
+    vertical_gap: 4
+    width: 22
+    columns: 5
+    height: 50
+    keys:
+      # 前四键共享连续符号栏；其后为三行数字及右侧功能键，最后一行固定五键。
+      - {click: "%", width: 17, key_back_color: off_key_back_color}
+      - {click: "/", width: 17, key_back_color: off_key_back_color}
+      - {click: "-", width: 17, key_back_color: off_key_back_color}
+      - {click: "+", width: 17, key_back_color: off_key_back_color}
+      - {click: "1", key_text_size: 22}
+      - {click: "2", key_text_size: 22}
+      - {click: "3", key_text_size: 22}
+      - {click: BackSpace, width: 17, key_text_size: 22}
+      - {click: "4", key_text_size: 22}
+      - {click: "5", key_text_size: 22}
+      - {click: "6", key_text_size: 22}
+      - {click: ".", width: 17, key_back_color: off_key_back_color}
+      - {click: "7", key_text_size: 22}
+      - {click: "8", key_text_size: 22}
+      - {click: "9", key_text_size: 22}
+      - {click: "@", width: 17, key_back_color: off_key_back_color}
+      - {click: HaoHaoNumberSymbols, width: 17, key_text_size: 16}
+      - {click: HaoHaoNumberBack, key_text_size: 16}
+      - {click: "0", key_text_size: 22}
+      - {click: HaoHaoNumberSpace, key_text_size: 22, key_back_color: off_key_back_color}
+      - {click: HaoHaoReturn, width: 17, key_text_size: 18, key_back_color: on_key_back_color, key_text_color: on_key_text_color}
+
+  number_symbols:
+    name: 好好数字符号
     author: HaoHao IME contributors
     ascii_mode: 1
     reset_ascii_mode: false
@@ -296,9 +639,9 @@ preset_keyboards:
       - {click: "."}
       - {click: BackSpace, width: 20}
       - {click: HaoHaoLetters, width: 20}
-      - {click: HaoHaoSymbols, width: 20}
+      - {click: HaoHaoNumber, width: 20}
       - {click: HaoHaoSpace, width: 40}
-      - {click: HaoHaoReturn, width: 20}
+      - {click: HaoHaoReturn, width: 20, key_text_size: 18, key_back_color: on_key_back_color, key_text_color: on_key_text_color}
 
   symbols:
     name: 好好符号

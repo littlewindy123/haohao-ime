@@ -4,6 +4,9 @@
  */
 @file:Suppress("UnstableApiUsage")
 
+import java.security.KeyStore
+import java.security.MessageDigest
+import java.security.PrivateKey
 import java.time.LocalDate
 import java.time.ZoneOffset
 import java.time.format.DateTimeParseException
@@ -26,8 +29,50 @@ plugins {
 
 val embedInternalCloudSecrets =
     providers.gradleProperty("embedInternalCloudSecrets").orElse("false").get().toBoolean()
+val publicDistribution =
+    providers.gradleProperty("publicDistribution").orElse("false").get().toBooleanStrict()
+// Internal APKs may contain disposable test credentials, but must never enter public distribution.
+val internalTestDistribution =
+    providers.gradleProperty("internalTestDistribution").orElse("false").get().toBooleanStrict()
+require(!(publicDistribution && internalTestDistribution)) { "Choose public OR internal test distribution" }
+require(!internalTestDistribution || embedInternalCloudSecrets) { "Internal test distribution requires explicit cloud embedding" }
+require(!embedInternalCloudSecrets || internalTestDistribution) { "Embedded credentials are restricted to internal test distribution" }
+val fixedSigningDistribution = publicDistribution || internalTestDistribution
+val publicSigningPolicy = Properties().apply {
+    rootProject.file("public-signing.properties").inputStream().use(::load)
+}
+val publicSigningFile = file(
+    providers.environmentVariable("HAOHAO_PUBLIC_KEYSTORE").orElse(
+        "${System.getProperty("user.home")}/.haohao-ime/signing/public-test.keystore",
+    ).get(),
+)
+// The existing website test identity is retained. Keep this private file outside Git and COS.
+val publicStorePassword = providers.environmentVariable("HAOHAO_PUBLIC_STORE_PASSWORD").orElse("android").get()
+val publicKeyPassword = providers.environmentVariable("HAOHAO_PUBLIC_KEY_PASSWORD").orElse("android").get()
+val publicKeyAlias = publicSigningPolicy.getProperty("keyAlias")
+if (publicDistribution) {
+    require(!embedInternalCloudSecrets) { "Public distribution must not embed shared cloud credentials" }
+}
+if (fixedSigningDistribution) {
+    require(publicSigningFile.isFile) {
+        "Fixed public signing key is missing. Restore the backup or set HAOHAO_PUBLIC_KEYSTORE; do not generate a replacement."
+    }
+    val keyStore = KeyStore.getInstance(publicSigningFile, publicStorePassword.toCharArray())
+    val certificate = requireNotNull(keyStore.getCertificate(publicKeyAlias)) {
+        "The public signing key alias is missing"
+    }
+    val fingerprint = MessageDigest.getInstance("SHA-256").digest(certificate.encoded)
+        .joinToString("") { "%02x".format(it) }
+    require(fingerprint == publicSigningPolicy.getProperty("certificateSha256")) {
+        "Public signing certificate changed; refusing to produce an incompatible update. Restore the fixed key."
+    }
+    require(keyStore.getKey(publicKeyAlias, publicKeyPassword.toCharArray()) is PrivateKey) {
+        "The public signing identity must include its private key"
+    }
+}
 val internalCloudSecrets = Properties()
-val internalCloudSecretsFile = rootProject.file("internal-cloud-secrets.properties")
+val internalCloudSecretsFile = providers.environmentVariable("HAOHAO_INTERNAL_CLOUD_SECRETS_FILE")
+    .orNull?.let(::file) ?: rootProject.file("internal-cloud-secrets.properties")
 val internalCloudSecretKeys = listOf(
     "ALIYUN_ACCESS_KEY_ID",
     "ALIYUN_ACCESS_KEY_SECRET",
@@ -51,12 +96,31 @@ if (embedInternalCloudSecrets) {
     } catch (_: DateTimeParseException) {
         error("TEST_CLOUD_EXPIRES_AT must use YYYY-MM-DD")
     }
+    require(expiry == LocalDate.of(2026, 9, 30)) {
+        "This temporary internal test is approved only through 2026-09-30"
+    }
     require(!expiry.isBefore(LocalDate.now(ZoneOffset.UTC))) {
         "TEST_CLOUD_EXPIRES_AT has expired; refusing to embed cloud credentials"
     }
 }
 
 fun buildConfigString(value: String): String = "\"${value.replace("\\", "\\\\").replace("\"", "\\\"")}\""
+
+// Speech credentials are a revocable gateway token, never a Tencent Cloud access key.
+val internalSpeech = Properties().apply {
+    if (internalTestDistribution) {
+        providers.environmentVariable("HAOHAO_INTERNAL_SPEECH_CONFIG_FILE").orNull?.let { path ->
+            file(path).inputStream().use(::load)
+        }
+    }
+}
+val speechEndpoint = internalSpeech.getProperty("SPEECH_ENDPOINT", "")
+val speechToken = internalSpeech.getProperty("SPEECH_CLIENT_TOKEN", "")
+if (speechEndpoint.isNotEmpty() || speechToken.isNotEmpty()) {
+    require(internalTestDistribution && speechEndpoint == "https://124.221.187.214/api/v1/speech" && speechToken.matches(Regex("[A-Za-z0-9_-]{32,128}"))) {
+        "Speech requires the approved HTTPS gateway and a restricted internal token"
+    }
+}
 
 android {
     namespace = "com.osfans.trime"
@@ -67,7 +131,7 @@ android {
         applicationId = "com.osfans.trime"
         minSdk = 21
         targetSdk = 36
-        versionCode = 20260901
+        versionCode = 20260921
         versionName = "3.3.12"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -85,6 +149,8 @@ android {
         buildConfigField("String", "INTERNAL_CLOUD_BAIDU_API_KEY", "\"\"")
         buildConfigField("String", "INTERNAL_CLOUD_BAIDU_SECRET_KEY", "\"\"")
         buildConfigField("String", "INTERNAL_CLOUD_EXPIRES_AT", "\"\"")
+        buildConfigField("String", "HAOHAO_SPEECH_ENDPOINT", "\"\"")
+        buildConfigField("String", "INTERNAL_SPEECH_CLIENT_TOKEN", "\"\"")
     }
 
     base {
@@ -121,6 +187,22 @@ android {
         }
         debug {
             applicationIdSuffix = ".debug"
+            if (internalTestDistribution) {
+                buildConfigField("String", "HAOHAO_SPEECH_ENDPOINT", buildConfigString(speechEndpoint))
+                buildConfigField("String", "INTERNAL_SPEECH_CLIENT_TOKEN", buildConfigString(speechToken))
+            }
+
+            if (fixedSigningDistribution) {
+                require("${defaultConfig.applicationId}$applicationIdSuffix" == publicSigningPolicy.getProperty("applicationId")) {
+                    "Public application ID changed; refusing an incompatible update"
+                }
+                signingConfig = signingConfigs.create("haohaoPublic") {
+                    storeFile = publicSigningFile
+                    storePassword = publicStorePassword
+                    keyAlias = publicKeyAlias
+                    keyPassword = publicKeyPassword
+                }
+            }
 
             if (embedInternalCloudSecrets) {
                 buildConfigField("boolean", "INTERNAL_CLOUD_ENABLED", "true")
@@ -135,6 +217,9 @@ android {
         }
         create("regression") {
             initWith(getByName("debug"))
+            buildConfigField("String", "HAOHAO_SPEECH_ENDPOINT", "\"\"")
+            buildConfigField("String", "INTERNAL_SPEECH_CLIENT_TOKEN", "\"\"")
+            signingConfig = signingConfigs.getByName("debug")
             applicationIdSuffix = ".regression"
             matchingFallbacks += listOf("debug")
             buildConfigField("boolean", "INTERNAL_CLOUD_ENABLED", "false")
@@ -212,6 +297,14 @@ aboutLibraries {
 
 ksp {
     arg("room.schemaLocation", "$projectDir/schemas")
+}
+
+tasks.withType<Test>().configureEach {
+    val runLiveCloudTests = providers.gradleProperty("runLiveCloudTests").orElse("false").get().toBooleanStrict()
+    environment("HAOHAO_RUN_LIVE_CLOUD_TESTS", runLiveCloudTests.toString())
+    if (runLiveCloudTests) {
+        environment("HAOHAO_INTERNAL_CLOUD_SECRETS_FILE", internalCloudSecretsFile.absolutePath)
+    }
 }
 
 dependencies {

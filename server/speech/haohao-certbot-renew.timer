@@ -1,0 +1,10 @@
+[Unit]
+Description=Check HaoHao six-day certificate twice daily
+
+[Timer]
+OnCalendar=*-*-* 00,12:00:00
+RandomizedDelaySec=1800
+Persistent=true
+
+[Install]
+WantedBy=timers.target

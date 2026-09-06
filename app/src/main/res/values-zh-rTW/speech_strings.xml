@@ -1,0 +1,23 @@
+<resources>
+    <string name="speech_consent_title">聽英文發音</string>
+    <string name="speech_consent_message">僅將你主動選擇朗讀的英文傳送給好好伺服器及騰訊雲生成語音，不讀取聊天記錄、不使用麥克風。音訊保存在手機私有快取，最多 50MB、保留 7 天，可在「我的單詞」清空快取或關閉連網發音。</string>
+    <string name="speech_allow">同意並播放</string>
+    <string name="speech_stop">停止發音</string>
+    <string name="speech_slow">慢速 · 0.8×</string>
+    <string name="speech_loading">正在載入…</string>
+    <string name="speech_playing">正在播放</string>
+    <string name="speech_manual">點擊聽發音</string>
+    <string name="speech_clear">清空語音快取</string>
+    <string name="speech_revoke">關閉連網發音</string>
+    <string name="speech_cache_cleared">語音快取已清空</string>
+    <string name="speech_too_long">朗讀最多支援 2,000 個字元，目前內容過長或無法安全分段。</string>
+    <string name="speech_invalid_text">請選擇英文內容聽發音。</string>
+    <string name="speech_not_configured">連網發音等待服務設定，已快取的語音仍可播放。</string>
+    <string name="speech_expired">發音內測已到期，已快取的語音仍可播放。</string>
+    <string name="speech_unauthorized">發音授權不可用，請聯絡內測組織者。</string>
+    <string name="speech_quota">發音額度暫不可用，已快取的語音仍可播放。</string>
+    <string name="speech_busy">發音請求較多，請稍後再試。</string>
+    <string name="speech_timeout">發音載入逾時，可點擊重試。</string>
+    <string name="speech_network">語音載入失敗，請檢查網路；已快取內容可離線播放。</string>
+    <string name="speech_failed">語音未能播放，請檢查聲音輸出後重試。</string>
+</resources>

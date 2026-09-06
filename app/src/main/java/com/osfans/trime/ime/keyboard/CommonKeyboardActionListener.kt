@@ -42,6 +42,7 @@ import com.osfans.trime.ime.haohao.HaoHaoShiftPolicy
 import com.osfans.trime.ime.haohao.HaoHaoToolboxAction
 import com.osfans.trime.ime.haohao.HaoHaoToolboxWindow
 import com.osfans.trime.ime.haohao.HaoHaoTranslationController
+import com.osfans.trime.ime.haohao.handlesTranslationDraftKey
 import com.osfans.trime.ime.haohao.resolveHaoHaoToolAvailability
 import com.osfans.trime.ime.switches.SwitchOptionWindow
 import com.osfans.trime.ime.symbol.LiquidData
@@ -168,12 +169,13 @@ class CommonKeyboardActionListener {
             }
 
             private fun handleHaoHaoTranslationEditing(action: KeyAction): Boolean {
-                if (!translationController.isActive) return false
+                // Delete/enter must first edit or confirm the live pinyin composition, not the saved draft.
+                if (!handlesTranslationDraftKey(translationController.isActive, rime.run { statusCached }.isComposing, action.code)) return false
                 return when (action.code) {
                     KeyEvent.KEYCODE_DEL -> translationController.deleteLastCodePoint()
                     KeyEvent.KEYCODE_ENTER -> translationController.translateNow()
                     KeyEvent.KEYCODE_BACK, KeyEvent.KEYCODE_ESCAPE -> {
-                        translationController.deactivate()
+                        translationController.closeFromUser()
                         true
                     }
                     else -> false
@@ -320,7 +322,11 @@ class CommonKeyboardActionListener {
             }
 
             private fun activateHaoHaoTranslation() {
-                val failure = translationController.activate() ?: return
+                val failure = translationController.activate()
+                if (failure == null) {
+                    windowManager.attachWindow(KeyboardWindow)
+                    return
+                }
                 when (failure.kind) {
                     CloudTranslationResult.Failure.Kind.INVALID_REQUEST ->
                         service.toast(R.string.haohao_translation_sensitive_disabled)

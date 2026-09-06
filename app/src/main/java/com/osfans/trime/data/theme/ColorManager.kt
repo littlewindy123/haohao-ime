@@ -173,8 +173,8 @@ object ColorManager {
     }
 
     fun setColorScheme(scheme: ColorScheme) {
-        activeColorScheme = scheme
         normalModeColor = scheme.id
+        activeColorScheme = evaluateActiveColorScheme()
     }
 
     @ColorInt

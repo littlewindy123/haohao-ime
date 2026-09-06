@@ -1,0 +1,8 @@
+[Unit]
+Description=Renew HaoHao short-lived IP TLS certificate
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/haohao-certbot/bin/certbot renew --quiet --cert-name haohao-ip --deploy-hook /usr/local/sbin/haohao-reload-tls
