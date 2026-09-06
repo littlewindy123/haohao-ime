@@ -124,8 +124,13 @@ class MainFragment : Fragment(R.layout.fragment_main) {
     ) {
         super.onViewCreated(view, savedInstanceState)
         viewBinding = FragmentMainBinding.bind(view)
-        setupInsets()
-        setupHeader()
+        binding.brandHeader.isVisible = false
+        binding.bilingualPreview.isVisible = false
+        binding.pinyinOptions.isVisible = false
+        binding.inputFootprintsDestination.isVisible = false
+        binding.cloudTranslationDestination.isVisible = false
+        binding.themeDestination.isVisible = false
+        binding.allSettingsDestination.isVisible = false
         setupEngineStatus()
         setupCandidateSettings()
         setupLearningSettings()
@@ -256,6 +261,7 @@ class MainFragment : Fragment(R.layout.fragment_main) {
     private fun renderEngineStatus(snapshot: RimeRuntimeSnapshot) {
         if (viewBinding == null) return
         val state = RimeDaemon.runtimeState.value
+        binding.engineStatusCard.isVisible = state == RimeRuntimeState.FAILED
         when (state) {
             RimeRuntimeState.PREPARING -> {
                 binding.engineStatusTitle.setText(R.string.rime_runtime_preparing)
@@ -423,6 +429,10 @@ class MainFragment : Fragment(R.layout.fragment_main) {
             translationMode,
         )
         val adaptive = translationMode == CompactTranslationMode.ADAPTIVE
+        val showCounts = translationMode != CompactTranslationMode.SENTENCE_FIRST
+        binding.candidateCountTitle.isVisible = showCounts
+        (binding.portraitCandidateCountLabel.parent as View).isVisible = showCounts
+        (binding.landscapeCandidateCountLabel.parent as View).isVisible = showCounts
         binding.portraitCandidateCountLabel.setText(
             if (adaptive) R.string.quick_settings_portrait_candidate_limit else R.string.quick_settings_portrait_candidate_count,
         )
@@ -598,6 +608,10 @@ class AllSettingsFragment : TopOptionsPreferenceFragment() {
         rootKey: String?,
     ) {
         preferenceScreen = preferenceManager.createPreferenceScreen(requireContext()).apply {
+            addDestinationPreference(R.string.home_input_preferences, R.drawable.ic_baseline_keyboard_24, NavigationRoute.InputPreferences)
+            addDestinationPreference(R.string.ime_common_phrases, R.drawable.ic_clipboard_24, NavigationRoute.CommonPhrases)
+            addDestinationPreference(R.string.developer, R.drawable.ic_baseline_tune_24, NavigationRoute.Developer)
+            addDestinationPreference(R.string.about, R.drawable.ic_baseline_more_horiz_24, NavigationRoute.About)
             addDestinationPreference(
                 R.string.schemata,
                 R.drawable.ic_round_view_list_24,

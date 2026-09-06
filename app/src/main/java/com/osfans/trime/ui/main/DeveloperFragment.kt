@@ -25,6 +25,16 @@ class DeveloperFragment : PaddingPreferenceFragment() {
         val screen = preferenceManager.createPreferenceScreen(context)
         screen.addPreference(
             Preference(context).apply {
+                setTitle(R.string.rime_runtime_copy_diagnostics)
+                isIconSpaceReserved = false
+                setOnPreferenceClickListener {
+                    splitties.systemservices.clipboardManager.setPrimaryClip(android.content.ClipData.newPlainText("HaoHao diagnostics", com.osfans.trime.daemon.RimeDaemon.diagnosticText()))
+                    true
+                }
+            },
+        )
+        screen.addPreference(
+            Preference(context).apply {
                 setTitle(R.string.real_time_logs)
                 isIconSpaceReserved = false
                 setOnPreferenceClickListener {

@@ -23,6 +23,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
     <color name="toolbarForegroundColor">#FFFFFF</color>  <!-- 工具栏前景色 -->
 
+    <color name="haohao_product_accent">#32654F</color>
     <!-- HaoHao settings home -->
     <color name="haohao_page_background">#F7F4EC</color>
     <color name="haohao_surface">#FFFDF8</color>

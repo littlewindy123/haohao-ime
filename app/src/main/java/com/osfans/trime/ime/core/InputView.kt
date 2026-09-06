@@ -41,6 +41,7 @@ import com.osfans.trime.ime.candidates.popup.PopupCandidatesMode
 import com.osfans.trime.ime.composition.PreeditDelegate
 import com.osfans.trime.ime.dependency.InputDependencyManager
 import com.osfans.trime.ime.haohao.HAOHAO_ONE_HAND_RAIL_WIDTH_DP
+import com.osfans.trime.ime.haohao.HaoHaoBottomActions
 import com.osfans.trime.ime.haohao.HaoHaoTranslationController
 import com.osfans.trime.ime.haohao.calculateHaoHaoKeyboardViewport
 import com.osfans.trime.ime.keyboard.InputFeedbackManager
@@ -99,10 +100,8 @@ class InputView(
 
     private val placeholderListener = OnClickListener { }
 
-    private val bottomPaddingSpace =
-        view(::View) {
-            setOnClickListener(placeholderListener)
-        }
+    private val bottomActions = HaoHaoBottomActions(service, themedContext) { keyboardView }
+    private val bottomPaddingSpace = bottomActions.view
 
     private val updateWindowViewHeightJob: Job
 
@@ -255,6 +254,10 @@ class InputView(
             height = keyboardBottomPaddingPx
         }
         val isHaoHaoTheme = ThemeManager.prefs.selectedTheme.getValue() == DEFAULT_THEME_ID
+        for (index in 0 until bottomPaddingSpace.childCount) {
+            bottomPaddingSpace.getChildAt(index).visibility =
+                if (isHaoHaoTheme && keyboardBottomPaddingPx >= dp(40)) View.VISIBLE else View.INVISIBLE
+        }
         val landscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
         val viewport = if (isHaoHaoTheme) {
             calculateHaoHaoKeyboardViewport(
@@ -379,6 +382,7 @@ class InputView(
         info: EditorInfo,
         restarting: Boolean = false,
     ) {
+        bottomActions.dismiss()
         updateEnterKeyLabel(info)
         broadcaster.onStartInput(info)
         if (!restarting) {
@@ -389,6 +393,7 @@ class InputView(
     fun captureCloudTranslationText(text: String): Boolean = translationController.captureCommittedText(text)
 
     fun deactivateCloudTranslation() {
+        bottomActions.dismiss()
         translationController.deactivate()
         cloudCandidates.deactivate()
     }
@@ -462,6 +467,7 @@ class InputView(
     fun handleInlineSuggestions(response: InlineSuggestionsResponse): Boolean = inputBar.handleInlineSuggestions(response)
 
     override fun onDetachedFromWindow() {
+        bottomActions.dismiss()
         ViewCompat.setOnApplyWindowInsetsListener(this, null)
         // cancel the notification job and clear all broadcast receivers,
         // implies that InputView should not be attached again after detached.

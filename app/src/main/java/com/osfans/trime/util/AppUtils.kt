@@ -49,7 +49,7 @@ object AppUtils {
         }
     }
 
-    private fun launchMainToDest(
+    fun launchMainToDest(
         context: Context,
         route: NavigationRoute,
     ) {

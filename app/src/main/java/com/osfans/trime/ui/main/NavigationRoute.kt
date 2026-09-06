@@ -30,6 +30,15 @@ sealed class NavigationRoute : Parcelable {
     data object Main : NavigationRoute()
 
     @Serializable
+    data object InputPreferences : NavigationRoute()
+
+    @Serializable
+    data object CommonPhrases : NavigationRoute()
+
+    @Serializable
+    data object LanguageSettings : NavigationRoute()
+
+    @Serializable
     data object AllSettings : NavigationRoute()
 
     @Serializable
@@ -81,8 +90,17 @@ sealed class NavigationRoute : Parcelable {
         fun createGraph(controller: NavController) = controller.createGraph(Main) {
             val ctx = controller.context
 
-            fragment<MainFragment, Main> {
+            fragment<HaoHaoHomeFragment, Main> {
                 label = ctx.getString(R.string.trime_app_name)
+            }
+            fragment<MainFragment, InputPreferences> {
+                label = ctx.getString(R.string.home_input_preferences)
+            }
+            fragment<CommonPhrasesFragment, CommonPhrases> {
+                label = ctx.getString(R.string.ime_common_phrases)
+            }
+            fragment<LanguageSettingsFragment, LanguageSettings> {
+                label = ctx.getString(R.string.home_translation)
             }
             fragment<AllSettingsFragment, AllSettings> {
                 label = ctx.getString(R.string.all_settings)

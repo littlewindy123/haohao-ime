@@ -55,6 +55,8 @@ object CollectionHelper : CoroutineScope by CoroutineScope(SupervisorJob() + Dis
 
     fun allBeans() = cltDao.allBeans()
 
+    fun observeBeans() = cltDao.observeBeans()
+
     suspend fun pin(id: Int) = cltDao.updatePinned(id, true)
 
     suspend fun unpin(id: Int) = cltDao.updatePinned(id, false)

@@ -132,6 +132,8 @@ object ClipboardHelper :
 
     fun allBeans() = clbDao.allBeans()
 
+    fun observeBeans() = clbDao.observeBeans()
+
     suspend fun pin(id: Int) = clbDao.updatePinned(id, true)
 
     suspend fun unpin(id: Int) = clbDao.updatePinned(id, false)
@@ -172,8 +174,13 @@ object ClipboardHelper :
      * - [outputRules] 输出规则。如果剪贴板内容与规则匹配，则不通知剪贴板管理器。
      */
     override fun onPrimaryClipChanged() {
-        if (!isAvailable) return
+        if (!isAvailable || !enabledPref.getValue()) return
         val clip = clipboardManager.primaryClip ?: return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N &&
+            clip.description.extras?.getBoolean("android.content.extra.IS_SENSITIVE", false) == true
+        ) {
+            return
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val timestamp = clip.description.timestamp
             if (timestamp == lastClipTimestamp) return

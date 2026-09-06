@@ -181,6 +181,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="24dp"
                 android:layout_marginBottom="8dp"
+                android:visibility="gone"
                 android:text="@string/rime_runtime_section"
                 android:textAppearance="@style/TextAppearance.HaoHao.SectionTitle" />
 
@@ -242,6 +243,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="28dp"
                 android:layout_marginBottom="8dp"
+                android:visibility="gone"
                 android:text="@string/pinyin_input_settings"
                 android:textAppearance="@style/TextAppearance.HaoHao.SectionTitle" />
 
@@ -539,6 +541,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="28dp"
                 android:layout_marginBottom="8dp"
+                android:id="@+id/candidate_count_title"
                 android:text="@string/quick_settings_candidate_bar"
                 android:textAppearance="@style/TextAppearance.HaoHao.SectionTitle" />
 

@@ -10,9 +10,17 @@ SPDX-License-Identifier: GPL-3.0-or-later
     <style name="Theme.TrimeAppTheme" parent="Theme.AppCompat.Light.NoActionBar">
         <item name="colorPrimary">@color/colorPrimary</item>
         <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
-        <item name="colorAccent">@color/colorAccent</item>
-        <item name="android:colorAccent" >@color/colorAccent</item>
+        <item name="colorAccent">@color/haohao_product_accent</item>
+        <item name="android:colorAccent">@color/haohao_product_accent</item>
+        <item name="android:colorBackground">@color/haohao_page_background</item>
+        <item name="android:textColorPrimary">@color/haohao_cocoa</item>
+        <item name="android:textColorSecondary">@color/haohao_cocoa_secondary</item>
     </style>
 
-    <style name="Theme.DialogTheme" parent="@android:style/Theme.DeviceDefault.Light.Dialog" />
+    <style name="Theme.DialogTheme" parent="@android:style/Theme.DeviceDefault.Light.Dialog">
+        <item name="android:colorAccent">@color/haohao_product_accent</item>
+        <item name="android:colorBackground">@color/haohao_surface</item>
+        <item name="android:textColorPrimary">@color/haohao_cocoa</item>
+        <item name="android:textColorSecondary">@color/haohao_cocoa_secondary</item>
+    </style>
 </resources>

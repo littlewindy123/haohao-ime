@@ -134,7 +134,7 @@ class MainActivity : AppCompatActivity() {
         navController.addOnDestinationChangedListener { _, dest, _ ->
             dest.label?.let { viewModel.setToolbarTitle(it.toString()) }
             val isMain = dest.hasRoute<NavigationRoute.Main>()
-            val isWords = dest.hasRoute<NavigationRoute.InputFootprints>()
+            val isWords = !isMain
             binding.mainToolbar.root.isVisible = !isMain
             binding.mainToolbar.toolbar.subtitle = ""
             val toolbarColor = ContextCompat.getColor(this, if (isWords) R.color.haohao_cocoa else R.color.toolbarForegroundColor)
@@ -175,6 +175,7 @@ class MainActivity : AppCompatActivity() {
         return when (action) {
             Intent.ACTION_RUN -> {
                 intent.parcelable<NavigationRoute>(EXTRA_SETTINGS_ROUTE)?.let { route ->
+                    testInputPanel?.dismiss()
                     navController.popBackStack(NavigationRoute.Main, false)
                     navController.navigate(route)
                     true
@@ -257,7 +258,7 @@ class MainActivity : AppCompatActivity() {
                 Configuration.UI_MODE_NIGHT_YES
         val controller = WindowCompat.getInsetsController(window, window.decorView)
         if (isMain) {
-            window.statusBarColor = ContextCompat.getColor(this, R.color.haohao_brand_header)
+            window.statusBarColor = ContextCompat.getColor(this, R.color.haohao_page_background)
             window.navigationBarColor = ContextCompat.getColor(this, R.color.haohao_page_background)
             controller.isAppearanceLightStatusBars = !isNightMode
             controller.isAppearanceLightNavigationBars = !isNightMode
