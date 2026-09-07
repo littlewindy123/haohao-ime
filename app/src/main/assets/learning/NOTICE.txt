@@ -1,0 +1,20 @@
+Offline study reference v1
+
+ECDICT by skywind3000 and contributors, MIT license (see ECDICT-LICENSE.txt).
+https://github.com/skywind3000/ECDICT/tree/bc015ed2e24a7abef49fc6dbbb7fe32c1dadaf8b
+Selection: 30,000 frequent English entries. Original definition lines are preserved;
+English and Chinese definitions are not asserted to have a one-to-one correspondence.
+
+Tatoeba text sentences, September 5, 2026 export.
+https://tatoeba.org/en/terms_of_use
+Creative Commons Attribution 2.0 France:
+https://creativecommons.org/licenses/by/2.0/fr/
+Each example stores both original sentence IDs and authors. Source links:
+https://tatoeba.org/en/sentences/show/{englishId}
+https://tatoeba.org/en/sentences/show/{chineseId}
+The original texts are not rewritten; they are selected, directly paired and indexed
+by whole word/explicit inflection. No audio is included. Selection is not semantic
+annotation and does not claim the example matches a user's saved meaning.
+Sentence authors, IDs and the license are also shown in the app's example details.
+All source checksums, selection rules and the deterministic snapshot are in
+app/dictionary/learning in the source repository. Missing examples are not synthesized.

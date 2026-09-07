@@ -103,6 +103,14 @@
                 android:layout_marginStart="8dp"
                 android:layout_weight="1"
                 android:text="@string/words_learning" />
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/sentences_tab"
+                style="@style/Widget.HaoHao.SegmentButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="4dp"
+                android:layout_weight="1"
+                android:text="@string/sentences_title" />
         </LinearLayout>
 
         <LinearLayout

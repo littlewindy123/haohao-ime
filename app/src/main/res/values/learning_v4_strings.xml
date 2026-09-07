@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="sentences_title">句子本</string>
+    <string name="sentences_save">收藏句子</string>
+    <string name="sentences_saved">已收藏到句子本</string>
+    <string name="sentences_save_failed">未能保存：请确认译文有效，且中文不超过200字、英文不超过2000字符</string>
+    <string name="sentences_auto">自动保留最近100条</string>
+    <string name="sentences_consent">仅在本机保存本输入法已上屏且已有译文的中英对照。不会读取聊天历史或额外请求翻译；密码框不记录。超过100条淘汰最旧的未收藏记录，已收藏的句子保留。你可以随时关闭、删除或清空。</string>
+    <string name="sentences_recent">最近记录</string>
+    <string name="sentences_favorites">已收藏</string>
+    <string name="sentences_search">搜索中文或英文</string>
+    <string name="sentences_empty">还没有句子</string>
+    <string name="sentences_empty_hint">在整句译文中点收藏，或开启自动记录。</string>
+    <string name="sentences_clear">清空当前分类</string>
+    <string name="sentences_delete_prompt">删除后无法恢复。单词和复习进度不会改变。</string>
+    <string name="sentences_remove_favorite">取消收藏</string>
+    <string name="sentences_no_results">没有找到匹配的句子</string>
+    <string name="learning_current_meaning">本次词义</string>
+    <string name="learning_other_meanings">更多词义</string>
+    <string name="learning_examples">用法例句</string>
+    <string name="learning_forms">词形变化</string>
+    <string name="learning_expand">展开全部释义</string>
+    <string name="learning_missing">暂未收录</string>
+    <string name="learning_english_definitions">英文释义</string>
+    <string name="learning_slow_short">慢速</string>
+</resources>

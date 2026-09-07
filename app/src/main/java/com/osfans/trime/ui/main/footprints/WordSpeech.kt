@@ -136,7 +136,11 @@ internal class WordSpeech(private val context: Context) {
         addView(icon(text), LinearLayout.LayoutParams(dp(48), dp(48)))
         addView(
             AppCompatButton(context).apply {
-                setText(R.string.speech_slow)
+                setText(R.string.learning_slow_short)
+                contentDescription = context.getString(R.string.speech_slow)
+                minWidth = 0
+                minimumWidth = dp(64)
+                setPadding(dp(10), 0, dp(10), 0)
                 isAllCaps = false
                 minHeight = dp(48)
                 textSize = 14f
@@ -144,12 +148,14 @@ internal class WordSpeech(private val context: Context) {
                 background = ContextCompat.getDrawable(context, R.drawable.haohao_segment_background)
                 setOnClickListener { text()?.let { value -> speak(value, SpeechRate.SLOW) { isAttachedToWindow && text() == value } } }
             },
-            LinearLayout.LayoutParams(dp(88), dp(48)),
+            LinearLayout.LayoutParams(-2, -2),
         )
         addView(
             TextView(context).apply {
                 setText(R.string.speech_manual)
                 textSize = 12f
+                maxLines = 1
+                ellipsize = android.text.TextUtils.TruncateAt.END
                 gravity = Gravity.CENTER_VERTICAL
                 setTextColor(ContextCompat.getColor(context, R.color.haohao_cocoa_secondary))
                 setPadding(dp(12), 0, 0, 0)

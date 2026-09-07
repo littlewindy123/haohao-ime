@@ -470,6 +470,7 @@ obj/
 # Keystore
 keystore.properties
 signing-passwords.json
+haohao-private-*.7z
 internal-cloud-secrets.properties
 
 # Project

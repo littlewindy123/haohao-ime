@@ -62,6 +62,7 @@ class InputFootprintsFragment : Fragment(R.layout.fragment_input_footprints) {
         binding.recentTab.setOnClickListener { selectedTab.value = Tab.RECENT }
         binding.favoritesTab.setOnClickListener { selectedTab.value = Tab.FAVORITES }
         binding.learningTab.setOnClickListener { selectedTab.value = Tab.LEARNING }
+        binding.sentencesTab.setOnClickListener { startActivity(android.content.Intent(requireContext(), SentenceBookActivity::class.java)) }
         binding.quickReview.setOnClickListener { WordLearningActivity.openReview(requireContext()) }
         binding.dailyPlan.setOnClickListener { WordLearningActivity.openReview(requireContext(), daily = true) }
         binding.searchInput.imeOptions = binding.searchInput.imeOptions or EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING

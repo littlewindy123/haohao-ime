@@ -392,6 +392,13 @@ class InputView(
 
     fun captureCloudTranslationText(text: String): Boolean = translationController.captureCommittedText(text)
 
+    internal fun sentenceCommitSnapshot(): com.osfans.trime.core.CommitSentence? {
+        val state = cloudCandidates.sentenceState
+        val store = com.osfans.trime.data.footprints.InputFootprints.storeOrNull?.sentences ?: return null
+        return state.translation?.takeIf { cloudCandidates.allowsSentencePreview && state.status == com.osfans.trime.data.translation.SentenceCandidateStatus.READY }
+            ?.let { com.osfans.trime.core.CommitSentence(state.source, it, store.ticket()) }
+    }
+
     fun deactivateCloudTranslation() {
         bottomActions.dismiss()
         translationController.deactivate()

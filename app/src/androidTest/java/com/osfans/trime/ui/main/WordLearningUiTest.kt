@@ -297,6 +297,7 @@ class WordLearningUiTest {
         try {
             val wordsIntent = Intent(context, MainActivity::class.java).setAction(Intent.ACTION_RUN)
                 .putExtra(MainActivity.EXTRA_SETTINGS_ROUTE, NavigationRoute.InputFootprints)
+            foreground()
             ActivityScenario.launch<MainActivity>(wordsIntent).use { scenario ->
                 awaitCondition {
                     var ready = false
@@ -312,6 +313,7 @@ class WordLearningUiTest {
                 capture("words")
             }
             val intent = Intent(context, WordLearningActivity::class.java).putExtra("words.mode", "review")
+            foreground()
             ActivityScenario.launch<WordLearningActivity>(intent).use { scenario ->
                 awaitButton(scenario, R.string.words_reveal)
                 scenario.onActivity { activity ->
@@ -341,6 +343,7 @@ class WordLearningUiTest {
                 store.learning.saveMeaning("回家", "go home", null, "cloud", learning = true)
                 store.learning.saveSettings(true, 5, 10, true)
             }
+            foreground()
             ActivityScenario.launch<WordLearningActivity>(Intent(context, WordLearningActivity::class.java).putExtra("words.mode", "plan")).use { scenario ->
                 awaitButton(scenario, R.string.words_plan_start)
                 capture("plan")
@@ -353,7 +356,7 @@ class WordLearningUiTest {
                 awaitButton(scenario, R.string.words_reveal)
                 assertTrue(runBlocking { store.learning.session()!!.daily && store.learning.session()!!.reverse })
                 scenario.onActivity { activity ->
-                    assertFalse("Reverse cards must not leak the English answer through a speaker", descendants(activity.window.decorView).any { it.contentDescription == activity.getString(R.string.input_footprints_speak) })
+                    assertFalse("Reverse cards must not leak the English answer through a speaker", descendants(activity.window.decorView).any { it.isShown && it.contentDescription == activity.getString(R.string.input_footprints_speak) })
                 }
                 scenario.recreate()
                 awaitButton(scenario, R.string.words_reveal)
@@ -367,7 +370,7 @@ class WordLearningUiTest {
     private fun click(scenario: ActivityScenario<WordLearningActivity>, title: Int) {
         scenario.onActivity { activity ->
             val button = descendants(activity.window.decorView)
-                .first { (it as? TextView)?.text?.toString() == activity.getString(title) || it.contentDescription == activity.getString(title) }
+                .first { it.isShown && ((it as? TextView)?.text?.toString() == activity.getString(title) || it.contentDescription == activity.getString(title)) }
             assertTrue(button.isEnabled)
             button.performClick()
         }
@@ -415,7 +418,7 @@ class WordLearningUiTest {
         var found = false
         scenario.onActivity { activity ->
             found = descendants(activity.window.decorView)
-                .any { (it as? TextView)?.text?.toString() == activity.getString(title) || it.contentDescription == activity.getString(title) }
+                .any { it.isShown && ((it as? TextView)?.text?.toString() == activity.getString(title) || it.contentDescription == activity.getString(title)) }
         }
         found
     }
@@ -426,6 +429,12 @@ class WordLearningUiTest {
         if (!check()) capture("failure")
         assertTrue("Page did not reach the expected state", check())
         instrumentation.waitForIdleSync()
+    }
+
+    private fun foreground() {
+        ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand(
+            "am start -W -a android.intent.action.RUN -n ${context.packageName}/com.osfans.trime.ui.main.MainActivity",
+        )).bufferedReader().use { it.readText() }
     }
 
     private fun descendants(view: View): Sequence<View> = sequence {

@@ -12,7 +12,11 @@ data class CommitProto(
 data class RimeCommitEvent(
     val commit: CommitProto,
     val inputSessionId: Long,
+    val sentence: CommitSentence? = null,
 )
+
+/** Immutable translation already available when the input command was queued. */
+data class CommitSentence(val chinese: String, val english: String, val generation: Long)
 
 data class CandidateProto(
     val text: String,
