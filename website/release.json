@@ -1,18 +1,18 @@
 {
   "version": "3.3.12",
-  "versionCode": 20260921,
-  "date": "2026-09-06",
+  "versionCode": 20260924,
+  "date": "2026-09-07",
   "applicationId": "com.osfans.trime.debug",
   "variant": "debug",
   "abi": "arm64-v8a",
   "minSdk": 21,
   "recommendedAndroid": "Android 11+",
-  "filename": "haohao-ime-3.3.12-20260921-arm64-v8a-debug.apk",
-  "bytes": 52062232,
-  "sha256": "fa5822a13145461699a4c5d15908cff2a6b82fa275e0cfb5d1facc7f327283e0",
-  "signerSha256": "6278edd3637cf54377d63f78f7134ac1ab6e4b5b3721229719201e8262ab3215",
+  "filename": "haohao-ime-3.3.12-20260924-arm64-v8a-debug.apk",
+  "bytes": 52243291,
+  "sha256": "2785c2c0bdae941b7b68142923a33396a1558f862fc9f27b466497f88ebccb02",
+  "signerSha256": "62b4a4c620df03d8bd6c65e21a8cfa5cd11265465e25070dc53006b31de5a101",
   "internalCloudEnabled": false,
-  "baseCommit": "2f4b296ed04fc5e25a703d8e24c4485da9abed6e",
+  "baseCommit": "c5395e90d7e8365dcdac9bf3d33e8b147a4b7242",
   "speechCloudEnabled": false,
-  "notes": ["更紧凑的候选与英文排版，首选整句优先", "优化数字键盘，新增雾蓝、暖杏、石墨三套配色及夜间版本", "保留词本、收藏与复习进度，沿用固定签名", "云翻译须主动同意并配置，不内置共享密钥；腾讯云发音尚未启用"]
+  "notes": ["26 键新增离线整句错按纠正，帮助找回漏键、多键、邻键与字母颠倒的句子", "修复输入引擎一处线程问题；保留紧凑布局、主题、词本和复习功能", "同音词语义纠错与九键错按仍有局限，当前为 Debug 测试版", "沿用已确定的新公开签名；官网原 20260921 包和旧签名内测包不能直接覆盖，请先备份，不要直接卸载", "公开包不内置云密钥或语音令牌，云翻译须主动同意并配置；腾讯云发音尚未启用"]
 }
