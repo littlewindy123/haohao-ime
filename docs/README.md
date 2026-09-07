@@ -2,6 +2,7 @@
 
 - [个人词本与复习规则](business/personal-words.md)：义项保存、收藏与学习隔离、每日额度、迁移和验证边界。
 - [本地优先实现与测试报告](operations/local-first-validation.md)：模拟器实测、性能方法、实际截图、安装包与待真机验证的边界。
+- [新版首页与键盘快捷入口回归](development/product-ui-20260922.md)：导航测试入口、语言资源、API 版本检查与合并后的真机验证。
 - [产品约束](../PRODUCT.md)：用户、能力与输入优先原则。
 - [原生设计规范](../DESIGN.md)：当前 Android 界面的颜色、文字、布局和组件。
 - [隐私说明](../PRIVACY.md)：本地数据、云请求、备份与清理范围。

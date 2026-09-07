@@ -32,3 +32,14 @@ Final APK: `haohao-ime-20260922-internal-arm64.apk`, stored in the local private
 - Verified speech-token isolation between internal and regression APKs; neither contains Tencent cloud credentials.
 - Final portrait clipboard frame: `(82,1734)–(1174,2462)` on the 1200×2670 test display, above the footer. Verified common-phrase settings open without leaving the test panel over the page, and wide home uses two columns.
 - Restored the phone's original rotation settings and removed only the isolated regression test packages. Main app remains installed at version 20260922.
+
+## 合并后的回归维护
+
+- 快捷设置已迁到 `NavigationRoute.InputPreferences`。测试必须通过该路由进入 `MainFragment`；默认首页是 `HaoHaoHomeFragment`，不能沿用旧类型转换，也不能点击旧页面里已经隐藏的首页按钮。试用键盘、主题和更多设置的导航从新首页验证。
+- 新增产品文案必须同步到简体、繁体资源；默认资源中的中文不能替代区域资源完整性检查。本轮补齐 46 个键，并核对格式占位符。
+- 通知频道使用的类型化 `getSystemService` 放在对应 API 判断内。即使当前语音服务只在 Android 15 以上启动，也保持服务入口自身的版本检查完整。
+- 小米手机覆盖安装隔离测试包后可能重置后台弹窗权限，导致 `ActivityScenario` 停在启动阶段。检查测试包的权限和前台状态后再判断测试结果；临时权限及输入法切换只用于 `.regression` 包，结束后恢复原默认输入法并移除本轮安装的测试包。
+- 本轮验证：257 项 Android JVM 测试、17 项构建逻辑测试、32 项真机 instrumentation 测试通过；ARM64 Regression 与测试 APK 构建成功；Lint 从 47 个错误降为 0，仍有 132 个警告，主要涉及未使用资源、文案、API 建议和绘制问题。
+- 官网 29 项测试与静态校验、语音网关 20 项测试、Go 翻译网关测试及 `go vet` 均通过。官网固定哈希文件的 Windows 换行规则见[官网维护说明](../../website/README.md)。
+- 真实付费云翻译、腾讯语音服务连通性和长期使用未在本轮重测；自动测试通过不代表这些边界已经验收。本轮回归测试未覆盖安装用户的主应用。
+- 后续修复包的 `versionCode` 递增为 `20260923`；覆盖升级仍须使用 `public-signing.properties` 固定的原签名身份，不能以本机普通 Debug 密钥替代。

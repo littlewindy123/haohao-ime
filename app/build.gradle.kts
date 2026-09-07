@@ -131,7 +131,7 @@ android {
         applicationId = "com.osfans.trime"
         minSdk = 21
         targetSdk = 36
-        versionCode = 20260922
+        versionCode = 20260923
         versionName = "3.3.12"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 

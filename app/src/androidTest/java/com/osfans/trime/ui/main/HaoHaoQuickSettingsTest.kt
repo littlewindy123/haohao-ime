@@ -7,6 +7,7 @@ package com.osfans.trime.ui.main
 
 import android.content.Intent
 import android.view.View
+import android.view.ViewGroup
 import android.widget.TextView
 import androidx.appcompat.widget.AppCompatButton
 import androidx.appcompat.widget.AppCompatSeekBar
@@ -44,7 +45,7 @@ class HaoHaoQuickSettingsTest {
             candidates.compactCandidateCount.setValue(3)
             candidates.compactCandidateCountLandscape.setValue(7)
 
-            launchMain { fragment, _, activity ->
+            launchInputPreferences { fragment, _, activity ->
                 val translation = fragment.requireView<SwitchCompat>(R.id.translation_switch)
                 val delay = fragment.requireView<AppCompatSeekBar>(R.id.translation_delay_slider)
                 val phonetic = fragment.requireView<SwitchCompat>(R.id.phonetic_switch)
@@ -92,26 +93,29 @@ class HaoHaoQuickSettingsTest {
         val originalAmplitude = keyboard.vibrationAmplitude.getValue()
 
         try {
-            launchMain { fragment, navHost, activity ->
-                assertFalse(activity.findViewById<View>(R.id.mainToolbar).isVisible)
+            launchInputPreferences { fragment, navHost, activity ->
+                assertTrue(activity.findViewById<View>(R.id.mainToolbar).isVisible)
 
                 fragment.requireView<AppCompatButton>(R.id.feedback_soft_haptic).performClick()
                 assertEquals(AppPrefs.Keyboard.FeedbackPreset.SOFT_HAPTIC, keyboard.feedbackPreset.getValue())
                 assertFalse(keyboard.soundOnKeyPress.getValue())
                 assertTrue(keyboard.vibrateOnKeyPress.getValue())
 
-                fragment.requireView<View>(R.id.try_keyboard_button).performClick()
+                assertTrue(navHost.navController.popBackStack(NavigationRoute.Main, false))
+                navHost.childFragmentManager.executePendingTransactions()
+                assertTrue(navHost.childFragmentManager.primaryNavigationFragment is HaoHaoHomeFragment)
+                assertFalse(activity.findViewById<View>(R.id.mainToolbar).isVisible)
+                homeAction(navHost, R.string.home_try).performClick()
                 assertTrue(activity.findViewById<TestInputPanel>(R.id.test_input_panel).isVisible)
                 activity.findViewById<TestInputPanel>(R.id.test_input_panel).dismiss()
 
-                fragment.requireView<View>(R.id.theme_destination).performClick()
+                homeAction(navHost, R.string.home_all_themes).performClick()
                 assertTrue(navHost.navController.currentDestination?.hasRoute<NavigationRoute.Theme>() == true)
                 assertTrue(activity.findViewById<View>(R.id.mainToolbar).isVisible)
                 navHost.navController.popBackStack()
                 navHost.childFragmentManager.executePendingTransactions()
 
-                val current = navHost.childFragmentManager.primaryNavigationFragment as MainFragment
-                current.requireView<View>(R.id.all_settings_destination).performClick()
+                homeAction(navHost, R.string.home_settings).performClick()
                 assertTrue(navHost.navController.currentDestination?.hasRoute<NavigationRoute.AllSettings>() == true)
             }
         } finally {
@@ -127,19 +131,35 @@ class HaoHaoQuickSettingsTest {
         }
     }
 
-    private fun launchMain(block: (MainFragment, NavHostFragment, MainActivity) -> Unit) {
+    private fun launchInputPreferences(block: (MainFragment, NavHostFragment, MainActivity) -> Unit) {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val intent = Intent(context, MainActivity::class.java)
+            .setAction(Intent.ACTION_RUN)
+            .putExtra(MainActivity.EXTRA_SETTINGS_ROUTE, NavigationRoute.InputPreferences)
         ActivityScenario.launch<MainActivity>(intent).use { scenario ->
             scenario.onActivity { activity ->
                 val navHost =
                     activity.supportFragmentManager
                         .findFragmentById(R.id.nav_host_fragment) as NavHostFragment
                 navHost.childFragmentManager.executePendingTransactions()
+                assertTrue(navHost.navController.currentDestination?.hasRoute<NavigationRoute.InputPreferences>() == true)
                 val fragment = navHost.childFragmentManager.primaryNavigationFragment as MainFragment
                 block(fragment, navHost, activity)
             }
         }
+    }
+
+    private fun homeAction(navHost: NavHostFragment, label: Int): View {
+        val home = navHost.childFragmentManager.primaryNavigationFragment as HaoHaoHomeFragment
+        val text = home.getString(label)
+        return descendants(home.requireView()).first {
+            it.isClickable && ((it as? TextView)?.text == text || it.contentDescription == text)
+        }
+    }
+
+    private fun descendants(view: View): Sequence<View> = sequence {
+        yield(view)
+        if (view is ViewGroup) for (index in 0 until view.childCount) yieldAll(descendants(view.getChildAt(index)))
     }
 
     private inline fun <reified T : View> MainFragment.requireView(id: Int): T = requireNotNull(requireView().findViewById<T>(id)) { "Missing view: $id" }

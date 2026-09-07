@@ -36,8 +36,8 @@ class SpeechForegroundService : Service() {
             return START_NOT_STICKY
         }
         lease = requested
-        val notificationManager = getSystemService(NotificationManager::class.java)
         if (Build.VERSION.SDK_INT >= 26) {
+            val notificationManager = getSystemService(NotificationManager::class.java)
             notificationManager.createNotificationChannel(NotificationChannel(CHANNEL, getString(R.string.speech_consent_title), NotificationManager.IMPORTANCE_LOW))
         }
         val stop = PendingIntent.getService(

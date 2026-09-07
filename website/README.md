@@ -22,6 +22,11 @@ GSAP 时间线按顺序展示 Logo 与文案，章节只入场一次；页面隐
 未加载 GSAP 时保留原生轻量入场降级；无脚本时正文和下载可用。不使用滚动劫持或循环漂浮。
 `main.test.mjs` 使用隔离的事件模拟检查实际演示脚本，不依赖浏览器或第三方测试库。
 
+Windows 检出时，`.gitattributes` 为 `vendor/*.min.js` 固定 LF 换行，保证第三方库的字节与固定 SHA-256 一致。
+如果 `check.mjs` 报 GSAP 哈希不符，先用 `git ls-files --eol website/vendor/gsap-3.15.0.min.js`
+检查是否被 `core.autocrlf` 转为 CRLF；确认没有本地修改后恢复 LF，再运行上述校验和测试。
+不要为了通过检查修改固定哈希，也不要关闭完整性校验。
+
 ## 发布构建
 
 先构建 Android ARM64 测试包并验证固定签名：

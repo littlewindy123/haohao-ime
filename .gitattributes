@@ -8,3 +8,6 @@
 
 # Rime compiler output is checksum-pinned and must keep its original bytes.
 app/dictionary/rime-prebuilt/files/*.schema.yaml binary
+
+# Keep the vendored, checksum-pinned JavaScript identical on Windows and Unix.
+website/vendor/*.min.js text eol=lf
