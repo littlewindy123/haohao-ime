@@ -9,11 +9,13 @@ import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.widget.FrameLayout
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
 import com.osfans.trime.R
 import com.osfans.trime.core.CompositionProto
 import com.osfans.trime.core.RimeMessage
 import com.osfans.trime.core.SchemaItem
 import com.osfans.trime.daemon.RimeSession
+import com.osfans.trime.daemon.launchOnReady
 import com.osfans.trime.data.theme.DEFAULT_THEME_ID
 import com.osfans.trime.data.theme.KeyActionManager
 import com.osfans.trime.data.theme.Theme
@@ -29,6 +31,7 @@ import com.osfans.trime.ime.window.ResidentWindow
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.launch
 import org.kodein.di.instance
 import splitties.views.dsl.core.add
 import splitties.views.dsl.core.frameLayout
@@ -82,6 +85,28 @@ class KeyboardWindow :
     private val currentKeyboardView: KeyboardView? get() = cachedKeyboards[currentKeyboardId]?.second
 
     private val keyboardActionListener = commonKeyboardActionListener.listener
+    private val nineKeySyllables by lazy {
+        context.assets.open("haohao/nine_key_syllables.txt").bufferedReader().use { it.readLines() }
+    }
+
+    private fun updateNineKeySpellings() {
+        if (currentKeyboardId != NINE_KEY_SCHEMA_ID) return
+        rime.launchOnReady { api ->
+            val input = api.getNineKeyInput()
+            val spellings = nineKeySpellings(input, nineKeySyllables)
+            service.lifecycleScope.launch {
+                if (currentKeyboardId == NINE_KEY_SCHEMA_ID) {
+                    currentKeyboardView?.showNineKeySpellings(input, spellings) { syllable, expected ->
+                        service.postRimeJob { filterNineKeySyllable(syllable, expected) }
+                    }
+                }
+            }
+        }
+    }
+
+    override fun onCompositionUpdate(data: CompositionProto) {
+        updateNineKeySpellings()
+    }
 
     override fun onCreateView(): View {
         keyboardView = context.frameLayout(R.id.keyboard_view)
@@ -208,6 +233,7 @@ class KeyboardWindow :
             }
             detachCurrentView()
             attachKeyboard(target)
+            updateNineKeySpellings()
         }
         Timber.d("Switched to keyboard: $target")
     }
@@ -298,6 +324,10 @@ class KeyboardWindow :
     override fun onRimeOptionUpdated(value: RimeMessage.OptionMessage.Data) {
         val option = value.option
         when {
+            option == "ascii_mode" && "haohao_english" in presetKeyboardIds &&
+                currentKeyboardId in setOf("default", "qwerty", "haohao_english", NINE_KEY_SCHEMA_ID) -> {
+                switchKeyboard(if (value.value) "haohao_english" else ".default")
+            }
             option.startsWith("_keyboard_") -> {
                 val target = option.removePrefix("_keyboard_")
                 if (target.isNotEmpty()) {
@@ -317,6 +347,7 @@ class KeyboardWindow :
     }
 
     override fun onAttached() {
+        updateNineKeySpellings()
     }
 
     override fun onDetached() {

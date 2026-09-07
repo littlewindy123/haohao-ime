@@ -38,6 +38,8 @@ internal const val CLOUD_CANDIDATE_POSITIVE_TTL_MS = 30L * 24 * 60 * 60 * 1_000
 internal const val CLOUD_CANDIDATE_NEGATIVE_TTL_MS = 8L * 60 * 1_000
 internal const val CLOUD_CANDIDATE_SERVICE_COOLDOWN_MS = 30_000L
 internal const val CLOUD_CANDIDATE_DEBOUNCE_MS = 800L
+internal const val CLOUD_CANDIDATE_DELAY_MAX_MS = 2_000
+internal const val CLOUD_CANDIDATE_DELAY_STEP_MS = 100
 private const val CLOUD_CANDIDATE_MAX_TRANSLATION_CODE_POINTS = 32
 private const val CLOUD_CANDIDATE_MAX_TRANSLATION_WORDS = 4
 private val CLOUD_CANDIDATE_WORD = Regex("[A-Za-z]+(?:['\u2019-][A-Za-z]+)*")
@@ -399,6 +401,7 @@ internal class CloudCandidateTranslationController : InputBroadcastReceiver {
             translate = { CloudTranslationRuntime.manager.translate(it) },
             cachedLookup = { text, mode -> lookupCandidateTranslation(text, mode)?.translation },
             onState = { sentenceListeners.forEach { it() } },
+            configuredDelayMillis = { prefs.candidates.cloudTranslationDelay.getValue().toLong() },
         )
     }
 
@@ -461,7 +464,15 @@ internal class CloudCandidateTranslationController : InputBroadcastReceiver {
         revealController.notifyContentChanged()
     }
 
+    @Keep
+    private val cloudDelayListener = PreferenceDelegate.OnChangeListener<Int> { _, _ ->
+        cancelPending()
+        sentenceSession.invalidate()
+        revealController.notifyContentChanged()
+    }
+
     fun start() {
+        prefs.candidates.cloudTranslationDelay.registerOnChangeListener(cloudDelayListener)
         prefs.candidates.compactTranslationMode.registerOnChangeListener(sentenceModeListener)
         prefs.candidates.bilingualTranslation.registerOnChangeListener(sentenceEnabledListener)
         prefs.cloudTranslation.registerOnChangeListener(configurationListener)
@@ -472,6 +483,7 @@ internal class CloudCandidateTranslationController : InputBroadcastReceiver {
     }
 
     fun stop() {
+        prefs.candidates.cloudTranslationDelay.unregisterOnChangeListener(cloudDelayListener)
         prefs.candidates.compactTranslationMode.unregisterOnChangeListener(sentenceModeListener)
         prefs.candidates.bilingualTranslation.unregisterOnChangeListener(sentenceEnabledListener)
         sentenceSession.invalidate(clearCache = true)
@@ -533,7 +545,7 @@ internal class CloudCandidateTranslationController : InputBroadcastReceiver {
         lastRequestKey = requestKey
         val requestGeneration = ++generation
         requestJob = service.lifecycleScope.launch {
-            delay(CLOUD_CANDIDATE_DEBOUNCE_MS)
+            delay(prefs.candidates.cloudTranslationDelay.getValue().coerceIn(0, CLOUD_CANDIDATE_DELAY_MAX_MS).toLong())
             val result = CloudTranslationRuntime.manager.translate(
                 CloudTranslationRequest(misses, TranslationPurpose.CANDIDATE),
             )

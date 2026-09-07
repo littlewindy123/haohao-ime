@@ -14,6 +14,7 @@ import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.view.children
 import androidx.core.view.isVisible
 import com.osfans.trime.R
+import com.osfans.trime.data.prefs.AppPrefs
 import com.osfans.trime.data.theme.Theme
 import com.osfans.trime.data.theme.model.ToolBar
 import splitties.views.dsl.constraintlayout.after
@@ -75,10 +76,19 @@ class AlwaysUi(
     private val equalWidthToolbar = LinearLayout(ctx).apply {
         orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL
-        theme.toolBar.equalWidthButtonsInDisplayOrder().forEach { config ->
+    }
+
+    private var renderedToolbarActions: String? = null
+
+    fun refreshToolbar() {
+        val saved = AppPrefs.defaultInstance().internal.toolbarActions.getValue()
+        if (renderedToolbarActions == saved) return
+        renderedToolbarActions = saved
+        equalWidthToolbar.removeAllViews()
+        theme.toolBar.customizedHaoHaoButtons(saved).forEach { config ->
             val button = toolButton(config)
             val height = buttonsUi.getButtonSize(config).second
-            addView(button, LinearLayout.LayoutParams(0, height, 1f))
+            equalWidthToolbar.addView(button, LinearLayout.LayoutParams(0, height, 1f))
         }
     }
 
@@ -178,6 +188,7 @@ class AlwaysUi(
     }
 
     private fun updateLayoutMode(state: State) {
+        if (state == State.Toolbar) refreshToolbar()
         val showEqualWidthToolbar = theme.toolBar.equalWidth && state == State.Toolbar
         equalWidthToolbar.isVisible = showEqualWidthToolbar
         leftMostButton.isVisible = !showEqualWidthToolbar

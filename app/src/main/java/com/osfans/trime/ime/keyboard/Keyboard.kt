@@ -393,9 +393,9 @@ class Keyboard(
                 if (key.row == 0) key.edgeFlags = key.edgeFlags or EDGE_TOP
                 if (key.row == row) key.edgeFlags = key.edgeFlags or EDGE_BOTTOM
             }
-            if (selfConfig.keyLayout == "telephone" && mKeys.size == 21) {
+            if (selfConfig.keyLayout in setOf("telephone", "nine_key") && mKeys.size == 21) {
                 // Use the same bounds for rendering and hit testing; no transparent overlay targets.
-                val bounds = telephoneKeyBounds(allowedWidth, keyboardHeight)
+                val bounds = telephoneKeyBounds(allowedWidth, keyboardHeight, selfConfig.keyLayout == "nine_key")
                 mKeys.zip(bounds).forEachIndexed { index, (key, cell) ->
                     key.x = cell.x
                     key.y = cell.y

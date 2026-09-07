@@ -9,6 +9,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Canvas
 import android.widget.FrameLayout
+import android.widget.ScrollView
 import androidx.core.view.children
 import com.osfans.trime.data.prefs.AppPrefs
 import com.osfans.trime.data.theme.Theme
@@ -50,6 +51,26 @@ class KeyboardView(
 ) : FrameLayout(context) {
 
     private val keys get() = keyboard.keys
+    private var spellingStrip: ScrollView? = null
+    private var spellingInput = ""
+
+    fun showNineKeySpellings(input: String, spellings: List<String>, onSelect: (String, String) -> Unit) {
+        if (input == spellingInput) return
+        spellingInput = input
+        spellingStrip?.let(::removeView)
+        spellingStrip = null
+        keys.take(4).forEachIndexed { index, _ -> getChildAt(index).visibility = VISIBLE }
+        if (input.isEmpty() || spellings.isEmpty()) return
+        keys.take(4).forEachIndexed { index, _ -> getChildAt(index).visibility = INVISIBLE }
+        val stripHeight = keys[3].y + keys[3].height
+        val gap = keyboard.horizontalGap / 2
+        spellingStrip = createNineKeySpellingStrip(context, input, spellings, maxOf((stripHeight - keyboard.verticalGap) / 4, (40 * resources.displayMetrics.density).toInt()), onSelect).apply {
+            layoutParams = LayoutParams(keys[0].width - gap * 2, stripHeight - keyboard.verticalGap).apply {
+                leftMargin = gap
+                topMargin = keyboard.verticalGap / 2
+            }
+        }.also(::addView)
+    }
 
     internal val labelEnter: String
         get() = enterKeyDisplay.keyLabel

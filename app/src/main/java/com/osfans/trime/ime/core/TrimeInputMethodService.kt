@@ -243,7 +243,7 @@ open class TrimeInputMethodService : LifecycleInputMethodService() {
 
     private suspend fun updateRimeOption(api: RimeApi) {
         try {
-            if (api.selectedSchemaId() != DEFAULT_SCHEMA_ID) {
+            if (api.selectedSchemaId() !in setOf(DEFAULT_SCHEMA_ID, com.osfans.trime.ime.keyboard.NINE_KEY_SCHEMA_ID)) {
                 api.selectSchema(DEFAULT_SCHEMA_ID)
             }
             api.setRuntimeOption("zh_simp", true)

@@ -9,7 +9,9 @@ import android.app.AlertDialog
 import android.content.Intent
 import android.graphics.Typeface
 import android.view.View
+import androidx.core.view.isVisible
 import androidx.lifecycle.lifecycleScope
+import androidx.paging.LoadState
 import androidx.paging.Pager
 import androidx.paging.PagingConfig
 import com.osfans.trime.R
@@ -52,6 +54,7 @@ class ClipboardWindow(private val initialTab: Int = 0) : BoardWindow.BarBoardWin
     }
     private var clipboardBeansSubmitJob: Job? = null
     private var collectionBeansSubmitJob: Job? = null
+    private val pageStateJobs = mutableListOf<Job>()
 
     private val clipboardBeansAdapter by lazy {
         object : ClipboardAdapter(theme) {
@@ -113,6 +116,14 @@ class ClipboardWindow(private val initialTab: Int = 0) : BoardWindow.BarBoardWin
                 AppUtils.launchClipEdit(context, id, ClipEditActivity.FROM_COLLECTION)
             }
 
+            override fun onPin(id: Int) {
+                service.lifecycleScope.launch { CollectionHelper.pin(id) }
+            }
+
+            override fun onUnpin(id: Int) {
+                service.lifecycleScope.launch { CollectionHelper.unpin(id) }
+            }
+
             override fun onShare(bean: DatabaseBean) {
                 val text = bean.text ?: return
                 launchTextSharing(text)
@@ -162,10 +173,13 @@ class ClipboardWindow(private val initialTab: Int = 0) : BoardWindow.BarBoardWin
             adapter = clipboardPagesAdapter
         }
         titleUi.apply {
+            addButton.setOnClickListener {
+                AppUtils.launchClipEdit(context, -1, ClipEditActivity.FROM_COLLECTION)
+            }
             tabLayout.onConfigureTab(viewPager) { tabUi, position ->
                 val label = when (position) {
                     0 -> R.string.clipboard
-                    else -> R.string.collection
+                    else -> R.string.haohao_phrases
                 }
                 tabUi.label.apply {
                     setText(label)
@@ -214,6 +228,21 @@ class ClipboardWindow(private val initialTab: Int = 0) : BoardWindow.BarBoardWin
 
     override fun onAttached() {
         clipboardLayout.viewPager.setCurrentItem(initialTab, false)
+        listOf(clipboardBeansAdapter to clipboardPage, collectionBeansAdapter to collectionPage).forEachIndexed { index, (adapter, page) ->
+            pageStateJobs += service.lifecycleScope.launch {
+                adapter.loadStateFlow.collect { state ->
+                    page.emptyView.isVisible = adapter.itemCount == 0 && state.refresh !is LoadState.Loading
+                    page.emptyView.setText(
+                        when {
+                            state.refresh is LoadState.Error -> R.string.optional_feature_unavailable
+                            index == 1 -> R.string.haohao_phrases_empty
+                            !prefs.clipboardListening.getValue() -> R.string.haohao_clipboard_paused
+                            else -> R.string.haohao_clipboard_empty
+                        },
+                    )
+                }
+            }
+        }
         clipboardBeansSubmitJob = service.lifecycleScope.launch {
             clipboardBeansPager.flow.collect {
                 clipboardBeansAdapter.submitData(it)
@@ -227,6 +256,8 @@ class ClipboardWindow(private val initialTab: Int = 0) : BoardWindow.BarBoardWin
     }
 
     override fun onDetached() {
+        pageStateJobs.forEach { it.cancel() }
+        pageStateJobs.clear()
         clipboardBeansSubmitJob?.cancel()
         collectionBeansSubmitJob?.cancel()
     }

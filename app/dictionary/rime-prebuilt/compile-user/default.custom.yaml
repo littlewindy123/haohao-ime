@@ -1,3 +1,4 @@
 patch:
   schema_list:
     - schema: luna_pinyin_simp
+    - schema: haohao_pinyin_9

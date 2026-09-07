@@ -217,6 +217,7 @@ android {
         }
         create("regression") {
             initWith(getByName("debug"))
+            resValue("string", "trime_app_name", "好好输入法（隔离测试）")
             buildConfigField("String", "HAOHAO_SPEECH_ENDPOINT", "\"\"")
             buildConfigField("String", "INTERNAL_SPEECH_CLIENT_TOKEN", "\"\"")
             signingConfig = signingConfigs.getByName("debug")

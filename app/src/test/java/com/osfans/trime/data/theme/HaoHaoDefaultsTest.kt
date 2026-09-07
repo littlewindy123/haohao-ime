@@ -24,6 +24,8 @@ import com.osfans.trime.data.theme.model.GeneralStyle
 import com.osfans.trime.data.theme.model.KeyActionToken
 import com.osfans.trime.data.theme.model.TextKeyboard
 import com.osfans.trime.data.theme.model.ToolBar
+import com.osfans.trime.data.theme.model.replaceHaoHaoToolbarAction
+import com.osfans.trime.data.theme.model.resolveHaoHaoToolbarActions
 import com.osfans.trime.data.translation.CloudTranslationResult
 import com.osfans.trime.ime.bar.ui.toolButtonIconFrameSizeDp
 import com.osfans.trime.ime.haohao.HAOHAO_EDITOR_ACTION
@@ -162,14 +164,14 @@ class HaoHaoDefaultsTest :
             SIMPLIFIED_SCHEMA_CUSTOM_PATCH.contains("- charset_filter") shouldBe true
             SIMPLIFIED_SCHEMA_CUSTOM_PATCH.contains("translator/enable_charset_filter: true") shouldBe true
             config["__include"]?.string shouldBe "trime:/"
-            config["config_version"]?.string shouldBe "3.1"
+            config["config_version"]?.string shouldBe "3.3"
             config["name"]?.string shouldBe "好好输入法"
             DEFAULT_FOLLOW_SYSTEM_DAY_NIGHT shouldBe true
 
             DataManager.SCHEMA_LIST_CUSTOM_PATCH
                 .lines()
                 .filter { it.trimStart().startsWith("- schema:") }
-                .map { it.substringAfter(":").trim() } shouldContainExactly listOf(DEFAULT_SCHEMA_ID)
+                .map { it.substringAfter(":").trim() } shouldContainExactly listOf(DEFAULT_SCHEMA_ID, "haohao_pinyin_9")
         }
 
         "HaoHao Pinyin combines pinned Wanxiang data with hotword and translation overrides" {
@@ -447,8 +449,9 @@ class HaoHaoDefaultsTest :
             presetKeys["HaoHaoSymbols"]?.mapping?.get("label")?.string shouldBe "符"
         }
 
-        "HaoHao toolbox keeps five secondary actions without toolbar duplicates" {
+        "HaoHao toolbox exposes clipboard phrases and customization alongside existing tools" {
             HaoHaoToolboxAction.entries.map { it.actionToken } shouldContainExactly listOf(
+                "clipboard_window", "HaoHaoPhrases", "", "",
                 HAOHAO_EDITOR_KEY,
                 HAOHAO_TRANSLATION_KEY,
                 HAOHAO_INPUT_FOOTPRINTS_KEY,
@@ -467,6 +470,18 @@ class HaoHaoDefaultsTest :
             presetKeys.values.count { key ->
                 key.mapping?.get("command")?.string == HAOHAO_EDITOR_ACTION
             } shouldBe 1
+        }
+
+        "toolbar restores safe defaults and swaps selected shortcuts without duplicates" {
+            val defaults = listOf("clipboard_window", "HaoHaoTranslation", "HaoHaoKeyboardMenu")
+            resolveHaoHaoToolbarActions("") shouldContainExactly defaults
+            resolveHaoHaoToolbarActions("invalid,Hide,clipboard_window,clipboard_window") shouldContainExactly defaults
+            val swapped = replaceHaoHaoToolbarAction("", 0, "HaoHaoKeyboardMenu")
+            resolveHaoHaoToolbarActions(swapped) shouldContainExactly listOf("HaoHaoKeyboardMenu", "HaoHaoTranslation", "clipboard_window")
+            resolveHaoHaoToolbarActions(replaceHaoHaoToolbarAction(swapped, 1, "HaoHaoPhrases")) shouldContainExactly listOf("HaoHaoKeyboardMenu", "HaoHaoPhrases", "clipboard_window")
+            replaceHaoHaoToolbarAction(swapped, -1, "Hide") shouldBe swapped
+            val customTheme = ToolBar(primaryButton = ToolBar.Button(action = "custom"))
+            customTheme.customizedHaoHaoButtons(swapped) shouldContainExactly customTheme.equalWidthButtonsInDisplayOrder()
         }
 
         "HaoHao toolbox resolves unavailable tools without waiting" {

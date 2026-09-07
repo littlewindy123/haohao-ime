@@ -12,6 +12,9 @@ import com.osfans.trime.R
 import com.osfans.trime.data.base.DataManager
 import com.osfans.trime.data.base.PinyinCorrectionSettings
 import com.osfans.trime.data.base.PinyinFuzzyPair
+import com.osfans.trime.data.translation.CLOUD_CANDIDATE_DEBOUNCE_MS
+import com.osfans.trime.data.translation.CLOUD_CANDIDATE_DELAY_MAX_MS
+import com.osfans.trime.data.translation.CLOUD_CANDIDATE_DELAY_STEP_MS
 import com.osfans.trime.data.translation.CandidateTranslationSourceMode
 import com.osfans.trime.data.translation.CloudTranslationProviderType
 import com.osfans.trime.data.translation.resolveCandidateTranslationSourceMode
@@ -109,6 +112,8 @@ class AppPrefs(
         val pid = int(PID, 0)
         val privateRimeDataMigrated = bool(PRIVATE_RIME_DATA_MIGRATED, false)
         val pinyinCorrectionConfigHash = string(PINYIN_CORRECTION_CONFIG_HASH, "")
+        val chineseKeyboardSchema = string("chinese_keyboard_schema", "luna_pinyin_simp")
+        val toolbarActions = string("haohao_toolbar_actions", "")
     }
 
     class Pinyin(
@@ -509,6 +514,7 @@ class AppPrefs(
             const val POSITION = "candidates_window_position"
             const val BILINGUAL_TRANSLATION = "bilingual_candidate_translation"
             const val BILINGUAL_TRANSLATION_DELAY = "bilingual_candidate_translation_delay_ms"
+            const val CLOUD_TRANSLATION_DELAY = "cloud_candidate_translation_delay_ms"
             const val BILINGUAL_PHONETIC = "bilingual_candidate_phonetic"
             const val COMPACT_TRANSLATION_MODE = "compact_translation_mode"
             const val LEARNING_HISTORY_ENABLED = "learning_history_enabled"
@@ -530,6 +536,16 @@ class AppPrefs(
             BILINGUAL_TRANSLATION_DELAY_MAX_MS,
             " ms",
             BILINGUAL_TRANSLATION_DELAY_STEP_MS,
+            enableUiOn = { shared.getBoolean(BILINGUAL_TRANSLATION, true) },
+        )
+        val cloudTranslationDelay = int(
+            R.string.cloud_candidate_translation_delay,
+            CLOUD_TRANSLATION_DELAY,
+            CLOUD_CANDIDATE_DEBOUNCE_MS.toInt(),
+            0,
+            CLOUD_CANDIDATE_DELAY_MAX_MS,
+            " ms",
+            CLOUD_CANDIDATE_DELAY_STEP_MS,
             enableUiOn = { shared.getBoolean(BILINGUAL_TRANSLATION, true) },
         )
         val bilingualPhonetic = switch(

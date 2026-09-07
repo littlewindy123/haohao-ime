@@ -23,6 +23,31 @@ private suspend fun SentenceCandidateTranslationSession.awaitState(status: Sente
 
 class SentenceCandidateTranslationTest :
     StringSpec({
+        "cloud wait reads the user value for each new request and cancelling prevents submission" {
+            coroutineScope {
+                var configured = 2_000L
+                val submitted = mutableListOf<String>()
+                val session = SentenceCandidateTranslationSession(
+                    this,
+                    { request ->
+                        submitted += request.texts.single()
+                        CloudTranslationResult.Success(listOf("hello"))
+                    },
+                    { _, _ -> null },
+                    {},
+                    configuredDelayMillis = { configured },
+                )
+                session.update("旧输入", cloudContext)
+                delay(30)
+                submitted shouldBe emptyList()
+                session.invalidate()
+                configured = 0
+                session.update("你好", cloudContext)
+                session.awaitState(SentenceCandidateStatus.READY)
+                submitted shouldBe listOf("你好")
+                session.invalidate()
+            }
+        }
         "waiting and translating never insert status copy into the English lane" {
             for (status in listOf(SentenceCandidateStatus.IDLE, SentenceCandidateStatus.WAITING, SentenceCandidateStatus.TRANSLATING, SentenceCandidateStatus.READY)) {
                 status.isTranslationIssue() shouldBe false

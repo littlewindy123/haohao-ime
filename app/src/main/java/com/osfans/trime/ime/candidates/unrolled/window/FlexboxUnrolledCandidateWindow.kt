@@ -124,6 +124,11 @@ class FlexboxUnrolledCandidateWindow : BaseUnrolledCandidateWindow() {
                 KeyActionManager.getAction(BACKSPACE_ACTION),
             )
         },
+        onClear = if (rime.run { statusCached }.schemaId == com.osfans.trime.ime.keyboard.NINE_KEY_SCHEMA_ID) {
+            { service.postRimeJob { clearComposition() } }
+        } else {
+            null
+        },
     ).apply {
         recyclerView.apply {
             adapter = this@FlexboxUnrolledCandidateWindow.adapter

@@ -36,6 +36,8 @@ import com.osfans.trime.data.prefs.AppPrefs
 import com.osfans.trime.data.prefs.PreferenceDelegate
 import com.osfans.trime.data.theme.DEFAULT_THEME_ID
 import com.osfans.trime.data.theme.ThemeManager
+import com.osfans.trime.data.translation.CLOUD_CANDIDATE_DELAY_MAX_MS
+import com.osfans.trime.data.translation.CLOUD_CANDIDATE_DELAY_STEP_MS
 import com.osfans.trime.databinding.FragmentMainBinding
 import com.osfans.trime.ime.candidates.compact.CompactTranslationMode
 import com.osfans.trime.ui.common.PaddingPreferenceFragment
@@ -191,6 +193,19 @@ class MainFragment : Fragment(R.layout.fragment_main) {
     }
 
     private fun setupCandidateSettings() {
+        binding.smartCorrectionSwitch.setOnCheckedChangeListener { _, checked ->
+            if (!updatingUi) prefs.pinyin.smartCorrection.setValue(checked)
+        }
+        binding.cloudTranslationDelaySlider.max = CLOUD_CANDIDATE_DELAY_MAX_MS / CLOUD_CANDIDATE_DELAY_STEP_MS
+        binding.cloudTranslationDelaySlider.setOnSeekBarChangeListener(
+            object : android.widget.SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(seekBar: android.widget.SeekBar?, progress: Int, fromUser: Boolean) {
+                    if (fromUser && !updatingUi) prefs.candidates.cloudTranslationDelay.setValue(progress * CLOUD_CANDIDATE_DELAY_STEP_MS)
+                }
+                override fun onStartTrackingTouch(seekBar: android.widget.SeekBar?) = Unit
+                override fun onStopTrackingTouch(seekBar: android.widget.SeekBar?) = Unit
+            },
+        )
         binding.translationSwitch.setOnCheckedChangeListener { _, checked ->
             if (!updatingUi) prefs.candidates.bilingualTranslation.setValue(checked)
         }
@@ -363,6 +378,7 @@ class MainFragment : Fragment(R.layout.fragment_main) {
     private fun registerPreferenceListeners() {
         prefs.candidates.bilingualTranslation.registerOnChangeListener(translationListener)
         prefs.candidates.bilingualTranslationDelay.registerOnChangeListener(delayListener)
+        prefs.candidates.cloudTranslationDelay.registerOnChangeListener(delayListener)
         prefs.candidates.bilingualPhonetic.registerOnChangeListener(phoneticListener)
         prefs.candidates.compactTranslationMode.registerOnChangeListener(translationModeListener)
         prefs.candidates.learningHistoryEnabled.registerOnChangeListener(learningHistoryListener)
@@ -379,6 +395,7 @@ class MainFragment : Fragment(R.layout.fragment_main) {
     private fun unregisterPreferenceListeners() {
         prefs.candidates.bilingualTranslation.unregisterOnChangeListener(translationListener)
         prefs.candidates.bilingualTranslationDelay.unregisterOnChangeListener(delayListener)
+        prefs.candidates.cloudTranslationDelay.unregisterOnChangeListener(delayListener)
         prefs.candidates.bilingualPhonetic.unregisterOnChangeListener(phoneticListener)
         prefs.candidates.compactTranslationMode.unregisterOnChangeListener(translationModeListener)
         prefs.candidates.learningHistoryEnabled.unregisterOnChangeListener(learningHistoryListener)
@@ -408,6 +425,11 @@ class MainFragment : Fragment(R.layout.fragment_main) {
         val translationMode = candidates.compactTranslationMode.getValue()
         val delayMs = candidates.bilingualTranslationDelay.getValue()
         updatingUi = true
+        binding.smartCorrectionSwitch.isChecked = prefs.pinyin.smartCorrection.getValue()
+        val cloudDelayMs = candidates.cloudTranslationDelay.getValue().coerceIn(0, CLOUD_CANDIDATE_DELAY_MAX_MS)
+        binding.cloudTranslationDelaySlider.progress = cloudDelayMs / CLOUD_CANDIDATE_DELAY_STEP_MS
+        binding.cloudTranslationDelaySlider.isEnabled = translationEnabled
+        binding.cloudTranslationDelayValue.text = getString(R.string.quick_settings_delay_value, cloudDelayMs)
         binding.translationSwitch.isChecked = translationEnabled
         binding.phoneticSwitch.isChecked = candidates.bilingualPhonetic.getValue()
         binding.phoneticSwitch.isEnabled = translationEnabled

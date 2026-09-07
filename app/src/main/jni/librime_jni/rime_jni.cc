@@ -2,8 +2,6 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <rime_api.h>
-
 #include <rime/component.h>
 #include <rime/context.h>
 #include <rime/dict/corrector.h>
@@ -11,8 +9,13 @@
 #include <rime/gear/poet.h>
 #include <rime/gear/script_translator.h>
 #include <rime/registry.h>
+#include <rime/schema.h>
+#include <rime/service.h>
+#include <rime_api.h>
 
+#include <cstdlib>
 #include <memory>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -28,9 +31,161 @@ namespace {
 constexpr const char *kHaoHaoNoPersonalizedLearning =
     "_haohao_no_personalized_learning";
 
+// Keep the engine's raw digit input intact, while displaying the selected
+// phrase's pinyin.
+class NineKeyTranslation final : public rime::Translation {
+ public:
+  NineKeyTranslation(rime::an<rime::Translation> source,
+                     rime::ScriptTranslator *translator)
+      : source_(std::move(source)), translator_(translator) {
+    set_exhausted(source_->exhausted());
+  }
+  bool Next() override {
+    const bool next = source_->Next();
+    set_exhausted(source_->exhausted());
+    return next;
+  }
+  rime::an<rime::Candidate> Peek() override {
+    auto candidate = source_->Peek();
+    if (auto phrase = std::dynamic_pointer_cast<rime::Phrase>(candidate)) {
+      const auto spelling = translator_->Spell(phrase->code());
+      if (!spelling.empty())
+        phrase->set_preedit(translator_->FormatPreedit(spelling));
+    }
+    return candidate;
+  }
+
+ private:
+  rime::an<rime::Translation> source_;
+  rime::ScriptTranslator *translator_;
+};
+
+// A bounded, single-edit search of the final syllable. It consumes the complete
+// remaining suffix, so a corrected edge cannot lead to another corrected edge.
+class HaoHaoCorrector final : public rime::Corrector {
+ public:
+  explicit HaoHaoCorrector(bool nine_key) : nine_key_(nine_key) {}
+
+  void ToleranceSearch(const rime::Prism &prism, const std::string &key,
+                       rime::corrector::Corrections *results,
+                       size_t tolerance) override {
+    if (!tolerance || key.size() < 2 || key.size() > 7) return;
+    const std::string alphabet =
+        nine_key_ ? "23456789" : "abcdefghijklmnopqrstuvwxyz";
+    if (key.find_first_not_of(alphabet) != std::string::npos) return;
+    auto add = [&](const std::string &candidate) {
+      if (candidate == key || candidate.size() < 2 || candidate.size() > 6)
+        return;
+      rime::SyllableId id;
+      if (prism.GetValue(candidate, &id))
+        results->Alter(id, {1, id, key.size()});
+    };
+    for (size_t i = 0; i < key.size(); ++i) {
+      auto candidate = key;
+      candidate.erase(i, 1);
+      add(candidate);
+      if (i + 1 < key.size()) {
+        candidate = key;
+        std::swap(candidate[i], candidate[i + 1]);
+        add(candidate);
+      }
+      for (char replacement : alphabet) {
+        if (!Adjacent(key[i], replacement)) continue;
+        candidate = key;
+        candidate[i] = replacement;
+        add(candidate);
+      }
+    }
+    for (size_t i = 0; i <= key.size(); ++i) {
+      for (char missing : alphabet) {
+        auto candidate = key;
+        candidate.insert(i, 1, missing);
+        add(candidate);
+      }
+    }
+  }
+
+ private:
+  bool Adjacent(char a, char b) const {
+    if (a == b) return false;
+    if (nine_key_) {
+      const int left = a - '1', right = b - '1';
+      return std::abs(left / 3 - right / 3) + std::abs(left % 3 - right % 3) ==
+             1;
+    }
+    const std::string rows[] = {"qwertyuiop", "asdfghjkl", "zxcvbnm"};
+    const int offsets[] = {0, 1, 3};  // quarter-key offsets
+    int ax = 0, ay = 0, bx = 0, by = 0;
+    for (int row = 0; row < 3; ++row) {
+      auto pos = rows[row].find(a);
+      if (pos != std::string::npos) {
+        ax = 4 * pos + offsets[row];
+        ay = row;
+      }
+      pos = rows[row].find(b);
+      if (pos != std::string::npos) {
+        bx = 4 * pos + offsets[row];
+        by = row;
+      }
+    }
+    return std::abs(ay - by) <= 1 && std::abs(ax - bx) <= 4;
+  }
+  bool nine_key_;
+};
+
 class HaoHaoScriptTranslator final : public rime::ScriptTranslator {
  public:
   using ScriptTranslator::ScriptTranslator;
+
+  rime::an<rime::Translation> Query(const std::string &input,
+                                    const rime::Segment &segment) override {
+    const bool nine = engine_->schema()->schema_id() == "haohao_pinyin_9";
+    const bool correct =
+        engine_->context()->get_option("_haohao_smart_correction") &&
+        input.size() >= 4 && input.size() <= 32 &&
+        engine_->context()->caret_pos() == engine_->context()->input().size();
+    enable_correction_ = false;
+    corrector_.reset();
+    auto source = ScriptTranslator::Query(input, segment);
+    if (correct) {
+      auto prefix = std::make_shared<rime::FifoTranslation>();
+      std::set<std::string> seen;
+      // Preserve the existing leaders even when an unrelated frequent word has
+      // a high correction score. Native Phrase objects retain commit/learning
+      // semantics.
+      for (int i = 0; i < 4 && source && !source->exhausted(); ++i) {
+        auto candidate = source->Peek();
+        if (!candidate) break;
+        seen.insert(candidate->text());
+        prefix->Append(candidate);
+        source->Next();
+      }
+      enable_correction_ = true;
+      corrector_.reset(new HaoHaoCorrector(nine));
+      auto corrected = ScriptTranslator::Query(input, segment);
+      int added = 0;
+      for (int scanned = 0;
+           scanned < 32 && added < 4 && corrected && !corrected->exhausted();
+           ++scanned) {
+        auto candidate = corrected->Peek();
+        if (!candidate) break;
+        if (candidate->end() == segment.end &&
+            seen.insert(candidate->text()).second) {
+          prefix->Append(candidate);
+          ++added;
+        }
+        corrected->Next();
+      }
+      auto combined = std::make_shared<rime::UnionTranslation>();
+      *combined += prefix;
+      if (source) *combined += source;
+      source = combined;
+    }
+    if (source && engine_->schema()->schema_id() == "haohao_pinyin_9") {
+      return std::make_shared<NineKeyTranslation>(source, this);
+    }
+    return source;
+  }
 
   bool Memorize(const rime::CommitEntry &commit_entry) override {
     if (!engine_ ||
@@ -43,8 +198,7 @@ class HaoHaoScriptTranslator final : public rime::ScriptTranslator {
 
 void register_haohao_components() {
   rime::Registry::instance().Register(
-      "haohao_script_translator",
-      new rime::Component<HaoHaoScriptTranslator>);
+      "haohao_script_translator", new rime::Component<HaoHaoScriptTranslator>);
 }
 
 }  // namespace
@@ -115,6 +269,41 @@ class Rime {
   bool commitComposition() { return rime->commit_composition(session()); }
 
   void clearComposition() { rime->clear_composition(session()); }
+
+  size_t nineKeyStart(rime::Context *context) {
+    return context->input().find_first_of(
+        "23456789", context->composition().GetConfirmedPosition());
+  }
+
+  std::string nineKeyInput() {
+    auto s = rime::Service::instance().GetSession(session());
+    if (!s) return "";
+    auto ctx = s->context();
+    auto start = nineKeyStart(ctx);
+    return start == std::string::npos ? "" : ctx->input().substr(start);
+  }
+
+  bool filterNineKeyInput(const std::string &syllable,
+                          const std::string &digits,
+                          const std::string &expected) {
+    auto s = rime::Service::instance().GetSession(session());
+    if (!s) return false;
+    auto ctx = s->context();
+    auto start = nineKeyStart(ctx);
+    if (start == std::string::npos || expected.empty() ||
+        ctx->input().substr(start) != expected ||
+        expected.compare(0, digits.size(), digits) != 0)
+      return false;
+    auto input = ctx->input();
+    auto replacement = syllable;
+    const auto end = start + digits.size();
+    if (end < input.size() && input[end] != '\'') replacement += '\'';
+    input.replace(start, digits.size(), replacement);
+    // Context::set_input preserves confirmed segments in the unchanged prefix.
+    ctx->set_input(input);
+    ctx->set_caret_pos(input.size());
+    return true;
+  }
 
   std::unique_ptr<CommitProto> commit() {
     RIME_STRUCT(RimeCommit, data)
@@ -273,9 +462,12 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *jvm, void *reserved) {
   return JNI_VERSION_1_6;
 }
 
-extern "C" JNIEXPORT jboolean JNICALL Java_com_osfans_trime_core_Rime_startupRime(
-    JNIEnv *env, jclass clazz, jstring shared_dir, jstring user_dir,
-    jstring version_name, jboolean full_check) {
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_osfans_trime_core_Rime_startupRime(JNIEnv *env, jclass clazz,
+                                            jstring shared_dir,
+                                            jstring user_dir,
+                                            jstring version_name,
+                                            jboolean full_check) {
   // for rime shared data dir
   setenv("RIME_SHARED_DATA_DIR", CString(env, shared_dir), 1);
   // for rime user data dir
@@ -305,8 +497,8 @@ extern "C" JNIEXPORT jboolean JNICALL Java_com_osfans_trime_core_Rime_startupRim
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_osfans_trime_core_Rime_joinRimeMaintenanceThread(
-    JNIEnv *env, jclass /* thiz */) {
+Java_com_osfans_trime_core_Rime_joinRimeMaintenanceThread(JNIEnv *env,
+                                                          jclass /* thiz */) {
   Rime::Instance().joinMaintenanceThread();
 }
 
@@ -418,6 +610,20 @@ extern "C" JNIEXPORT jstring JNICALL
 Java_com_osfans_trime_core_Rime_getRimeRawInput(JNIEnv *env,
                                                 jclass /* thiz */) {
   return env->NewStringUTF(Rime::Instance().rawInput().data());
+}
+
+extern "C" JNIEXPORT jstring JNICALL
+Java_com_osfans_trime_core_Rime_getRimeNineKeyInput(JNIEnv *env, jclass) {
+  return env->NewStringUTF(Rime::Instance().nineKeyInput().c_str());
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_osfans_trime_core_Rime_filterRimeNineKeyInput(JNIEnv *env, jclass,
+                                                       jstring syllable,
+                                                       jstring digits,
+                                                       jstring expected) {
+  return Rime::Instance().filterNineKeyInput(
+      CString(env, syllable), CString(env, digits), CString(env, expected));
 }
 
 extern "C" JNIEXPORT jint JNICALL

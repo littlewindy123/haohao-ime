@@ -227,6 +227,8 @@
     <string name="bilingual_candidate_translation">显示英文翻译</string>
     <string name="bilingual_candidate_translation_summary">在已收录的中文候选词下方显示英文翻译</string>
     <string name="bilingual_candidate_translation_delay">英文翻译显示延迟</string>
+    <string name="cloud_candidate_translation_delay">云端翻译等待时间</string>
+    <string name="cloud_candidate_translation_delay_summary">停止输入后等待多久再联网翻译，不含网络响应耗时。</string>
     <string name="compact_translation_mode">顶部英文模式</string>
     <string name="compact_translation_mode_word">单词</string>
     <string name="compact_translation_mode_adaptive">自适应</string>
@@ -301,6 +303,18 @@
     <string name="star_success">收藏成功</string>
     <string name="ignore_system_gesture_insets">忽略系统手势边衬区</string>
     <string name="haohao_toolbox_title">快捷工具</string>
+    <string name="haohao_phrases">常用语</string>
+    <string name="haohao_add_phrase">新增常用语</string>
+    <string name="haohao_clipboard_summary">粘贴与置顶</string>
+    <string name="haohao_phrases_summary">保存常用回复</string>
+    <string name="haohao_quick_settings">快捷设置</string>
+    <string name="haohao_quick_settings_summary">音标与翻译等待</string>
+    <string name="haohao_customize_toolbar">自定义工具栏</string>
+    <string name="haohao_toolbar_summary">替换工具，选已有工具可交换位置</string>
+    <string name="haohao_toolbar_reset">恢复默认</string>
+    <string name="haohao_phrases_empty">还没有常用语，点右上角 ＋ 新增\n点击粘贴，长按编辑或置顶</string>
+    <string name="haohao_clipboard_empty">复制的文字会出现在这里\n点击粘贴，长按置顶或存为常用语</string>
+    <string name="haohao_clipboard_paused">剪贴板记录已暂停\n可在剪贴板设置中开启，记录新复制的文字</string>
     <string name="haohao_toolbox_editor">文本编辑</string>
     <string name="haohao_toolbox_clipboard">剪贴板</string>
     <string name="haohao_toolbox_emoji">表情符号</string>
@@ -364,7 +378,7 @@
     <string name="pinyin_exact_mode">精确拼音</string>
     <string name="pinyin_exact_mode_summary">仅保留精确拼写与简拼，不再自动改写你的输入</string>
     <string name="pinyin_smart_correction">智能纠错</string>
-    <string name="pinyin_smart_correction_summary">纠正常见的漏字母和字母顺序错误</string>
+    <string name="pinyin_smart_correction_summary">试验功能：离线纠正末尾音节的一次误按、漏按或多按，支持全键和九键。</string>
     <string name="pinyin_adjacent_key_correction">按键纠错</string>
     <string name="pinyin_adjacent_key_correction_summary">误触一个相邻字母时仍提供候选</string>
     <string name="pinyin_fuzzy_settings">模糊音设置</string>

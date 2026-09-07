@@ -145,7 +145,7 @@ abstract class VerifyRimePrebuiltDataTask : DefaultTask() {
             "Unexpected Rime prebuilt file set: $declaredFiles"
         }
 
-        listOf("luna_pinyin_simp.schema.yaml", "stroke.schema.yaml").forEach { schemaName ->
+        listOf("luna_pinyin_simp.schema.yaml", "haohao_pinyin_9.schema.yaml", "stroke.schema.yaml").forEach { schemaName ->
             val compiledSchema = prebuiltDirectory.get().asFile.resolve(schemaName).readText()
             val nonZeroTimestamps =
                 compiledSchema.lineSequence()
@@ -194,6 +194,8 @@ abstract class VerifyRimePrebuiltDataTask : DefaultTask() {
                 "haohao_pinyin.table.bin",
                 "luna_pinyin_simp.prism.bin",
                 "luna_pinyin_simp.schema.yaml",
+                "haohao_pinyin_9.prism.bin",
+                "haohao_pinyin_9.schema.yaml",
                 "stroke.prism.bin",
                 "stroke.reverse.bin",
                 "stroke.schema.yaml",

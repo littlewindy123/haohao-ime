@@ -5,7 +5,7 @@
 # 仅覆盖面向普通中文用户的键盘布局与基础按键。
 __include: trime:/
 
-config_version: "3.1"
+config_version: "3.3"
 name: 好好输入法
 author: HaoHao IME contributors
 
@@ -124,10 +124,13 @@ preset_keys:
   HaoHaoSpace: {label: "ic@keyboard_space", preview: "", slide_cursor: true, functional: false, send: space}
   HaoHaoReturn: {label: "ic@keyboard_return", preview: "", functional: true, send: Return}
   HaoHaoToolbox: {label: "好", preview: "", functional: true, send: FUNCTION, command: haohao_toolbox}
+  HaoHaoPhrases: {label: 常用语, preview: "", functional: true, send: FUNCTION, command: clipboard_window, option: '1'}
   HaoHaoTranslation: {label: 翻译, preview: "", functional: true, send: FUNCTION, command: haohao_translation}
   HaoHaoInputFootprints: {label: 单词, preview: "", functional: true, send: FUNCTION, command: haohao_input_footprints}
   HaoHaoEditor: {label: 编辑, preview: "", functional: true, send: FUNCTION, command: haohao_editor}
   HaoHaoKeyboardMenu: {label: 键盘, preview: "", functional: true, send: FUNCTION, command: menu_keyboard}
+  HaoHaoNineSplit: {label: 分词, preview: "", send: apostrophe}
+  HaoHaoNineClear: {label: 重输, preview: "", functional: true, send: Escape}
 
 preset_color_schemes:
   default:
@@ -523,6 +526,7 @@ preset_keyboards:
     author: HaoHao IME contributors
     ascii_mode: 0
     reset_ascii_mode: true
+    ascii_keyboard: haohao_english
     lock: true
     label_transform: uppercase
     width: 10
@@ -565,6 +569,49 @@ preset_keyboards:
       - {click: ".", label: "。", width: 10, key_text_offset_y: -1}
       - {click: Mode_switch, width: 11.5}
       - {click: HaoHaoReturn, width: 15.5, key_text_size: 18, key_back_color: on_key_back_color, key_text_color: on_key_text_color}
+
+  haohao_english:
+    __include: haohao.trime:/preset_keyboards/default
+    name: 好好英文
+    ascii_mode: 1
+    reset_ascii_mode: true
+    lock: false
+
+  haohao_pinyin_9:
+    name: 好好拼音九键
+    author: HaoHao IME contributors
+    ascii_mode: 0
+    reset_ascii_mode: true
+    ascii_keyboard: haohao_english
+    lock: true
+    key_layout: nine_key
+    key_cap_height: 0
+    vertical_gap: 4
+    width: 22
+    columns: 5
+    height: 50
+    keys:
+      - {click: ',', label: '，', width: 17, key_back_color: off_key_back_color}
+      - {click: '.', label: '。', width: 17, key_back_color: off_key_back_color}
+      - {click: '?', width: 17, key_back_color: off_key_back_color}
+      - {click: '!', width: 17, key_back_color: off_key_back_color}
+      - {click: HaoHaoNineSplit, label_symbol: '1', long_click: '1', key_text_size: 20, key_symbol_color: comment_text_color}
+      - {click: '2', label: ABC, label_symbol: '2', key_text_size: 22, key_symbol_color: comment_text_color}
+      - {click: '3', label: DEF, label_symbol: '3', key_text_size: 22, key_symbol_color: comment_text_color}
+      - {click: BackSpace, width: 17, key_text_size: 22}
+      - {click: '4', label: GHI, label_symbol: '4', key_text_size: 22, key_symbol_color: comment_text_color}
+      - {click: '5', label: JKL, label_symbol: '5', key_text_size: 22, key_symbol_color: comment_text_color}
+      - {click: '6', label: MNO, label_symbol: '6', key_text_size: 22, key_symbol_color: comment_text_color}
+      - {click: HaoHaoNineClear, width: 17, key_text_size: 18}
+      - {click: '7', label: PQRS, label_symbol: '7', key_text_size: 22, key_symbol_color: comment_text_color}
+      - {click: '8', label: TUV, label_symbol: '8', key_text_size: 22, key_symbol_color: comment_text_color}
+      - {click: '9', label: WXYZ, label_symbol: '9', key_text_size: 22, key_symbol_color: comment_text_color}
+      - {click: '0', width: 17, key_back_color: off_key_back_color, key_text_size: 22}
+      - {click: HaoHaoSymbols, width: 17, key_text_size: 16}
+      - {click: HaoHaoNumber, key_text_size: 20}
+      - {click: HaoHaoSpace, key_text_size: 28}
+      - {click: Mode_switch, key_text_size: 18}
+      - {click: HaoHaoReturn, width: 17, key_text_size: 18, key_back_color: on_key_back_color, key_text_color: on_key_text_color}
 
   number:
     name: 好好数字

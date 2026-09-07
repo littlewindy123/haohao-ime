@@ -525,7 +525,12 @@ class CompactCandidateDelegate : InputBroadcastReceiver {
     private fun prioritizedPreedit(): String? {
         val status = rime.run { statusCached }
         return currentPreedit.takeIf {
-            status.schemaId == SIMPLIFIED_PINYIN_SCHEMA && !status.isAsciiMode
+            !status.isAsciiMode && when (status.schemaId) {
+                SIMPLIFIED_PINYIN_SCHEMA -> true
+                // Nine-key preedit shows a possible reading; preserve the engine's ambiguity ranking.
+                com.osfans.trime.ime.keyboard.NINE_KEY_SCHEMA_ID -> false
+                else -> false
+            }
         }
     }
 

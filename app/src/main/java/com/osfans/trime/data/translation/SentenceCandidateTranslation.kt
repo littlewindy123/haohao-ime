@@ -32,6 +32,7 @@ internal class SentenceCandidateTranslationSession(
     private val cachedLookup: (String, CandidateTranslationSourceMode) -> String?,
     private val onState: (SentenceCandidateState) -> Unit,
     private val debounceMillis: Long = CLOUD_CANDIDATE_DEBOUNCE_MS,
+    private val configuredDelayMillis: () -> Long = { debounceMillis },
 ) {
     private data class Input(val source: String, val context: SentenceCandidateContext)
     private var input: Input? = null
@@ -72,7 +73,7 @@ internal class SentenceCandidateTranslationSession(
         val requestGeneration = generation
         publish(SentenceCandidateState(source, status = SentenceCandidateStatus.WAITING))
         job = scope.launch {
-            delay(debounceMillis)
+            delay(configuredDelayMillis().coerceIn(0L, CLOUD_CANDIDATE_DELAY_MAX_MS.toLong()))
             if (requestGeneration != generation) return@launch
             publish(SentenceCandidateState(source, status = SentenceCandidateStatus.TRANSLATING))
             val result = executeTranslationRequest(

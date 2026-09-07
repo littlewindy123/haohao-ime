@@ -473,6 +473,7 @@ class InputBarDelegate : InputBroadcastReceiver {
     }
 
     override fun onWindowAttached(window: BoardWindow) {
+        alwaysUi.refreshToolbar()
         if (window is BoardWindow.BarBoardWindow) {
             tabUi.setTitle(window.title)
             window.onCreateBarView()?.let { tabUi.addExternal(it, window.showTitle) }

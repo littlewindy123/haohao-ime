@@ -16,6 +16,8 @@ sealed class SwitchOptionEntry(
 ) {
     class Static(label: String, icon: Int, val type: Type) : SwitchOptionEntry(label, icon) {
         enum class Type {
+            PinyinNine,
+            PinyinFull,
             SchemaList,
             UpdateConfig,
             Keyboard,

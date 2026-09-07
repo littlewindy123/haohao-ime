@@ -30,6 +30,20 @@ data class ToolBar(
 
     fun equalWidthButtonsInDisplayOrder(): List<Button> = listOfNotNull(primaryButton) + buttons.drop(1) + listOfNotNull(buttons.firstOrNull())
 
+    fun customizedHaoHaoButtons(saved: String): List<Button> {
+        if (primaryButton?.action != "HaoHaoToolbox") return equalWidthButtonsInDisplayOrder()
+        val template = buttons.firstOrNull() ?: return equalWidthButtonsInDisplayOrder()
+        val icons = listOf("clipboard_text_outline", "translate", "keyboard_outline", "star_outline", "cursor_text", "book_open_variant", "emoticon_outline")
+        val middle = resolveHaoHaoToolbarActions(saved).map { action ->
+            template.copy(
+                action = action,
+                longPressAction = "HaoHaoToolbox",
+                foreground = template.foreground.copy(style = "ic@${icons[HAOHAO_TOOLBAR_ACTIONS.indexOf(action)]}"),
+            )
+        }
+        return listOf(primaryButton) + middle + template.copy(action = "Hide")
+    }
+
     @Parcelize
     data class Button(
         val background: Background = Background(),
@@ -118,4 +132,25 @@ data class ToolBar(
             builtinIconHighlightColor = node?.get("builtin_icon_highlight_color")?.string ?: "hilited_candidate_text_color",
         )
     }
+}
+
+internal val HAOHAO_TOOLBAR_ACTIONS = listOf(
+    "clipboard_window",
+    "HaoHaoTranslation",
+    "HaoHaoKeyboardMenu",
+    "HaoHaoPhrases",
+    "HaoHaoEditor",
+    "HaoHaoInputFootprints",
+    "liquid_keyboard_emoji",
+)
+
+internal fun resolveHaoHaoToolbarActions(saved: String): List<String> = (saved.split(',').filter { it in HAOHAO_TOOLBAR_ACTIONS } + HAOHAO_TOOLBAR_ACTIONS).distinct().take(3)
+
+internal fun replaceHaoHaoToolbarAction(saved: String, slot: Int, action: String): String {
+    val actions = resolveHaoHaoToolbarActions(saved).toMutableList()
+    if (slot !in actions.indices || action !in HAOHAO_TOOLBAR_ACTIONS) return actions.joinToString(",")
+    val previous = actions.indexOf(action)
+    if (previous >= 0) actions[previous] = actions[slot]
+    actions[slot] = action
+    return actions.joinToString(",")
 }

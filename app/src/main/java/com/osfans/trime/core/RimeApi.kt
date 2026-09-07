@@ -98,6 +98,10 @@ interface RimeApi {
 
     suspend fun getRawInput(): String
 
+    suspend fun getNineKeyInput(): String = ""
+
+    suspend fun filterNineKeySyllable(syllable: String, expectedInput: String): Boolean = false
+
     suspend fun setRuntimeOption(
         option: String,
         value: Boolean,

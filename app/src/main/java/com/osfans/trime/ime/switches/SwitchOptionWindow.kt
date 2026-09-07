@@ -22,7 +22,10 @@ import com.osfans.trime.ime.bar.ui.ToolButton
 import com.osfans.trime.ime.broadcast.InputBroadcastReceiver
 import com.osfans.trime.ime.core.TrimeInputMethodService
 import com.osfans.trime.ime.dialog.EnabledSchemaPickerDialog
+import com.osfans.trime.ime.keyboard.KeyboardWindow
+import com.osfans.trime.ime.keyboard.NINE_KEY_SCHEMA_ID
 import com.osfans.trime.ime.window.BoardWindow
+import com.osfans.trime.ime.window.BoardWindowManager
 import com.osfans.trime.ui.main.settings.ThemePickerDialog
 import com.osfans.trime.util.AppUtils
 import kotlinx.coroutines.launch
@@ -41,9 +44,13 @@ class SwitchOptionWindow :
     private val service: TrimeInputMethodService by di.instance()
     private val rime: RimeSession by di.instance()
     private val theme: Theme by di.instance()
+    private val windowManager: BoardWindowManager by di.instance()
+    private val keyboardWindow: KeyboardWindow by di.instance()
 
     private val staticEntries by lazy {
         arrayOf(
+            SwitchOptionEntry.Static("拼音九键", R.drawable.ic_baseline_keyboard_24, SwitchOptionEntry.Static.Type.PinyinNine),
+            SwitchOptionEntry.Static("拼音全键", R.drawable.ic_baseline_keyboard_24, SwitchOptionEntry.Static.Type.PinyinFull),
             SwitchOptionEntry.Static(
                 context.getString(R.string.theme),
                 R.drawable.ic_baseline_color_lens_24,
@@ -102,6 +109,18 @@ class SwitchOptionWindow :
             ) {
                 when (entry) {
                     is SwitchOptionEntry.Static -> when (entry.type) {
+                        SwitchOptionEntry.Static.Type.PinyinNine,
+                        SwitchOptionEntry.Static.Type.PinyinFull,
+                        -> {
+                            service.postRimeJob {
+                                val deferred = getRawInput().isNotEmpty()
+                                selectSchema(if (entry.type == SwitchOptionEntry.Static.Type.PinyinNine) NINE_KEY_SCHEMA_ID else "luna_pinyin_simp")
+                                service.lifecycleScope.launch {
+                                    windowManager.attachWindow(keyboardWindow)
+                                    if (deferred) Toast.makeText(service, "本次选词或清空后切换", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        }
                         SwitchOptionEntry.Static.Type.SchemaList -> showDialog { r ->
                             EnabledSchemaPickerDialog.build(r, service.lifecycleScope, context) {
                                 setNegativeButton(R.string.enable_schemata) { _, _ ->

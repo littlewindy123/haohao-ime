@@ -13,7 +13,9 @@ import androidx.paging.Pager
 import androidx.paging.PagingConfig
 import androidx.recyclerview.widget.RecyclerView
 import com.osfans.trime.core.Candidates
+import com.osfans.trime.core.CompositionProto
 import com.osfans.trime.daemon.RimeSession
+import com.osfans.trime.daemon.launchOnReady
 import com.osfans.trime.data.theme.Theme
 import com.osfans.trime.ime.bar.InputBarDelegate
 import com.osfans.trime.ime.bar.UnrollButtonStateMachine
@@ -27,6 +29,8 @@ import com.osfans.trime.ime.candidates.unrolled.UnrolledCandidateLayout
 import com.osfans.trime.ime.core.InputView
 import com.osfans.trime.ime.core.TrimeInputMethodService
 import com.osfans.trime.ime.keyboard.KeyboardWindow
+import com.osfans.trime.ime.keyboard.NINE_KEY_SCHEMA_ID
+import com.osfans.trime.ime.keyboard.nineKeySpellings
 import com.osfans.trime.ime.window.BoardWindow
 import com.osfans.trime.ime.window.BoardWindowManager
 import kotlinx.coroutines.Job
@@ -50,6 +54,22 @@ abstract class BaseUnrolledCandidateWindow :
     private var totalCandidates = 0
     private var hasCandidates = false
     private var presentationVersion = 0L
+    private val nineKeySyllables by lazy {
+        context.assets.open("haohao/nine_key_syllables.txt").bufferedReader().use { it.readLines() }
+    }
+
+    override fun onCompositionUpdate(data: CompositionProto) {
+        if (rime.run { statusCached }.schemaId != NINE_KEY_SCHEMA_ID) return
+        rime.launchOnReady { api ->
+            val input = api.getNineKeyInput()
+            val spellings = nineKeySpellings(input, nineKeySyllables)
+            service.lifecycleScope.launch {
+                candidateLayout.showNineKeySpellings(input, spellings) { syllable, expected ->
+                    service.postRimeJob { filterNineKeySyllable(syllable, expected) }
+                }
+            }
+        }
+    }
 
     abstract fun onCreateCandidateLayout(): UnrolledCandidateLayout
 
@@ -87,6 +107,7 @@ abstract class BaseUnrolledCandidateWindow :
     private var candidatesSubmitJob: Job? = null
 
     override fun onAttached() {
+        onCompositionUpdate(rime.run { compositionCached })
         lifecycleCoroutineScope = candidateLayout.findViewTreeLifecycleOwner()!!.lifecycleScope
         bar.setUnrolledCandidatesVisible(true)
         bar.unrollButtonStateMachine.push(UnrollButtonStateMachine.TransitionEvent.UnrolledCandidatesAttached)

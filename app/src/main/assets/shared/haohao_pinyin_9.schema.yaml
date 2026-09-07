@@ -1,0 +1,51 @@
+# Rime schema
+# SPDX-License-Identifier: GPL-3.0-or-later
+__include: luna_pinyin_simp.schema:/
+
+schema:
+  schema_id: haohao_pinyin_9
+  name: 好好拼音九键
+  version: '1.0'
+  dependencies: [stroke]
+
+engine:
+  translators:
+    - punct_translator
+    - table_translator@custom_phrase
+    - reverse_lookup_translator
+    - haohao_script_translator
+  filters: [simplifier, charset_filter, uniquifier]
+
+speller:
+  alphabet: '23456789abcdefghijklmnopqrstuvwxyz'
+  initials: '23456789abcdefghijklmnopqrstuvwxyz'
+  delimiter: "'"
+  algebra:
+    # Keep exact letters for explicit syllable filtering, alongside numeric spellings.
+    - derive/^([a-z]+)$/$1~/
+    - xform/[abc](?=[a-z2-9]*~$)/2/
+    - xform/[def](?=[a-z2-9]*~$)/3/
+    - xform/[ghi](?=[a-z2-9]*~$)/4/
+    - xform/[jkl](?=[a-z2-9]*~$)/5/
+    - xform/[mno](?=[a-z2-9]*~$)/6/
+    - xform/[pqrs](?=[a-z2-9]*~$)/7/
+    - xform/[tuv](?=[a-z2-9]*~$)/8/
+    - xform/[wxyz](?=[a-z2-9]*~$)/9/
+    - xform/~$//
+
+translator:
+  dictionary: haohao_pinyin
+  user_dict: luna_pinyin
+  prism: haohao_pinyin_9
+  max_word_length: 6
+  enable_correction: false
+  enable_charset_filter: true
+
+# Digits belong to the speller, never numeric candidate shortcuts or a number recognizer.
+menu:
+  alternative_select_keys: ''
+recognizer:
+  patterns:
+    uppercase: ''
+    url: ''
+    email: ''

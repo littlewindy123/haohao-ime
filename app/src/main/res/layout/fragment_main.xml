@@ -432,6 +432,44 @@
                         android:progressTint="@color/haohao_brand_header_pressed"
                         android:thumbTint="@color/haohao_brand_header_pressed" />
                 </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:paddingTop="14dp">
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="@string/cloud_candidate_translation_delay"
+                            android:textAppearance="@style/TextAppearance.HaoHao.SettingTitle" />
+                        <TextView
+                            android:id="@+id/cloud_translation_delay_value"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:textColor="@color/haohao_cocoa"
+                            android:textSize="15sp" />
+                    </LinearLayout>
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/cloud_candidate_translation_delay_summary"
+                        android:textColor="@color/haohao_cocoa"
+                        android:textSize="13sp" />
+                    <androidx.appcompat.widget.AppCompatSeekBar
+                        android:id="@+id/cloud_translation_delay_slider"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:contentDescription="@string/cloud_candidate_translation_delay"
+                        android:progressTint="@color/haohao_brand_header_pressed"
+                        android:thumbTint="@color/haohao_brand_header_pressed" />
+                </LinearLayout>
             </LinearLayout>
 
             <View
@@ -664,6 +702,20 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical">
+
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/smart_correction_switch"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:minHeight="56dp"
+                    android:text="@string/pinyin_smart_correction"
+                    android:textAppearance="@style/TextAppearance.HaoHao.SettingTitle" />
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/pinyin_smart_correction_summary"
+                    android:textColor="@color/haohao_cocoa"
+                    android:textSize="13sp" />
 
                 <LinearLayout
                     android:layout_width="match_parent"

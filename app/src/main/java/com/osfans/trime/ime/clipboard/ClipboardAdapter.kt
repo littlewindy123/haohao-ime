@@ -99,14 +99,14 @@ abstract class ClipboardAdapter(
                     menu.item(R.string.collect, R.drawable.ic_baseline_star_24, iconTint) {
                         onCollect(bean)
                     }
-                    if (bean.pinned) {
-                        menu.item(R.string.simple_key_unpin, R.drawable.ic_outline_push_pin_24, iconTint) {
-                            onUnpin(bean.id)
-                        }
-                    } else {
-                        menu.item(R.string.simple_key_pin, R.drawable.ic_baseline_push_pin_24, iconTint) {
-                            onPin(bean.id)
-                        }
+                }
+                if (bean.pinned) {
+                    menu.item(R.string.simple_key_unpin, R.drawable.ic_outline_push_pin_24, iconTint) {
+                        onUnpin(bean.id)
+                    }
+                } else {
+                    menu.item(R.string.simple_key_pin, R.drawable.ic_baseline_push_pin_24, iconTint) {
+                        onPin(bean.id)
                     }
                 }
                 menu.item(R.string.delete, R.drawable.ic_baseline_delete_24, iconTint) {

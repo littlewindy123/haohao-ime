@@ -5,6 +5,7 @@
 
 package com.osfans.trime.ime.haohao
 
+import android.app.AlertDialog
 import android.content.res.ColorStateList
 import android.graphics.Typeface
 import android.graphics.drawable.RippleDrawable
@@ -12,8 +13,12 @@ import android.text.TextUtils
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
+import android.widget.Button
 import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.ScrollView
+import android.widget.SeekBar
+import android.widget.Switch
 import android.widget.TextView
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
@@ -25,12 +30,17 @@ import com.osfans.trime.core.StatusProto
 import com.osfans.trime.daemon.RimeDaemon
 import com.osfans.trime.daemon.RimeSession
 import com.osfans.trime.data.footprints.InputFootprints
+import com.osfans.trime.data.prefs.AppPrefs
 import com.osfans.trime.data.theme.ColorManager
 import com.osfans.trime.data.theme.KeyActionManager
 import com.osfans.trime.data.theme.Theme
+import com.osfans.trime.data.theme.model.HAOHAO_TOOLBAR_ACTIONS
+import com.osfans.trime.data.theme.model.replaceHaoHaoToolbarAction
+import com.osfans.trime.data.theme.model.resolveHaoHaoToolbarActions
 import com.osfans.trime.data.translation.CloudTranslationResult
 import com.osfans.trime.data.translation.CloudTranslationRuntime
 import com.osfans.trime.ime.broadcast.InputBroadcastReceiver
+import com.osfans.trime.ime.candidates.bilingual.BILINGUAL_TRANSLATION_DELAY_MAX_MS
 import com.osfans.trime.ime.core.TrimeInputMethodService
 import com.osfans.trime.ime.keyboard.CommonKeyboardActionListener
 import com.osfans.trime.ime.window.BoardWindow
@@ -39,6 +49,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import org.kodein.di.instance
 import splitties.dimensions.dp
+import splitties.resources.styledColor
 
 internal const val HAOHAO_TOOLBOX_KEY = "HaoHaoToolbox"
 internal const val HAOHAO_TOOLBOX_BUTTON_WIDTH_DP = 48
@@ -54,6 +65,10 @@ internal enum class HaoHaoToolboxAction(
     val actionToken: String,
     @param:DrawableRes val iconRes: Int,
 ) {
+    Clipboard(R.string.haohao_toolbox_clipboard, R.string.haohao_clipboard_summary, "clipboard_window", R.drawable.ic_clipboard_24),
+    Phrases(R.string.haohao_phrases, R.string.haohao_phrases_summary, "HaoHaoPhrases", R.drawable.ic_baseline_star_24),
+    QuickSettings(R.string.haohao_quick_settings, R.string.haohao_quick_settings_summary, "", R.drawable.ic_baseline_settings_24),
+    Toolbar(R.string.haohao_customize_toolbar, R.string.haohao_toolbar_summary, "", R.drawable.ic_baseline_edit_24),
     Editor(
         R.string.haohao_toolbox_editor,
         R.string.haohao_toolbox_editor_summary,
@@ -139,7 +154,12 @@ internal fun resolveHaoHaoToolAvailability(
     } else {
         HaoHaoToolAvailability(false, HaoHaoToolUnavailableReason.UNSUPPORTED)
     }
-    HaoHaoToolboxAction.Settings -> HaoHaoToolAvailability(true)
+    HaoHaoToolboxAction.Settings,
+    HaoHaoToolboxAction.Clipboard,
+    HaoHaoToolboxAction.Phrases,
+    HaoHaoToolboxAction.QuickSettings,
+    HaoHaoToolboxAction.Toolbar,
+    -> HaoHaoToolAvailability(true)
 }
 
 class HaoHaoToolboxWindow :
@@ -184,7 +204,7 @@ class HaoHaoToolboxWindow :
             setTextColor(ColorManager.getColor("key_text_color"))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, theme.generalStyle.keyLongTextSize)
             setTypeface(typeface, Typeface.BOLD)
-            maxLines = 1
+            maxLines = 2
             ellipsize = TextUtils.TruncateAt.END
         }
         val summary = TextView(context).apply {
@@ -233,7 +253,11 @@ class HaoHaoToolboxWindow :
                 LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f),
             )
             setOnClickListener {
-                actionListener.listener.onAction(KeyActionManager.getAction(action.actionToken))
+                when (action) {
+                    HaoHaoToolboxAction.Toolbar -> showToolbarSettings()
+                    HaoHaoToolboxAction.QuickSettings -> showQuickSettings()
+                    else -> actionListener.listener.onAction(KeyActionManager.getAction(action.actionToken))
+                }
             }
         }
         return ToolTile(root, summary).also { tiles[action] = it }
@@ -255,17 +279,139 @@ class HaoHaoToolboxWindow :
 
     private fun rowParams(): LinearLayout.LayoutParams = LinearLayout.LayoutParams(
         LinearLayout.LayoutParams.MATCH_PARENT,
-        0,
-        1f,
+        context.dp(76 * context.resources.configuration.fontScale.coerceAtLeast(1f)).toInt(),
     )
 
-    override fun onCreateView(): View = LinearLayout(context).apply {
-        orientation = LinearLayout.VERTICAL
-        setPadding(dp(5), dp(5), dp(5), dp(5))
-        addView(row(HaoHaoToolboxAction.Editor, HaoHaoToolboxAction.Translation), rowParams())
-        addView(row(HaoHaoToolboxAction.Footprints, HaoHaoToolboxAction.Voice), rowParams())
-        addView(row(HaoHaoToolboxAction.Settings), rowParams())
+    override fun onCreateView(): View = ScrollView(context).apply {
+        addView(
+            LinearLayout(context).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(dp(5), dp(5), dp(5), dp(5))
+                addView(row(HaoHaoToolboxAction.Clipboard, HaoHaoToolboxAction.Phrases), rowParams())
+                addView(row(HaoHaoToolboxAction.QuickSettings, HaoHaoToolboxAction.Toolbar), rowParams())
+                addView(row(HaoHaoToolboxAction.Editor, HaoHaoToolboxAction.Translation), rowParams())
+                addView(row(HaoHaoToolboxAction.Footprints, HaoHaoToolboxAction.Voice), rowParams())
+                addView(row(HaoHaoToolboxAction.Settings), rowParams())
+            },
+        )
         refreshStateSnapshot()
+    }
+
+    private fun toolbarLabel(action: String): String = context.getString(
+        when (action) {
+            "clipboard_window" -> R.string.haohao_toolbox_clipboard
+            "HaoHaoTranslation" -> R.string.haohao_translation_tool
+            "HaoHaoKeyboardMenu" -> R.string.virtual_keyboard
+            "HaoHaoPhrases" -> R.string.haohao_phrases
+            "HaoHaoEditor" -> R.string.haohao_toolbox_editor
+            "HaoHaoInputFootprints" -> R.string.input_footprints_title
+            else -> R.string.haohao_toolbox_emoji
+        },
+    )
+
+    private fun showToolbarSettings() {
+        val pref = AppPrefs.defaultInstance().internal.toolbarActions
+        val actions = resolveHaoHaoToolbarActions(pref.getValue())
+        val labels = actions.mapIndexed { index, action -> "${index + 1}. ${toolbarLabel(action)}" }.toTypedArray()
+        service.showDialog(
+            AlertDialog.Builder(context)
+                .setTitle(R.string.haohao_customize_toolbar)
+                .setItems(labels) { _, slot ->
+                    service.showDialog(
+                        AlertDialog.Builder(context)
+                            .setTitle(labels[slot])
+                            .setSingleChoiceItems(HAOHAO_TOOLBAR_ACTIONS.map(::toolbarLabel).toTypedArray(), HAOHAO_TOOLBAR_ACTIONS.indexOf(actions[slot])) { dialog, index ->
+                                pref.setValue(replaceHaoHaoToolbarAction(pref.getValue(), slot, HAOHAO_TOOLBAR_ACTIONS[index]))
+                                dialog.dismiss()
+                                showToolbarSettings()
+                            }
+                            .setNegativeButton(R.string.cancel, null).create(),
+                    )
+                }
+                .setNeutralButton(R.string.haohao_toolbar_reset) { _, _ -> pref.setValue("") }
+                .setPositiveButton(R.string.ok, null).create(),
+        )
+    }
+
+    private fun showQuickSettings() {
+        val prefs = AppPrefs.defaultInstance()
+        val content = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(20), dp(8), dp(20), dp(8))
+        }
+        fun toggle(label: Int, value: Boolean, save: (Boolean) -> Unit) {
+            content.addView(
+                Switch(context).apply {
+                    setText(label)
+                    minHeight = dp(48)
+                    isChecked = value
+                    setOnCheckedChangeListener { _, checked -> save(checked) }
+                },
+            )
+        }
+        toggle(R.string.bilingual_candidate_phonetic, prefs.candidates.bilingualPhonetic.getValue()) { prefs.candidates.bilingualPhonetic.setValue(it) }
+        fun delayControl(label: Int, value: Int, maxValue: Int, save: (Int) -> Unit) {
+            val title = TextView(context).apply { setTextColor(context.styledColor(android.R.attr.textColorPrimary)) }
+            fun update(value: Int) {
+                title.text = "${context.getString(label)} · $value ms"
+            }
+            update(value)
+            content.addView(title)
+            content.addView(
+                SeekBar(context).apply {
+                    layoutParams = LinearLayout.LayoutParams(-1, dp(48))
+                    max = maxValue / 100
+                    progress = value.coerceIn(0, maxValue) / 100
+                    minimumHeight = dp(48)
+                    contentDescription = context.getString(label)
+                    setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                        override fun onProgressChanged(bar: SeekBar, progress: Int, fromUser: Boolean) {
+                            update(progress * 100)
+                            if (fromUser) save(progress * 100)
+                        }
+                        override fun onStartTrackingTouch(bar: SeekBar) {}
+                        override fun onStopTrackingTouch(bar: SeekBar) {}
+                    })
+                },
+            )
+        }
+        delayControl(R.string.bilingual_candidate_translation_delay, prefs.candidates.bilingualTranslationDelay.getValue(), BILINGUAL_TRANSLATION_DELAY_MAX_MS) { prefs.candidates.bilingualTranslationDelay.setValue(it) }
+        delayControl(R.string.cloud_candidate_translation_delay, prefs.candidates.cloudTranslationDelay.getValue(), 2000) { prefs.candidates.cloudTranslationDelay.setValue(it) }
+        content.addView(
+            TextView(context).apply {
+                setText(R.string.cloud_candidate_translation_delay_summary)
+                setTextColor(context.styledColor(android.R.attr.textColorPrimary))
+            },
+        )
+        val modes = AppPrefs.Keyboard.OneHandMode.entries
+        content.addView(
+            Button(context).apply {
+                isAllCaps = false
+                text = "${context.getString(R.string.one_hand_mode)} · ${context.getString(prefs.keyboard.oneHandMode.getValue().stringRes)}"
+                minHeight = dp(48)
+                gravity = Gravity.CENTER_VERTICAL
+                isFocusable = true
+                setOnClickListener {
+                    service.showDialog(
+                        AlertDialog.Builder(context).setTitle(R.string.one_hand_mode)
+                            .setSingleChoiceItems(modes.map { context.getString(it.stringRes) }.toTypedArray(), modes.indexOf(prefs.keyboard.oneHandMode.getValue())) { dialog, index ->
+                                prefs.keyboard.oneHandMode.setValue(modes[index])
+                                text = "${context.getString(R.string.one_hand_mode)} · ${context.getString(modes[index].stringRes)}"
+                                dialog.dismiss()
+                            }.setNegativeButton(R.string.cancel, null).create(),
+                    )
+                }
+            },
+        )
+        service.showDialog(
+            AlertDialog.Builder(context)
+                .setTitle(R.string.haohao_quick_settings)
+                .setView(ScrollView(context).apply { addView(content) })
+                .setNeutralButton(R.string.virtual_keyboard) { _, _ ->
+                    actionListener.listener.onAction(KeyActionManager.getAction("HaoHaoKeyboardMenu"))
+                }
+                .setPositiveButton(R.string.ok, null).create(),
+        )
     }
 
     private fun currentTranslationFailure(): CloudTranslationResult.Failure.Kind? = runCatching {

@@ -20,6 +20,7 @@ import com.osfans.trime.ime.candidates.bilingual.UNROLLED_CANDIDATE_ACTION_GAP_D
 import com.osfans.trime.ime.candidates.bilingual.UNROLLED_CANDIDATE_ACTION_HEIGHT_DP
 import com.osfans.trime.ime.candidates.bilingual.UNROLLED_CANDIDATE_ACTION_RAIL_WIDTH_DP
 import com.osfans.trime.ime.keyboard.GestureFrame
+import com.osfans.trime.ime.keyboard.createNineKeySpellingStrip
 import com.osfans.trime.util.roundedRippleDrawable
 import splitties.dimensions.dp
 import splitties.views.dsl.recyclerview.recyclerView
@@ -30,6 +31,7 @@ class UnrolledCandidateLayout(
     private val theme: Theme,
     onReturn: () -> Unit,
     onDelete: () -> Unit,
+    onClear: (() -> Unit)? = null,
 ) : ConstraintLayout(context) {
     val recyclerView =
         recyclerView {
@@ -71,7 +73,45 @@ class UnrolledCandidateLayout(
                     topMargin = dp(UNROLLED_CANDIDATE_ACTION_GAP_DP)
                 },
             )
+            onClear?.let { clear ->
+                addView(
+                    createActionButton("重输", "重输", 18f, false, clear),
+                    LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(UNROLLED_CANDIDATE_ACTION_HEIGHT_DP)).apply {
+                        topMargin = dp(UNROLLED_CANDIDATE_ACTION_GAP_DP)
+                    },
+                )
+            }
         }
+
+    private var spellingStrip: View? = null
+    private var spellingInput = ""
+
+    fun showNineKeySpellings(input: String, spellings: List<String>, onSelect: (String, String) -> Unit) {
+        if (input == spellingInput) return
+        spellingInput = input
+        spellingStrip?.let(::removeView)
+        spellingStrip = null
+        val params = recyclerView.layoutParams as LayoutParams
+        params.startToEnd = LayoutParams.UNSET
+        params.startToStart = LayoutParams.PARENT_ID
+        if (input.isNotEmpty() && spellings.isNotEmpty()) {
+            val strip = createNineKeySpellingStrip(context, input, spellings, dp(48), onSelect).apply { id = View.generateViewId() }
+            addView(
+                strip,
+                LayoutParams(0, 0).apply {
+                    matchConstraintPercentWidth = .165f
+                    matchConstraintDefaultWidth = LayoutParams.MATCH_CONSTRAINT_PERCENT
+                    startToStart = LayoutParams.PARENT_ID
+                    topToTop = LayoutParams.PARENT_ID
+                    bottomToBottom = LayoutParams.PARENT_ID
+                },
+            )
+            spellingStrip = strip
+            params.startToStart = LayoutParams.UNSET
+            params.startToEnd = strip.id
+        }
+        recyclerView.layoutParams = params
+    }
 
     private val railDivider =
         View(context).apply {

@@ -325,6 +325,7 @@ object DataManager {
       patch:
         schema_list:
           - schema: $DEFAULT_SCHEMA_ID
+          - schema: haohao_pinyin_9
     """
 
     private val lock = ReentrantLock()
@@ -538,6 +539,9 @@ object DataManager {
             val custom = userDataDir.resolve(fileName)
             val content = when {
                 !custom.exists() -> patch.trimIndent()
+                fileName == DEFAULT_CUSTOM_FILE_NAME &&
+                    custom.readText().trim().replace("\r\n", "\n") ==
+                    "patch:\n  schema_list:\n    - schema: $DEFAULT_SCHEMA_ID" -> patch.trimIndent()
                 fileName == SIMPLIFIED_SCHEMA_CUSTOM_FILE_NAME ->
                     upgradeSimplifiedSchemaCustomPatch(
                         custom.readText(),

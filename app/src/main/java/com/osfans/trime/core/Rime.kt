@@ -14,6 +14,8 @@ import com.osfans.trime.data.base.InsufficientRimeStorageException
 import com.osfans.trime.data.opencc.OpenCCDictManager
 import com.osfans.trime.data.prefs.AppPrefs
 import com.osfans.trime.ime.core.InlinePreeditMode
+import com.osfans.trime.ime.keyboard.NINE_KEY_SCHEMA_ID
+import com.osfans.trime.ime.keyboard.nineKeyDigits
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -258,7 +260,7 @@ class Rime :
     override suspend fun enabledSchemata(): Array<SchemaItem> = withRimeContext { getSelectedRimeSchemaList() }
 
     override suspend fun setEnabledSchemata(schemaIds: Array<String>) = withRimeContext {
-        val selected = selectRimeSchemas(arrayOf(DEFAULT_SCHEMA_ID))
+        val selected = selectRimeSchemas(arrayOf(DEFAULT_SCHEMA_ID, NINE_KEY_SCHEMA_ID))
         enforceSimplifiedSchema()
         selected
     }
@@ -268,9 +270,12 @@ class Rime :
     override suspend fun selectedSchemaId(): String = withRimeContext { getCurrentRimeSchema() }
 
     override suspend fun selectSchema(schemaId: String) = withRimeContext {
-        val selected = selectRimeSchema(DEFAULT_SCHEMA_ID)
-        enforceSimplifiedSchema()
-        selected
+        val target = schemaId.takeIf { it == NINE_KEY_SCHEMA_ID } ?: DEFAULT_SCHEMA_ID
+        pendingChineseSchema = target
+        // Requests are accepted now, but applied only after the composition finishes.
+        applyPendingChineseSchema()
+        emitResponse()
+        true
     }
 
     override suspend fun currentSchema(): RimeSchema = withRimeContext {
@@ -288,10 +293,24 @@ class Rime :
         getRimeRawInput()
     }
 
+    override suspend fun getNineKeyInput(): String = withRimeContext {
+        if (getCurrentRimeSchema() == NINE_KEY_SCHEMA_ID && !getRimeOption("ascii_mode")) getRimeNineKeyInput() else ""
+    }
+
+    override suspend fun filterNineKeySyllable(syllable: String, expectedInput: String): Boolean = withRimeContext {
+        if (getCurrentRimeSchema() != NINE_KEY_SCHEMA_ID || getRimeOption("ascii_mode") ||
+            syllable.isEmpty() || syllable.length > 6 || syllable.any { it !in 'a'..'z' }
+        ) {
+            return@withRimeContext false
+        }
+        filterRimeNineKeyInput(syllable, nineKeyDigits(syllable), expectedInput).also { if (it) emitResponse() }
+    }
+
     override suspend fun setRuntimeOption(
         option: String,
         value: Boolean,
     ): Unit = withRimeContext {
+        if (option == RIME_NO_PERSONALIZED_LEARNING_OPTION) noPersonalizedLearning = value
         setRimeOption(option, if (option == SIMPLIFIED_OPTION) true else value)
     }
 
@@ -432,18 +451,36 @@ class Rime :
         if (!isReady) throw RimeUnavailableException(lastFailure ?: "Rime restart failed")
     }
 
+    private var pendingChineseSchema: String? = null
+    private val chineseSchemaPreference get() = AppPrefs.defaultInstance().internal.chineseKeyboardSchema
+
+    private fun applyPendingChineseSchema() {
+        val target = pendingChineseSchema ?: return
+        if (getRimeRawInput().isNotEmpty()) return
+        pendingChineseSchema = null
+        if (selectRimeSchema(target)) {
+            chineseSchemaPreference.setValue(target)
+            setRimeOption(SIMPLIFIED_OPTION, true)
+            // Underscore options are schema-local in Rime; restore the privacy guard.
+            setRimeOption(RIME_NO_PERSONALIZED_LEARNING_OPTION, noPersonalizedLearning)
+        }
+    }
+
+    private var noPersonalizedLearning = false
+
     private fun enforceSimplifiedSchema() {
+        val target = chineseSchemaPreference.getValue().takeIf { it == NINE_KEY_SCHEMA_ID } ?: DEFAULT_SCHEMA_ID
         val currentSchema = getCurrentRimeSchema()
-        if (currentSchema != DEFAULT_SCHEMA_ID && !selectRimeSchema(DEFAULT_SCHEMA_ID)) {
-            error("Required simplified schema is unavailable: $DEFAULT_SCHEMA_ID")
+        if (currentSchema != target && !selectRimeSchema(target)) {
+            error("Required simplified schema is unavailable: $target")
         }
         setRimeOption(SIMPLIFIED_OPTION, true)
         val status = getRimeStatus()
-        if (status.schemaId != DEFAULT_SCHEMA_ID || !getRimeOption(SIMPLIFIED_OPTION)) {
+        if (status.schemaId != target || !getRimeOption(SIMPLIFIED_OPTION)) {
             error("Failed to activate HaoHao simplified schema")
         }
         statusCached = status
-        schemaCached = RimeSchema(DEFAULT_SCHEMA_ID)
+        schemaCached = RimeSchema(target)
     }
 
     private fun processKeyInner(
@@ -453,12 +490,17 @@ class Rime :
         deferPresentation: Boolean,
     ): Boolean {
         lastAsciiTipsText = asciiTipsText(statusCached)
+        val correction = AppPrefs.defaultInstance().pinyin.smartCorrection.getValue()
+        if (getRimeOption("_haohao_smart_correction") != correction) {
+            setRimeOption("_haohao_smart_correction", correction)
+        }
         val handled = processRimeKey(value, modifiers)
         getRimeStatus().also { status ->
             statusCached = status
             updateSchemaCached(status)
         }
         publishCommit(getRimeCommit())
+        applyPendingChineseSchema()
         if (!deferPresentation) emitPresentation()
         if (!handled) {
             handleRimeMessage(
@@ -479,13 +521,16 @@ class Rime :
     private fun emitResponse(commit: CommitProto? = null) {
         val response = getRimeResponse(pagingMode)
         publishCommit(commit ?: response.commit)
-        publishPresentation(response)
+        val switching = pendingChineseSchema != null && getRimeRawInput().isEmpty()
+        applyPendingChineseSchema()
+        publishPresentation(if (switching) getRimeResponse(pagingMode) else response)
         if (response.composition.length <= 0 && lastAsciiTipsText != asciiTipsText(response.status)) {
             showAsciiSwitchTips(response.status)
         }
     }
 
     private fun emitPresentation() {
+        applyPendingChineseSchema()
         val response = getRimeResponse(pagingMode)
         publishCommit(response.commit)
         publishPresentation(response)
@@ -545,7 +590,7 @@ class Rime :
     private fun handleRimeMessage(it: RimeMessage<*>) {
         when (it) {
             is RimeMessage.SchemaMessage -> {
-                if (it.data.id != DEFAULT_SCHEMA_ID) {
+                if (it.data.id != DEFAULT_SCHEMA_ID && it.data.id != NINE_KEY_SCHEMA_ID) {
                     enforceSimplifiedSchema()
                     return
                 }
@@ -917,6 +962,12 @@ class Rime :
 
         @JvmStatic
         external fun getRimeRawInput(): String
+
+        @JvmStatic
+        external fun getRimeNineKeyInput(): String
+
+        @JvmStatic
+        external fun filterRimeNineKeyInput(syllable: String, digits: String, expectedInput: String): Boolean
 
         @JvmStatic
         external fun getRimeCaretPos(): Int

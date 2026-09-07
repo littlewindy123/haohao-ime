@@ -87,6 +87,8 @@ class RimePrebuiltDataTest :
                     "haohao_pinyin.table.bin",
                     "luna_pinyin_simp.prism.bin",
                     "luna_pinyin_simp.schema.yaml",
+                    "haohao_pinyin_9.prism.bin",
+                    "haohao_pinyin_9.schema.yaml",
                     "stroke.prism.bin",
                     "stroke.reverse.bin",
                     "stroke.schema.yaml",
