@@ -235,7 +235,7 @@ test("installation instructions open from links and direct hash navigation", () 
   assert.equal(page.install.open, true);
 });
 
-test("brand timeline starts after load and leads with the mascot before the copy", () => {
+test("brand timeline starts after load and introduces the product scene before the copy", () => {
   const page = setup({ withGsap: true });
   assert.equal(page.gsapState.timelines.length, 0);
   page.window.emit("load");

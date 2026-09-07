@@ -1,0 +1,9 @@
+{
+  "name": "haohao-website",
+  "private": true,
+  "scripts": {
+    "build:3d": "node bundle-3d.mjs",
+    "test": "node --test *.test.mjs && node check.mjs"
+  },
+  "devDependencies": { "esbuild": "0.28.2", "three": "0.185.1" }
+}

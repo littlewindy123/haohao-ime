@@ -40,7 +40,7 @@ assert.equal(downloads.length, 2, "首屏与下载区各保留一个实际下载
 for (const link of downloads) assert.match(link, /\bdownload\b/);
 assert.ok(html.includes('href="downloads/' + release.filename + '.sha256"'));
 for (const link of links.filter((link) => link.includes('target="_blank"'))) assert.match(link, /rel="noopener noreferrer"/);
-assert.equal(links.filter((link) => link.includes('href="https://github.com/littlewindy123/haohao-ime"')).length, 3, "导航、社区和页脚均可前往实际仓库");
+assert.equal(links.filter((link) => link.includes('href="https://github.com/littlewindy123/haohao-ime"')).length, 4, "首屏、导航、社区和页脚均可前往实际仓库");
 assert.match(html, /class="nav-star"[^>]+aria-label="在 GitHub 给好好输入法点 Star/);
 assert.match(html, /给好好点个 Star/);
 assert.match(html, /前往 GitHub，登录后点右上角 Star/);
@@ -55,34 +55,33 @@ assert.match(script, /visibilitychange/);
 assert.match(script, /prefers-reduced-motion: reduce/);
 assert.match(script, /IntersectionObserver/);
 assert.doesNotMatch(script, /\.innerHTML\s*=|input\.focus\(|setInterval\(/);
-assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
+assert.match(css, /@media\s*\(prefers-reduced-motion:\s*reduce\)/);
 assert.match(css, /scroll-snap-type:\s*x mandatory/);
-assert.match(css, /\.keyboard-crop\s*\{[^}]*aspect-ratio:\s*1\.22 \/ 1/);
+assert.match(css, /\.keyboard-crop\s*\{[^}]*aspect-ratio:\s*1\.22\s*\/\s*1/);
 assert.match(css, /\.keyboard-crop img\s*\{[^}]*object-fit:\s*cover;[^}]*object-position:\s*bottom/);
 assert.doesNotMatch(html, /phone-speaker|roadmap-ledger|\bstyle="|\bon(?:click|load|error)="/, "避免装饰性手机外框、冗余进度表及违反 CSP 的内联代码");
-assert.equal((html.match(/class="feature-card\b/g) || []).length, 3);
-assert.equal((html.match(/<figure\b/g) || []).length, 3);
+assert.equal((html.match(/<figure\b/g) || []).length, 5);
 assert.match(html, /<noscript>/);
 assert.match(html, /<h1>好好输入法<\/h1>/, "首屏必须首先建立品牌识别");
-assert.match(html, /class="hero-logo"[^>]*src="assets\/haohao-golden.png"[^>]*width="432"/);
+assert.match(html, /id="keyboard-scene"/);
+assert.match(html, /class="scene-still"/);
 const hero = html.match(/<section class="hero-scene"[\s\S]*?<\/section>/)?.[0];
 assert.ok(hero);
-assert.doesNotMatch(hero, /Trime|Rime|ARM64|SHA-256|固定签名|Debug|GitHub|scene-index/);
+assert.doesNotMatch(hero, /Trime|Rime|ARM64|SHA-256|固定签名|Debug|scene-index/);
+assert.match(hero, /给好好一个 Star/);
+assert.match(hero, /仅网页演示，不保存数据/);
+assert.equal((hero.match(/data-hero-example=/g) || []).length, 3);
+assert.match(hero, /id="collect-demo"/);
+assert.doesNotMatch(html, /blob\/codex\//);
 assert.doesNotMatch(html, /还在认真打磨中|下一次更新|OPEN SOURCE · GPL-3.0|class="eyebrow"|feature-label/);
 assert.doesNotMatch(html, /[—–]/);
-assert.match(css, /prefers-color-scheme: dark/);
-assert.match(css, /\.shell\s*\{[^}]*width:\s*calc\(100% - var\(--gutter\) \* 2\)/, "宽度随视口展开，不再被 1160px 限制");
+assert.match(css, /prefers-color-scheme:\s*dark/);
+assert.match(css, /\.shell\s*\{[^}]*width:\s*calc\(100% - var\(--gutter\)\s*\*\s*2\)/, "宽度随视口展开，不再被 1160px 限制");
 assert.doesNotMatch(css, /min\(1160px|100vw|backdrop-filter|filter:\s*blur/, "全幅背景不制造横向溢出或昂贵的模糊图层");
 for (const scene of ["hero-scene", "feature-scene", "showcase", "community-scene", "download-section"]) {
   assert.match(html, new RegExp('<section class="' + scene + '"'), "全幅场景外层不能受 shell 限宽");
 }
-assert.match(css, /\.community-inner\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\)/, "社区区域必须在移动端单列");
-for (const viewport of [320, 375, 768, 1024, 1440, 1920, 2560]) {
-  const gutter = viewport <= 420 ? 16 : viewport <= 767 ? 20 : viewport <= 1024 ? 24 : Math.min(88, Math.max(20, viewport * .04));
-  const contentWidth = viewport - 2 * gutter;
-  assert.ok(contentWidth / viewport >= .87, "正文应利用至少 87% 的视口宽度");
-  assert.ok(contentWidth < viewport, "两侧保留安全边距");
-}
+assert.match(css, /@media\s*\(max-width:\s*760px\)/, "提供手机布局");
 assert.match(script, /gsap\.timeline\(/);
 assert.match(script, /context\.revert\(/);
 const golden = await readFile(path.join(root, "assets", "haohao-golden.png"));
@@ -104,7 +103,7 @@ function luminance(hex) {
     .map((value) => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4);
   return channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722;
 }
-for (const [foreground, background] of [["6f5e55", "fffdf8"], ["6f5e55", "dcece2"], ["513a32", "f4bf61"], ["513a32", "e8ac43"], ["6f5e55", "f9e8c9"], ["6f5e55", "e5f0e8"], ["6f5e55", "d2e6d9"], ["6f5e55", "f5ebd9"], ["c8b9aa", "25372e"], ["c8b9aa", "30483b"], ["c8b9aa", "332c23"], ["c8b9aa", "473822"], ["c8b9aa", "2d3c32"], ["f7f4ec", "211d19"]]) {
+for (const [foreground, background] of [["453b32", "faf8f2"], ["706559", "fffdf8"], ["706559", "dce8df"], ["706559", "f1e6cc"], ["443322", "efbc63"], ["453b32", "dce8df"], ["f1eddf", "242821"], ["bfc4b5", "2b3028"], ["f1eddf", "354b3e"]]) {
   assert.ok(css.includes("#" + foreground));
   const values = [luminance(foreground), luminance(background)].sort((a, b) => b - a);
   assert.ok((values[0] + 0.05) / (values[1] + 0.05) >= 4.5, `正文配色对比度不足：#${foreground} / #${background}`);
@@ -118,13 +117,23 @@ for (const asset of new Set([...localAssets, "demo-model.mjs", "release.json"]))
   const info = await stat(path.join(root, asset));
   assert.ok(info.size > 0, "资源为空：" + asset);
 }
-for (const image of ["screenshot-light.png", "screenshot-dark.png", "screenshot-expanded.png"]) {
+for (const image of ["screenshot-light.png", "screenshot-dark.png", "screenshot-expanded.png", "words.png", "review.png"]) {
   const data = await readFile(path.join(root, "assets", image));
   assert.equal(data.subarray(1, 4).toString("ascii"), "PNG");
   assert.equal(data.readUInt32BE(16), 1080);
   assert.equal(data.readUInt32BE(20), 2400);
 }
-const textBytes = gzipSync(Buffer.from(html + css + script + model)).length;
+const controller = await readFile(path.join(root, "hero.js"), "utf8");
+const textBytes = gzipSync(Buffer.from(html + css + script + model + controller)).length;
+const scene = await readFile(path.join(root, "scene.js"), "utf8");
+const sceneBundle = await readFile(path.join(root, "vendor/scene-3d.min.js"));
+const sceneHash = (await readFile(path.join(root, "vendor/scene-3d.sha256"), "utf8")).trim();
+assert.equal(createHash("sha256").update(sceneBundle).digest("hex"), sceneHash, "3D 产物哈希必须一致");
+assert.ok(gzipSync(sceneBundle).length <= 250 * 1024, "3D gzip 不得超过 250 KB");
+assert.ok((await stat(path.join(root, "assets/keyboard-still.webp"))).size <= 200 * 1024, "静态首图不得超过 200 KB");
+for (const requirement of [/prefers-reduced-motion/, /saveData/, /document.hidden/, /catch/, /import\("\.\/vendor/]) assert.match(controller, requirement);
+for (const requirement of [/IntersectionObserver/, /visibilitychange/, /cancelAnimationFrame/, /dispose\(/, /webglcontextlost/]) assert.match(scene, requirement);
+assert.doesNotMatch(controller + scene + script, /localStorage|sessionStorage|indexedDB|fetch\(|XMLHttpRequest|setInterval\(|addEventListener\("wheel"/, "演示不保存数据、不请求云端、不接管滚轮");
 assert.ok(textBytes < 18 * 1024, "首屏文本压缩预算超限");
 assert.ok(textBytes + gzipSync(vendor).length < 50 * 1024, "含动画库的文本压缩预算超限");
 console.log("网站检查通过：品牌一致、下载、隐私文案、资源、无障碍与动效降级；文本 gzip " + textBytes + " bytes；含 GSAP " + (textBytes + gzipSync(vendor).length) + " bytes");

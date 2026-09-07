@@ -35,20 +35,33 @@ assert.match(main, importLine);
 main = model + "\n" + main.replace(importLine, "");
 assert.doesNotMatch(main, /^import |^export /m, "Static production bundle must not need module fetches");
 const css = await readFile(path.join(root, "styles.css"), "utf8");
+const scene = await readFile(path.join(root, "vendor/scene-3d.min.js"));
+let hero = await readFile(path.join(root, "hero.js"), "utf8");
+assert.match(hero, importLine);
+hero = model + "\n" + hero.replace(importLine, "");
+hero = hero.replace('./vendor/scene-3d.min.js', './vendor/scene-3d.min.js?v=' + digest(scene).slice(0, 12));
 let html = await readFile(path.join(root, "index.html"), "utf8");
 html = html.replace(/main\.js\?v=[^"\s]+/, "main.js?v=" + digest(main).slice(0, 12));
+html = html.replace(/hero\.js\?v=[^"\s]+/, "hero.js?v=" + digest(hero).slice(0, 12));
 html = html.replace(/styles\.css\?v=[^"\s]+/, "styles.css?v=" + digest(css).slice(0, 12));
 html = html.replaceAll('loading="lazy"', 'loading="lazy" decoding="async"');
 const files = new Map([
   ["index.html", Buffer.from(html)],
   ["styles.css", Buffer.from(css)],
   ["main.js", Buffer.from(main)],
+  ["hero.js", Buffer.from(hero)],
+  ["vendor/scene-3d.min.js", scene],
   ["release.json", Buffer.from(JSON.stringify(release, null, 2) + "\n")],
 ]);
-for (const name of ["haohao-icon.png", "haohao-golden.png", "og.png", "screenshot-light.png", "screenshot-dark.png", "screenshot-expanded.png"]) {
+for (const name of ["haohao-icon.png", "haohao-golden.png", "og.png", "screenshot-light.png", "screenshot-dark.png", "screenshot-expanded.png", "keyboard-still.webp", "words.png", "review.png"]) {
   files.set("assets/" + name, await readFile(path.join(root, "assets", name)));
 }
 files.set("vendor/gsap-3.15.0.min.js", await readFile(path.join(root, "vendor", "gsap-3.15.0.min.js")));
+files.set("vendor/three-LICENSE.txt", await readFile(path.join(root, "vendor/three-LICENSE.txt")));
+// Every image URL is content-addressed, including the preloaded fallback image.
+html = html.replace(/((?:src|href)="|content=")(assets\/[^"?]+)(?:\?[^"\s]*)?"/g, (tag, prefix, name) =>
+  files.has(name) ? prefix + name + '?v=' + digest(files.get(name)).slice(0, 12) + '"' : tag);
+files.set("index.html", Buffer.from(html));
 files.set("downloads/" + release.filename, apk);
 files.set("downloads/" + release.filename + ".sha256", Buffer.from(release.sha256 + "  " + release.filename + "\n"));
 for (const [name, bytes] of files) {

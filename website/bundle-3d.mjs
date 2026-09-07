@@ -1,0 +1,12 @@
+import { build } from "esbuild";
+import { readFile, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { gzipSync } from "node:zlib";
+import { fileURLToPath } from "node:url";
+const root = new URL("./", import.meta.url);
+await build({ entryPoints: [fileURLToPath(new URL("scene.js", root))], bundle: true, format: "esm", minify: true, target: "es2020", legalComments: "eof", outfile: fileURLToPath(new URL("vendor/scene-3d.min.js", root)) });
+const bytes = await readFile(new URL("vendor/scene-3d.min.js", root));
+if (gzipSync(bytes).length > 250 * 1024) throw new Error("3D module exceeds 250 KiB gzip budget");
+await writeFile(new URL("vendor/scene-3d.sha256", root), createHash("sha256").update(bytes).digest("hex") + "\n");
+await writeFile(new URL("vendor/three-LICENSE.txt", root), await readFile(new URL("node_modules/three/LICENSE", root)));
+console.log(`Self-hosted 3D module: ${gzipSync(bytes).length} bytes gzip`);

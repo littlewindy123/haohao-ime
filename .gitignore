@@ -485,6 +485,7 @@ app/src/main/jni/boost/
 
 # Local browser snapshots and on-device system traces
 /.playwright-mcp/
+/website/node_modules/
 /design-demos/haohao-learning/measurements/*.perfetto-trace
 
 # Translation gateway secrets and runtime state
