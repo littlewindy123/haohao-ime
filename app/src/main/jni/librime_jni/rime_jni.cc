@@ -1,10 +1,12 @@
 // SPDX-FileCopyrightText: 2015 - 2024 Rime community
+// SPDX-FileCopyrightText: 2026 HaoHao IME contributors
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include <rime/component.h>
 #include <rime/context.h>
 #include <rime/dict/corrector.h>
+#include <rime/dict/dictionary.h>
 #include <rime/engine.h>
 #include <rime/gear/poet.h>
 #include <rime/gear/script_translator.h>
@@ -13,10 +15,13 @@
 #include <rime/service.h>
 #include <rime_api.h>
 
+#include <algorithm>
 #include <cstdlib>
 #include <memory>
 #include <set>
 #include <string>
+#include <tuple>
+#include <unordered_map>
 #include <vector>
 
 #include "frontend.h"
@@ -46,6 +51,7 @@ class NineKeyTranslation final : public rime::Translation {
     return next;
   }
   rime::an<rime::Candidate> Peek() override {
+    if (source_->exhausted()) return nullptr;
     auto candidate = source_->Peek();
     if (auto phrase = std::dynamic_pointer_cast<rime::Phrase>(candidate)) {
       const auto spelling = translator_->Spell(phrase->code());
@@ -133,27 +139,258 @@ class HaoHaoCorrector final : public rime::Corrector {
   bool nine_key_;
 };
 
+// A correction is decoded separately, never written back into Context::input.
+// Map its native syllable/word spans back to the original keystrokes so that
+// selecting, learning and backspacing keep using the real composition offsets.
+class CorrectionSpans final : public rime::PhraseSyllabifier {
+ public:
+  explicit CorrectionSpans(rime::Spans spans) : spans_(std::move(spans)) {}
+  rime::Spans Syllabify(const rime::Phrase *) override { return spans_; }
+
+ private:
+  rime::Spans spans_;
+};
+
+class SentenceSpellings {
+ public:
+  struct Variant {
+    std::string text;
+    size_t edit;
+    int priority;
+    int syllables;
+  };
+  explicit SentenceSpellings(rime::Prism &prism) : prism_(prism) {}
+
+  std::vector<Variant> Search(const std::string &input, size_t suspect) {
+    std::vector<Variant> variants;
+    std::set<std::string> seen;
+    auto add = [&](std::string text, size_t edit, int priority) {
+      if (text == input || !seen.insert(text).second) return;
+      const int count = Syllables(text);
+      if (count < kInvalid)
+        variants.push_back({std::move(text), edit, priority, count});
+    };
+    // The first disagreement with the original phrase localizes the ambiguous
+    // syllable. Don't explore unrelated edits throughout a long sentence.
+    const size_t begin = suspect > 6 ? suspect - 6 : 0;
+    const size_t end = std::min(input.size(), suspect + 6);
+    for (size_t i = begin; i < end; ++i) {
+      auto text = input;
+      text.erase(i, 1);
+      const bool repeated = (i && input[i - 1] == input[i]) ||
+                            (i + 1 < input.size() && input[i + 1] == input[i]);
+      add(text, i, repeated ? 0 : 3);
+      if (i + 1 < input.size()) {
+        text = input;
+        std::swap(text[i], text[i + 1]);
+        add(text, i, 1);
+      }
+      for (char c = 'a'; c <= 'z'; ++c) {
+        if (!Adjacent(input[i], c)) continue;
+        text = input;
+        text[i] = c;
+        add(text, i, 2);
+      }
+    }
+    for (size_t i = begin; i <= end; ++i) {
+      for (char c = 'a'; c <= 'z'; ++c) {
+        auto text = input;
+        text.insert(i, 1, c);
+        add(text, i, 3);
+      }
+    }
+    std::stable_sort(
+        variants.begin(), variants.end(), [](const auto &a, const auto &b) {
+          return std::tie(a.syllables, a.priority, a.edit, a.text) <
+                 std::tie(b.syllables, b.priority, b.edit, b.text);
+        });
+    if (variants.size() > 4) variants.resize(4);
+    return variants;
+  }
+
+ private:
+  static constexpr int kInvalid = 1000;
+  rime::Prism &prism_;
+  std::unordered_map<std::string, int> memo_;
+
+  int Syllables(const std::string &input) {
+    if (input.empty()) return 0;
+    if (const auto it = memo_.find(input); it != memo_.end()) return it->second;
+    if (memo_.size() >= 16000) return kInvalid;
+    int best = kInvalid;
+    std::vector<rime::Prism::Match> matches;
+    prism_.CommonPrefixSearch(input, &matches);
+    for (const auto &match : matches) {
+      if (!match.length || match.length > 6) continue;
+      bool normal = false;
+      for (auto spelling = prism_.QuerySpelling(match.value);
+           !spelling.exhausted(); spelling.Next()) {
+        if (spelling.properties().type == rime::kNormalSpelling) {
+          normal = true;
+          break;
+        }
+      }
+      if (normal)
+        best = std::min(best, 1 + Syllables(input.substr(match.length)));
+    }
+    memo_.emplace(input, best);
+    return best;
+  }
+
+  static bool Adjacent(char a, char b) {
+    if (a == b) return false;
+    const std::string rows[] = {"qwertyuiop", "asdfghjkl", "zxcvbnm"};
+    const int offsets[] = {0, 1, 3};
+    int ax = 0, ay = 0, bx = 0, by = 0;
+    for (int row = 0; row < 3; ++row) {
+      auto pos = rows[row].find(a);
+      if (pos != std::string::npos) {
+        ax = 4 * pos + offsets[row];
+        ay = row;
+      }
+      pos = rows[row].find(b);
+      if (pos != std::string::npos) {
+        bx = 4 * pos + offsets[row];
+        by = row;
+      }
+    }
+    return std::abs(ay - by) <= 1 && std::abs(ax - bx) <= 4;
+  }
+};
+
 class HaoHaoScriptTranslator final : public rime::ScriptTranslator {
  public:
   using ScriptTranslator::ScriptTranslator;
+
+  std::string FullSpelling(const rime::an<rime::Candidate> &candidate) {
+    auto phrase = std::dynamic_pointer_cast<rime::Phrase>(
+        rime::Candidate::GetGenuineCandidate(candidate));
+    if (!phrase) return {};
+    auto spelling = Spell(phrase->code());
+    spelling.erase(std::remove(spelling.begin(), spelling.end(), '\''),
+                   spelling.end());
+    spelling.erase(std::remove(spelling.begin(), spelling.end(), ' '),
+                   spelling.end());
+    return spelling;
+  }
+
+  rime::an<rime::Phrase> MapCorrection(
+      const rime::an<rime::Phrase> &original,
+      const SentenceSpellings::Variant &variant, const std::string &input,
+      const rime::Segment &segment) {
+    auto position = [&](size_t pos) {
+      const size_t local = pos - segment.start;
+      if (local == variant.text.size()) return segment.end;
+      if (local <= variant.edit) return pos;
+      if (variant.text.size() > input.size()) return pos - 1;
+      if (variant.text.size() < input.size()) return pos + 1;
+      return pos;
+    };
+    rime::Spans spans;
+    const auto old_spans = original->spans();
+    for (size_t pos = original->start(); pos <= original->end(); ++pos)
+      if (old_spans.HasVertex(pos)) spans.AddVertex(position(pos));
+    rime::an<rime::Phrase> mapped;
+    if (auto sentence = std::dynamic_pointer_cast<rime::Sentence>(original)) {
+      auto copy = std::make_shared<rime::Sentence>(sentence->language());
+      size_t end = segment.start;
+      for (size_t i = 0; i < sentence->components().size(); ++i) {
+        end += sentence->word_lengths()[i];
+        copy->Extend(sentence->components()[i], position(end) - segment.start,
+                     sentence->weight());
+      }
+      copy->Offset(segment.start);
+      mapped = copy;
+    } else {
+      mapped = std::make_shared<rime::Phrase>(
+          original->language(), original->type(), segment.start, segment.end,
+          std::make_shared<rime::DictEntry>(original->entry()));
+    }
+    mapped->set_syllabifier(std::make_shared<CorrectionSpans>(spans));
+    mapped->set_quality(original->quality());
+    mapped->set_preedit(input);
+    return mapped;
+  }
+
+  rime::an<rime::Translation> SentenceCorrections(
+      const std::string &input, const rime::Segment &segment,
+      rime::an<rime::Translation> source) {
+    if (!source || source->exhausted() || !source->Peek() || !dict_ ||
+        !dict_->prism())
+      return source;
+    auto leader = source->Peek();
+    const auto spelling = FullSpelling(leader);
+    // Preserve exact input and explicit abbreviation/proper-name choices.
+    // Only fallback decodings with a spelling mismatch enter this path.
+    if (spelling.empty() || (leader->end() == segment.end &&
+                             spelling.compare(0, input.size(), input) == 0))
+      return source;
+    size_t suspect = 0;
+    while (suspect < input.size() && suspect < spelling.size() &&
+           input[suspect] == spelling[suspect])
+      ++suspect;
+    const auto variants =
+        SentenceSpellings(*dict_->prism()).Search(input, suspect);
+    std::vector<rime::an<rime::Phrase>> corrections;
+    std::set<std::string> seen;
+    for (const auto &variant : variants) {
+      auto target = segment;
+      target.end = segment.start + variant.text.size();
+      auto result = ScriptTranslator::Query(variant.text, target);
+      if (!result || result->exhausted()) continue;
+      const auto candidate = result->Peek();
+      // No completions, abbreviated paths or cascaded edits in the result.
+      if (!candidate || candidate->end() != target.end ||
+          FullSpelling(candidate) != variant.text ||
+          candidate->text() == leader->text())
+        continue;
+      auto phrase = std::dynamic_pointer_cast<rime::Phrase>(
+          rime::Candidate::GetGenuineCandidate(candidate));
+      if (phrase && seen.insert(phrase->text()).second)
+        corrections.push_back(MapCorrection(phrase, variant, input, segment));
+    }
+    if (corrections.empty()) return source;
+    // Word/sentence frequency from the existing local dictionary breaks ties;
+    // this is not a semantic language model and never uses the network.
+    std::stable_sort(
+        corrections.begin(), corrections.end(),
+        [](const auto &a, const auto &b) { return a->weight() > b->weight(); });
+    auto prefix = std::make_shared<rime::FifoTranslation>();
+    // Keep one useful correction, not a row of speculative sentences.
+    prefix->Append(corrections.front());
+    auto combined = std::make_shared<rime::UnionTranslation>();
+    *combined += prefix;
+    *combined += source;
+    return combined;
+  }
 
   rime::an<rime::Translation> Query(const std::string &input,
                                     const rime::Segment &segment) override {
     const bool nine = engine_->schema()->schema_id() == "haohao_pinyin_9";
     const bool correct =
         engine_->context()->get_option("_haohao_smart_correction") &&
-        input.size() >= 4 && input.size() <= 32 &&
+        input.size() >= 4 && input.size() <= (nine ? 32 : 96) &&
+        (nine || input.find_first_not_of("abcdefghijklmnopqrstuvwxyz") ==
+                     std::string::npos) &&
         engine_->context()->caret_pos() == engine_->context()->input().size();
     enable_correction_ = false;
     corrector_.reset();
     auto source = ScriptTranslator::Query(input, segment);
+    const bool short_exact = !nine && correct && input.size() <= 7 && source &&
+                             !source->exhausted() && source->Peek() &&
+                             FullSpelling(source->Peek()) == input;
+    if (correct && !nine && !short_exact)
+      return SentenceCorrections(input, segment, source);
     if (correct) {
       auto prefix = std::make_shared<rime::FifoTranslation>();
       std::set<std::string> seen;
       // Preserve the existing leaders even when an unrelated frequent word has
       // a high correction score. Native Phrase objects retain commit/learning
       // semantics.
-      for (int i = 0; i < 4 && source && !source->exhausted(); ++i) {
+      // Simplification/deduplication can merge several native candidates into
+      // one visible item. Keep a wider original window for exact short input.
+      const int preserve = short_exact && !nine ? 16 : 4;
+      for (int i = 0; i < preserve && source && !source->exhausted(); ++i) {
         auto candidate = source->Peek();
         if (!candidate) break;
         seen.insert(candidate->text());

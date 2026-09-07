@@ -34,6 +34,13 @@ val publicDistribution =
 // Internal APKs may contain disposable test credentials, but must never enter public distribution.
 val internalTestDistribution =
     providers.gradleProperty("internalTestDistribution").orElse("false").get().toBooleanStrict()
+// Local-only upgrades for devices still on the original September test identity.
+// Never relax the current public channel's pinned certificate.
+val legacyInternalSigning =
+    providers.gradleProperty("legacyInternalSigning").orElse("false").get().toBooleanStrict()
+require(!legacyInternalSigning || (internalTestDistribution && !publicDistribution)) {
+    "Legacy signing is restricted to private internal upgrades"
+}
 require(!(publicDistribution && internalTestDistribution)) { "Choose public OR internal test distribution" }
 require(!internalTestDistribution || embedInternalCloudSecrets) { "Internal test distribution requires explicit cloud embedding" }
 require(!embedInternalCloudSecrets || internalTestDistribution) { "Embedded credentials are restricted to internal test distribution" }
@@ -63,7 +70,14 @@ if (fixedSigningDistribution) {
     }
     val fingerprint = MessageDigest.getInstance("SHA-256").digest(certificate.encoded)
         .joinToString("") { "%02x".format(it) }
-    require(fingerprint == publicSigningPolicy.getProperty("certificateSha256")) {
+    val expectedFingerprint = if (legacyInternalSigning) {
+        requireNotNull(publicSigningPolicy.getProperty("certificateSha256.20260921")) {
+            "The historical internal signing identity is not pinned"
+        }
+    } else {
+        publicSigningPolicy.getProperty("certificateSha256")
+    }
+    require(fingerprint == expectedFingerprint) {
         "Public signing certificate changed; refusing to produce an incompatible update. Restore the fixed key."
     }
     require(keyStore.getKey(publicKeyAlias, publicKeyPassword.toCharArray()) is PrivateKey) {
@@ -131,7 +145,7 @@ android {
         applicationId = "com.osfans.trime"
         minSdk = 21
         targetSdk = 36
-        versionCode = 20260923
+        versionCode = 20260924
         versionName = "3.3.12"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 

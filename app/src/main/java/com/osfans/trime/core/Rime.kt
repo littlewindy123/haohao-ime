@@ -692,7 +692,9 @@ class Rime :
         messageFlow_.tryEmit(RimeMessage.CompositionMessage(tips))
         compositionCached = tips
         asciiSwitchTipsJob?.cancel()
-        asciiSwitchTipsJob = lifecycleScope.launch {
+        // Building native candidates is not thread-safe, even for a read. The
+        // delayed refresh must resume on the same engine queue as typing.
+        asciiSwitchTipsJob = lifecycleScope.launch(dispatcher) {
             delay(1000L)
             val ctx = getRimeContext()
             handleRimeMessage(6, arrayOf(ctx.composition))
