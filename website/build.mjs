@@ -6,6 +6,8 @@ import { fileURLToPath } from "node:url";
 import { gzipSync } from "node:zlib";
 import "./check.mjs";
 import { verifyPublicApk } from "./verify-apk.mjs";
+import { build } from 'esbuild';
+import { SKINS } from './skins.mjs';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
@@ -34,15 +36,24 @@ const importLine = /^import \{[^\n]+\} from "\.\/demo-model\.mjs";\r?\n/;
 assert.match(main, importLine);
 main = model + "\n" + main.replace(importLine, "");
 assert.doesNotMatch(main, /^import |^export /m, "Static production bundle must not need module fetches");
-const css = await readFile(path.join(root, "styles.css"), "utf8");
+let css = await readFile(path.join(root, "styles.css"), "utf8");
 const scene = await readFile(path.join(root, "vendor/scene-3d.min.js"));
-let hero = await readFile(path.join(root, "hero.js"), "utf8");
-assert.match(hero, importLine);
-hero = model + "\n" + hero.replace(importLine, "");
-hero = hero.replace('./vendor/scene-3d.min.js', './vendor/scene-3d.min.js?v=' + digest(scene).slice(0, 12));
+async function bundle(name) {
+  const result = await build({ entryPoints:[path.join(root,name)], bundle:true, write:false, format:'esm', minify:true, external:['./vendor/*'] });
+  return result.outputFiles[0].text.replace(/\.\/vendor\/scene-3d\.min\.js(?:\?v=[^'"\s]+)?/g, './vendor/scene-3d.min.js?v=' + digest(scene).slice(0,12));
+}
+let [hero, showroom, media] = await Promise.all(['hero.js','showroom.js','media.js'].map(bundle));
+const artFiles = new Map();
+for (const skin of Object.values(SKINS).filter(s => s.atlas)) {
+  const bytes = await readFile(path.join(root,'assets',skin.atlas)); artFiles.set('assets/'+skin.atlas,bytes);
+  const versioned = skin.atlas + '?v=' + digest(bytes).slice(0,12);
+  css = css.replaceAll(skin.atlas,versioned); showroom = showroom.replaceAll(skin.atlas,versioned);
+}
 let html = await readFile(path.join(root, "index.html"), "utf8");
 html = html.replace(/main\.js\?v=[^"\s]+/, "main.js?v=" + digest(main).slice(0, 12));
 html = html.replace(/hero\.js\?v=[^"\s]+/, "hero.js?v=" + digest(hero).slice(0, 12));
+html = html.replace(/showroom\.js\?v=[^"\s]+/, "showroom.js?v=" + digest(showroom).slice(0, 12));
+html = html.replace(/media\.js\?v=[^"\s]+/, "media.js?v=" + digest(media).slice(0, 12));
 html = html.replace(/styles\.css\?v=[^"\s]+/, "styles.css?v=" + digest(css).slice(0, 12));
 html = html.replaceAll('loading="lazy"', 'loading="lazy" decoding="async"');
 const files = new Map([
@@ -50,16 +61,22 @@ const files = new Map([
   ["styles.css", Buffer.from(css)],
   ["main.js", Buffer.from(main)],
   ["hero.js", Buffer.from(hero)],
+  ["showroom.js", Buffer.from(showroom)],
+  ["media.js", Buffer.from(media)],
   ["vendor/scene-3d.min.js", scene],
   ["release.json", Buffer.from(JSON.stringify(release, null, 2) + "\n")],
 ]);
-for (const name of ["haohao-icon.png", "haohao-golden.png", "og.png", "screenshot-light.png", "screenshot-dark.png", "screenshot-expanded.png", "keyboard-still.webp", "words.png", "review.png"]) {
+for (const name of ["haohao-icon.png", "haohao-golden.png", "og.png", "words.png", "review.png"]) {
   files.set("assets/" + name, await readFile(path.join(root, "assets", name)));
 }
 files.set("vendor/gsap-3.15.0.min.js", await readFile(path.join(root, "vendor", "gsap-3.15.0.min.js")));
+for (const [name,bytes] of artFiles) files.set(name,bytes);
+for (const kind of ['sentence','cards']) for (const ext of ['mp4','webm','webp']) {
+  const name = `assets/demo-${kind}.${ext}`; files.set(name,await readFile(path.join(root,name)));
+}
 files.set("vendor/three-LICENSE.txt", await readFile(path.join(root, "vendor/three-LICENSE.txt")));
 // Every image URL is content-addressed, including the preloaded fallback image.
-html = html.replace(/((?:src|href)="|content=")(assets\/[^"?]+)(?:\?[^"\s]*)?"/g, (tag, prefix, name) =>
+html = html.replace(/((?:data-src|src|href|poster|content)=")(assets\/[^"?]+)(?:\?[^"\s]*)?"/g, (tag, prefix, name) =>
   files.has(name) ? prefix + name + '?v=' + digest(files.get(name)).slice(0, 12) + '"' : tag);
 files.set("index.html", Buffer.from(html));
 files.set("downloads/" + release.filename, apk);

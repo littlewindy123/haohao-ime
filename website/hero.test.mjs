@@ -1,78 +1,34 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import {readFile} from 'node:fs/promises';
 import test from 'node:test';
 import vm from 'node:vm';
-import * as model from './demo-model.mjs';
-
-const source = (await readFile(new URL('./hero.js', import.meta.url), 'utf8'))
-  .replace(/^import[^\n]+\n/, '')
-  .replace('import("./vendor/scene-3d.min.js")', 'loadModule()');
-class Element {
-  constructor() {
-    this.events = {}; this.attributes = {}; this.dataset = {}; this.disabled = false;
-    const names = new Set();
-    this.classList = { add: n => names.add(n), remove: n => names.delete(n), contains: n => names.has(n), toggle: (n, state) => state ? names.add(n) : names.delete(n) };
-  }
-  addEventListener(name, fn) { (this.events[name] ??= []).push(fn); }
-  emit(name) { this.events[name]?.forEach(fn => fn()); }
-  setAttribute(name, value) { this.attributes[name] = value; }
-  querySelector() { return undefined; }
+import {KEY_ROWS,GREETING,greetingEvents} from './keyboard-model.mjs';
+import {Element,tick} from './test-dom.mjs';
+const source=(await readFile(new URL('./hero.js',import.meta.url),'utf8')).replace(/^import[^\n]+\n/,'').replace(/import\("\.\/vendor\/scene-3d\.min\.js[^"\n]*"\)/,'loadModule()');
+async function setup({reduced=false,saveData=false,fail=false}={}){
+ const elements=Object.fromEntries(['keyboard-scene','hero-greeting','hero-pause'].map(id=>[id,new Element()]));
+ const document=new Element(),window=new Element(),motion=new Element();motion.matches=reduced;document.hidden=false;document.querySelector=s=>elements[s.slice(1)];
+ const timelines=[],presses=[];let intersect,imports=0,disposed=0;
+ window.gsap={timeline(options){const t={options,calls:[],active:false,killed:false,call(fn,args,time){this.calls.push({fn,time});return this;},to(){return this;},play(){this.active=true;},pause(){this.active=false;},kill(){this.killed=true;this.active=false;}};timelines.push(t);return t;}};
+ vm.runInNewContext(source,{document,window,matchMedia:()=>motion,navigator:{connection:{saveData}},greetingEvents,mountKeyboard:()=>({press:k=>presses.push(k)}),IntersectionObserver:class{constructor(fn){intersect=fn;}observe(){}disconnect(){}},loadModule:async()=>{imports++;if(fail)throw Error('WebGL unavailable');return{createKeyboardScene(host,opts){assert.equal(opts.interactive,false);opts.onReady();return{press:k=>presses.push(k),dispose(){disposed++;}};}};}});await tick();
+ return{elements,document,window,motion,timelines,presses,imports:()=>imports,disposed:()=>disposed,intersect:v=>intersect([{isIntersecting:v}])};
 }
-async function setup({ reduced = false, saveData = false, fail = false } = {}) {
-  const ids = ['keyboard-scene', 'hero-study', 'hero-chinese', 'hero-english', 'collect-demo', 'saved-word', 'hero-status'];
-  const elements = Object.fromEntries(ids.map(id => [id, new Element()]));
-  elements['hero-chinese'].textContent = '你好'; elements['hero-english'].textContent = 'hello';
-  const choices = ['nihao', 'xuexi', 'zhongwen'].map(value => { const el = new Element(); el.dataset.heroExample = value; return el; });
-  const document = new Element(), window = new Element(), motion = new Element();
-  document.hidden = false; motion.matches = reduced;
-  document.querySelector = selector => elements[selector.slice(1)]; document.querySelectorAll = () => choices;
-  const timers = new Map(), presses = []; let serial = 0, imports = 0, callbacks, disposed = 0;
-  vm.runInNewContext(source, {
-    ...model, document, window, matchMedia: () => motion, navigator: { connection: { saveData } },
-    setTimeout: fn => { timers.set(++serial, fn); return serial; }, clearTimeout: id => timers.delete(id),
-    loadModule: async () => { imports++; if (fail) throw new Error('offline'); return { createKeyboardScene(host, opts) { callbacks = opts; opts.onReady(); return { press: value => presses.push(value), collect() {}, dispose() { disposed++; } }; } }; },
-  });
-  await new Promise(resolve => setImmediate(resolve));
-  return { elements, choices, document, motion, timers, presses, callbacks, imports: () => imports, disposed: () => disposed,
-    flush() { const pending = [...timers.values()]; timers.clear(); pending.forEach(fn => fn()); } };
-}
-test('canvas callbacks preserve the actually hit key instead of pressing the example initial again', async () => {
-  const app = await setup();
-  app.callbacks.onKey('Q');
-  assert.deepEqual(app.presses, []);
-  app.choices[1].emit('click');
-  assert.deepEqual(app.presses, ['x']);
+test('complete 26-key board, exact greeting, corresponding keys and phrase holds',()=>{
+ const keys=KEY_ROWS.flat().map(k=>k.id);assert.equal(keys.filter(k=>/^[A-Z]$/.test(k)).length,26);assert.equal(new Set(keys).size,keys.length);for(const k of ['SPACE','ENTER','BACKSPACE','LANG'])assert.ok(keys.includes(k));
+ const phrases=GREETING.map(s=>s.map(c=>c[0]).join(''));assert.deepEqual(phrases,['你好','欢迎你来看我的作品','跪求star支持']);const seq=greetingEvents();let last=-1;
+ for(const e of seq.events){assert.ok(e.time>=last);last=e.time;if(e.key)assert.ok(keys.includes(e.key));}
+ for(const [i,text] of phrases.entries()){const j=seq.events.findIndex(e=>e.text===text);assert.ok(seq.events[j+1].time-seq.events[j].time>=(i===2?3:1.5));}
 });
-test('rapid example changes cancel stale reveal, and collection resets for the next word', async () => {
-  const app = await setup();
-  app.choices[1].emit('click'); app.choices[2].emit('click');
-  assert.equal(app.timers.size, 1); app.flush();
-  assert.equal(app.elements['hero-english'].textContent, 'Chinese');
-  app.elements['collect-demo'].emit('click');
-  assert.equal(app.elements['saved-word'].textContent, '中文 · Chinese');
-  assert.equal(app.elements['collect-demo'].disabled, true);
-  app.choices[0].emit('click'); app.flush();
-  assert.equal(app.elements['saved-word'].textContent, '我的词本');
-  assert.equal(app.elements['collect-demo'].disabled, false);
+test('automatic timeline drives physical keys and clears for next loop',async()=>{
+ const a=await setup(),t=a.timelines[0];assert.equal(t.options.repeat,-1);assert.ok(t.active);t.calls.forEach(c=>c.fn());assert.ok(a.presses.includes('N'));assert.equal(a.elements['hero-greeting'].textContent,'');assert.equal(a.presses.filter(k=>k==='ENTER').length,3);
 });
-test('reduced motion and save data skip the module while examples still work', async () => {
-  for (const config of [{ reduced: true }, { saveData: true }]) {
-    const app = await setup(config); assert.equal(app.imports(), 0);
-    app.choices[1].emit('click'); app.flush();
-    assert.equal(app.elements['hero-english'].textContent, 'study');
-  }
+test('manual pause survives visibility changes; background and offscreen pause',async()=>{
+ const a=await setup(),t=a.timelines[0];a.elements['hero-pause'].emit('click');assert.ok(!t.active);a.intersect(false);a.intersect(true);assert.ok(!t.active);a.elements['hero-pause'].emit('click');assert.ok(t.active);a.document.hidden=true;a.document.emit('visibilitychange');assert.ok(!t.active);a.document.hidden=false;a.document.emit('visibilitychange');assert.ok(t.active);a.intersect(false);assert.ok(!t.active);
 });
-test('module failure leaves the static view and usable collection', async () => {
-  const app = await setup({ fail: true });
-  assert.equal(app.elements['keyboard-scene'].classList.contains('is-ready'), false);
-  app.choices[1].emit('click'); app.flush(); app.elements['collect-demo'].emit('click');
-  assert.equal(app.elements['saved-word'].textContent, '学习 · study');
+test('reduced motion/save-data stay static; WebGL failure retains working fallback',async()=>{
+ for(const options of [{reduced:true},{saveData:true}]){const a=await setup(options);assert.equal(a.imports(),0);assert.equal(a.timelines.length,0);assert.match(a.elements['hero-greeting'].textContent,/你好.*欢迎你来看我的作品.*跪求star支持/);assert.ok(a.elements['hero-pause'].hidden);}
+ const a=await setup({fail:true});assert.ok(!a.elements['keyboard-scene'].classList.contains('is-ready'));a.timelines[0].calls.forEach(c=>c.fn());assert.ok(a.presses.length>0);
 });
-test('hidden pages cancel pending reveal and reduced motion disposes the live scene', async () => {
-  const app = await setup(); app.choices[1].emit('click');
-  app.document.hidden = true; app.document.emit('visibilitychange');
-  assert.equal(app.timers.size, 0); assert.equal(app.elements['collect-demo'].disabled, false);
-  app.motion.matches = true; app.motion.emit('change');
-  assert.equal(app.disposed(), 1);
-  assert.equal(app.elements['keyboard-scene'].classList.contains('is-ready'), false);
+test('restoration and motion changes release scenes and never duplicate loops',async()=>{
+ const a=await setup();a.window.emit('pagehide');assert.ok(a.timelines.every(t=>t.killed));a.window.emit('pageshow');await tick();assert.equal(a.timelines.filter(t=>!t.killed).length,1);a.motion.matches=true;a.motion.emit('change');assert.ok(a.timelines.every(t=>t.killed));a.motion.matches=false;a.motion.emit('change');await tick();assert.equal(a.timelines.filter(t=>!t.killed).length,1);assert.ok(a.disposed()>=2);
 });
