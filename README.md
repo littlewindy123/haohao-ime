@@ -5,42 +5,83 @@ SPDX-FileCopyrightText: 2026 HaoHao IME contributors
 SPDX-License-Identifier: GPL-3.0-or-later
 -->
 
-<img src="app/src/main/res/mipmap-xxxhdpi/ic_app_icon.png" alt="好好输入法图标" width="112" />
+<p align="center">
+  <img src="website/assets/haohao-golden.png" alt="好好输入法的金毛小狗" width="112" />
+</p>
 
 # 好好输入法（HaoHao IME）
 
-面向中文用户的 Android 双语输入法实验项目。
+**中文输入，英文一起懂。**
+
+一款把中文输入与英语学习放在一起的 Android 输入法。打字时看看英文，遇到想学的词就收藏，有空再回来复习。
+
+[看看演示与下载](http://124.221.187.214/) · [反馈体验](https://github.com/littlewindy123/haohao-ime/issues) · [隐私说明](PRIVACY.md)
+
+## 让英语，从你每天想说的话开始
+
+我们每天都在用中文聊天、搜索、记事情。这些熟悉的表达，如果也能顺手看见英文，会不会让英语离生活更近一点？
+
+好好输入法想做的，就是把这样的机会放进键盘里。先把中文打好，再让你在需要的时候看懂英文、留下想学的词，慢慢积累属于自己的词本。
+
+## 你可以用它做什么
+
+| 日常的小需求 | 好好输入法怎么帮你 |
+| --- | --- |
+| 这个中文，英文怎么说？ | 输入中文时，在候选旁查看已收录的英文释义，也可开启音标。常用词释义可以离线查看。 |
+| 想把一句话表达成英文 | 配置并主动开启云翻译后，在键盘里查看整句翻译；需要发送时，由你选择上屏。 |
+| 这个词，我想留下来 | 在「我的单词」回看符合记录条件的输入词，收藏感兴趣的表达，确认释义后加入学习。 |
+| 有几分钟，想复习一下 | 打开轻复习或每日计划，回想词义、查看答案、记录掌握情况；误点了也能撤销。 |
+| 希望键盘更顺手、更合眼缘 | 选择浅色或深色主题，调整键盘高度和单手模式，用滑动手势移动光标、删除文字。 |
+| 有些内容总要重复输入 | 从键盘打开剪贴板与常用语，保存、整理和复用常用表达。 |
+
+## 从输入，到自己的词本
+
+<table>
+  <tr>
+    <th>打字时看见英文</th>
+    <th>留下想学的单词</th>
+    <th>有空再回想一次</th>
+  </tr>
+  <tr>
+    <td><img src="design-demos/haohao-learning/screenshots/word-ui/v3-light-360-keyboard-LEFT.png" alt="实际测试画面：中文候选你好下方显示 hello，键盘处于左手模式" width="240" /></td>
+    <td><img src="design-demos/haohao-learning/screenshots/word-ui/v3-light-360-words.png" alt="实际测试画面：我的单词页面展示收藏、正在学习的词和每日计划入口" width="240" /></td>
+    <td><img src="design-demos/haohao-learning/screenshots/word-ui/v3-light-360-review-answer.png" alt="实际测试画面：轻复习展示 learn 的释义和忘记了、有印象、记住了三个选项" width="240" /></td>
+  </tr>
+</table>
+
+*以上来自早期测试版本的真实界面，展示输入、词本和复习的使用过程；当前版本的布局与配色仍在持续调整。*
+
+## 先安心打字，再决定是否联网
+
+中文输入和已收录的单词释义默认在本机完成。云翻译需要你主动同意并配置服务；密码等被系统标记为敏感的输入框会禁用云请求。
+
+词本和学习进度保存在本机。你可以关闭输入足迹，也可以清理记录。具体记录范围、剪贴板设置与联网发音说明见[隐私说明](PRIVACY.md)。
+
+## 现在就试一试
+
+前往[项目官网](http://124.221.187.214/)体验网页演示，或按页面说明下载 Android 测试包。安装后跟随引导启用好好输入法，再到 App 首页试试键盘。
+
+目前仍处于测试阶段，官网安装包可能晚于仓库代码。普通下载包不内置共享云翻译凭据，联网发音也尚未作为公开可用服务开放。我们还在改善翻译的语境准确性、不同手机上的输入体验，以及日常复习的便利性。
+
+如果你已经装过旧版，请先看对应版本的签名与安装说明，保留好词本和配置；不同签名的包无法直接覆盖升级。
+
+## 一起把它做得更好
+
+欢迎带着真实使用体验来提 [Issue](https://github.com/littlewindy123/haohao-ime/issues)：哪个中文词的英文不合适、哪个按键不顺手、哪一步让你找不到入口，都能帮助我们把它做得更好。反馈时可附手机型号和复现步骤，请隐去个人内容。
+
+如果你也期待“打中文，顺便接触英语”这样的体验，欢迎点一个 **Star**，也欢迎把项目分享给可能用得上的朋友。
+
+## 开发者入口
+
+[项目文档](docs/README.md) · [参与贡献](CONTRIBUTING.md) · [首页与键盘更新](docs/development/product-ui-20260922.md) · [整句翻译说明](docs/development/sentence-first-translation.md)
 
 [![Debug CI](https://github.com/littlewindy123/haohao-ime/actions/workflows/debug-ci.yml/badge.svg?branch=main)](https://github.com/littlewindy123/haohao-ime/actions/workflows/debug-ci.yml)
 [![License: GPL v3](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](LICENSE)
-[![Upstream: Trime](https://img.shields.io/badge/upstream-osfans%2Ftrime-0969da)](https://github.com/osfans/trime)
 
-## 项目目标
+<details>
+<summary>展开构建指南、实现细节与测试约定</summary>
 
-我们的长期目标是：用户输入中文时，在中文候选词中同步显示对应的英文翻译，帮助中文用户在输入过程中自然地接触和使用英语。
-
-> 默认仍使用完整离线 CC-CEDICT 数据源：候选命中可靠的单词释义时，以“中文在上、英文在下”展示。需要整句翻译时，用户可以另外主动配置云翻译；密码等敏感输入框始终禁止上传。
-
-## 当前状态
-
-- [x] 原版 Trime 可在 Windows 隔离工具链中编译
-- [x] Android API 36、x86_64 模拟器安装和启动正常
-- [x] “好好拼音”可输入“你好”“中国”
-- [x] 原版中文输入、Rime 部署和中英文切换通过回归测试
-- [x] 建立公开 Fork、中文项目说明和轻量 Debug CI
-- [x] 使用完整离线 CC-CEDICT 与常用词覆盖表提供双语候选
-- [x] 接入万象 `v17.7.1` 的 141.8 万条现代简体基础词库
-- [x] 建立 100 词现代简体输入回归集与独立设备测试包
-- [x] 支持固定英文行、防抖显示、候选数量设置和可选美式 IPA
-- [x] 新安装默认启用“好好拼音”和“好好 26 键”主题
-- [x] 打开 App 直接显示中文常用设置，并保留完整高级设置入口
-- [x] 支持本地输入足迹、收藏、双语回看与系统英文发音
-- [x] 支持用户自有阿里云、自定义 HTTPS 接口和可选公共网关的云翻译框架
-- [x] 顶部英文严格收口为单个词，并建立人工与高频翻译质量回归
-- [ ] 继续处理多义词语境和翻译质量问题
-- [ ] 真机兼容性与触屏体验验证
-
-详细阶段安排见 [ROADMAP.md](ROADMAP.md)。
+以下保留开发维护资料。当前默认整句候选模式及其与旧词级模式的区别，以[整句翻译说明](docs/development/sentence-first-translation.md)为准；最近的测试结果见[回归维护记录](docs/development/product-ui-20260922.md#合并后的回归维护)。
 
 ### 现代简体词库
 
@@ -100,7 +141,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 ### 常用设置
 
 - 首页采用奶油白、薄荷绿与蜂蜜黄组成的金毛品牌界面；金毛形象只用于顶部品牌区，设置内容保持清晰克制，并提供对应深色资源令牌。
-- 打开 App 默认显示双语候选、候选栏和键盘体验三组常用设置；方案、用户词典、配置及其他原版功能继续从“更多高级设置”进入。
+- 打开 App 默认显示包含键盘试用、词本、复习、主题和设置入口的产品首页；双语候选、候选栏和键盘体验位于输入偏好，原版完整功能保留在更多设置中。
 - 常用首页直接复用原有 `AppPrefs` 键和值，不建立第二套配置。升级安装会保留翻译延迟、IPA、候选数量、主题和敲击反馈等已有选择。
 - 关闭“显示英文翻译”时只禁用延迟与 IPA 控件，不清除其保存值；重新开启后恢复原设置。
 
@@ -121,12 +162,12 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 ## 开发与测试约定
 
-- 当前主要交互测试环境为 Android 模拟器 `Trime_API_36`（Android API 36、x86_64）。
+- 交互验证覆盖 Android 模拟器 `Trime_API_36`（Android API 36、x86_64）和已接入的小米 ARM64 真机；其他厂商兼容性仍需持续验证。
 - 每项功能需要通过 Debug APK 构建、模拟器安装、Rime 部署、输入交互和 Logcat 检查。
 - 新增常用设置入口时必须复用现有 Preference 键，并保留通往完整设置页的兼容入口，禁止复制或迁移同一项用户配置。
 - 现代词库或热词改动还需执行 `:app:connectedRegressionAndroidTest`；该测试会连续启动两次 Rime，验证 100 词排名稳定且第二次不重复编译组合词典。
 - 翻译词典或人工覆盖改动必须执行 `:app:verifyTranslationQuality`；报告位于 `app/build/reports/translation-quality/`，不得通过降低既有覆盖基线或放宽硬错误上限来掩盖回归。
-- 顶部候选英文必须始终是单个词；允许内部连字符和撇号，禁止空格短语及省略截断。离线生成器、人工质量集和云候选缓存必须使用一致规则；整句翻译只允许存在于独立翻译输入模式。
+- 离线词级释义继续使用严格的单词规则；云端词级结果可为受限短语。默认整句模式使用独立翻译条，不套用单词长度限制，完整行为和缓存边界见[整句翻译说明](docs/development/sentence-first-translation.md)。
 - 输入足迹只能从 Rime 候选提交事件写入，必须继续执行敏感 `EditorInfo` 过滤；英文、IPA、剪贴板、应用名和整句内容不得持久化到足迹数据库，数据库必须保存在 `noBackupFilesDir` 中以排除 Android 自动备份和设备迁移。
 - 候选云翻译必须严格遵守“关闭＝仅本地、开启＝仅云端、混合＝本地缺失才上云”和显式同意；密码及 `IME_FLAG_NO_PERSONALIZED_LEARNING` 输入框必须完全禁用。密钥、原文和译文不得进入默认偏好、备份、诊断、日志、异常文本或缓存键，网络失败和过期异步结果不得改变中文候选或阻塞提交。
 - 好好主题的滑动步长必须按屏幕密度把设置中的 `dp` 换算为像素；不能改变其他 Trime 主题沿用的手势计算方式。组合拼音、密码框和选区保护需要同时覆盖单元测试与真实输入框交互。
@@ -135,8 +176,8 @@ SPDX-License-Identifier: GPL-3.0-or-later
 - 正常首启必须复用 `shared/build` 中与当前 librime 精确匹配的预编译词典。普通构建和启动不得展开或现场编译完整万象词库；预编译输入、版本或 SHA-256 变化时必须先重新生成固定产物。
 - 预编译清单必须覆盖默认方案的传递依赖；当前除 `haohao_pinyin` 与 `luna_pinyin_simp` 外，还必须携带 `stroke` 的 schema、table、reverse 和 prism。真机清数据首启的 Logcat 若出现 `building table`，即视为预编译集合不完整。
 - 键盘与双语候选至少在 360dp、411dp 两种模拟器宽度回归，检查按键、候选和点击区域是否重叠或错位。
-- CI 同时构建 `arm64-v8a` 与 `x86_64`，为未来 Android 真机测试保留 ARM64 产物。
-- 在真实设备条件具备前，模拟器测试作为阶段验收依据；稳定版本发布前仍必须补充真机测试。
+- CI 同时构建 `arm64-v8a` 与 `x86_64`，覆盖真机和模拟器所需架构。
+- 自动测试和单一真机通过不代表长期稳定性或所有设备均已验收；稳定版本发布前仍需扩大真机覆盖。
 
 ## 构建
 
@@ -188,7 +229,7 @@ Linux 或 macOS：
 
 APK 默认生成在 `app/build/outputs/apk/debug/`。
 
-只有显式启用内置双云的内部 Debug 调试包需要在仓库根目录放置被 Git 忽略的 `internal-cloud-secrets.properties`，包含 `ALIYUN_ACCESS_KEY_ID`、`ALIYUN_ACCESS_KEY_SECRET`、`BAIDU_API_KEY`、`BAIDU_SECRET_KEY` 和严格 `YYYY-MM-DD` 格式的 `TEST_CLOUD_EXPIRES_AT`，并在构建命令后追加 `-PembedInternalCloudSecrets=true`。启用时字段缺失、日期无效或已经到期会终止构建。Release、`regression` 和未显式开启的 Debug 构建不嵌入共享凭据。调试 APK 中的凭据可以被提取，只能使用低权限、低额度、可轮换且带到期日的账号，不能将此调试配置作为正式发布方案。
+只有显式启用内置双云的内部 Debug 调试包需要配置内测凭据，并同时指定 `-PinternalTestDistribution=true -PembedInternalCloudSecrets=true`。固定签名、配置文件、有效期及完整构建命令见[内部测试与签名说明](docs/development/internal-test-202609.md)。Release、`regression` 和未显式开启的 Debug 构建不嵌入共享凭据。内测 APK 中的凭据可以被提取，不能将此调试配置作为正式发布方案。
 
 需要长期覆盖安装同一 Debug 包时，应固定 `ANDROID_USER_HOME`；Android Debug 证书默认位于该目录的 `debug.keystore`。更换该目录会生成不同证书，模拟器会以 `INSTALL_FAILED_UPDATE_INCOMPATIBLE` 拒绝覆盖安装。遇到此错误时应先比较 APK 证书并恢复原 Android 用户目录，不能直接卸载而丢失设置、词频和足迹数据。
 
@@ -203,6 +244,8 @@ git merge --ff-only upstream/develop
 ```
 
 同步上游后，应通过独立分支和 Pull Request 将需要的更新合入 `main`，避免直接覆盖项目改动。
+
+</details>
 
 ## 参与贡献
 
