@@ -4,6 +4,7 @@ import { gzipSync } from "node:zlib";
 import { createHash } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { signerForRelease } from "./verify-apk.mjs";
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const [html, css, script, model, releaseText] = await Promise.all(
@@ -11,7 +12,7 @@ const [html, css, script, model, releaseText] = await Promise.all(
 );
 const release = JSON.parse(releaseText);
 const signingPolicy = await readFile(path.join(root, "..", "public-signing.properties"), "utf8");
-assert.equal(release.signerSha256, signingPolicy.match(/^certificateSha256=([a-f0-9]{64})\s*$/m)?.[1], "公开包签名必须与固定发布身份一致");
+assert.equal(release.signerSha256, signerForRelease(signingPolicy, release.versionCode), "公开包签名必须与该版本的固定发布身份一致");
 assert.equal(release.applicationId, signingPolicy.match(/^applicationId=(\S+)\s*$/m)?.[1], "公开包包名不能随发布改变");
 const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
 assert.equal(ids.length, new Set(ids).size, "页面 ID 不能重复");

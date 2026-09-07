@@ -107,7 +107,7 @@ adb shell perfetto --background -t 60s -b 64mb -a com.osfans.trime.regression -o
 
 ## 复现与交付边界
 
-[ARM64 测试安装包](../../app/build/outputs/apk/debug/com.osfans.trime-trime-upstream-f144408a-35-g8f051ee4-arm64-v8a-debug.apk)，大小 53,110,874 字节。SHA-256：
+当时的 ARM64 测试安装包为 `com.osfans.trime-trime-upstream-f144408a-35-g8f051ee4-arm64-v8a-debug.apk`，大小 53,110,874 字节。构建输出会被后续打包替换，此处仅保留历史记录。SHA-256：
 
 ```text
 02832696d4e7cfdfe28547470bcb07437bee9410296ca83ea390a4f351e4ccc7

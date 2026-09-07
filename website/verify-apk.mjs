@@ -2,6 +2,14 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 
+export function signerForRelease(policy, versionCode) {
+  assert.ok(Number.isSafeInteger(versionCode) && versionCode > 0, "Invalid release version code");
+  const historical = policy.match(new RegExp(`^certificateSha256\\.${versionCode}=([a-f0-9]{64})\\s*$`, "m"));
+  const fingerprint = (historical || policy.match(/^certificateSha256=([a-f0-9]{64})\s*$/m))?.[1];
+  assert.match(fingerprint || "", /^[a-f0-9]{64}$/, "Missing pinned signer fingerprint");
+  return fingerprint;
+}
+
 export function verifySignerOutput(output, expectedFingerprint) {
   assert.match(expectedFingerprint, /^[a-f0-9]{64}$/, "Invalid pinned signer fingerprint");
   const signers = [...output.matchAll(/^Signer #\d+ certificate SHA-256 digest: ([a-fA-F0-9]{64})\s*$/gm)];

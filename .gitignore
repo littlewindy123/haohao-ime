@@ -469,6 +469,7 @@ obj/
 ### Custom ###
 # Keystore
 keystore.properties
+signing-passwords.json
 internal-cloud-secrets.properties
 
 # Project

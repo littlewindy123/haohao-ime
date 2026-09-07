@@ -46,7 +46,7 @@ val publicSigningFile = file(
         "${System.getProperty("user.home")}/.haohao-ime/signing/public-test.keystore",
     ).get(),
 )
-// The existing website test identity is retained. Keep this private file outside Git and COS.
+// Use the pinned test identity. Keep this private file outside Git and public hosting.
 val publicStorePassword = providers.environmentVariable("HAOHAO_PUBLIC_STORE_PASSWORD").orElse("android").get()
 val publicKeyPassword = providers.environmentVariable("HAOHAO_PUBLIC_KEY_PASSWORD").orElse("android").get()
 val publicKeyAlias = publicSigningPolicy.getProperty("keyAlias")

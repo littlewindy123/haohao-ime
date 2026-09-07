@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { verifySignerOutput } from "./verify-apk.mjs";
+import { readFileSync } from "node:fs";
+import { signerForRelease, verifySignerOutput } from "./verify-apk.mjs";
 
 const fingerprint = "6278edd3637cf54377d63f78f7134ac1ab6e4b5b3721229719201e8262ab3215";
 const signer = (value, index = 1) => `Signer #${index} certificate SHA-256 digest: ${value}\n`;
@@ -18,4 +19,18 @@ test("unsigned or multi-signer packages are rejected", () => {
 });
 test("invalid release metadata is rejected", () => {
   assert.throws(() => verifySignerOutput(signer(fingerprint), ""), /Invalid pinned/);
+});
+
+test("the historical website signer is restricted to its exact release", () => {
+  const policy = readFileSync(new URL("../public-signing.properties", import.meta.url), "utf8");
+  assert.equal(signerForRelease(policy, 20260921), fingerprint);
+  const current = policy.match(/^certificateSha256=([a-f0-9]{64})\s*$/m)[1];
+  for (const version of [20260923, 20260924]) {
+    assert.equal(signerForRelease(policy, version), current);
+    assert.throws(() => verifySignerOutput(signer(fingerprint), signerForRelease(policy, version)), /identity changed/);
+  }
+  for (const version of [undefined, "20260921", -1, 1.5]) {
+    assert.throws(() => signerForRelease(policy, version), /version code/);
+  }
+  assert.throws(() => signerForRelease("", 20260923), /pinned signer/);
 });

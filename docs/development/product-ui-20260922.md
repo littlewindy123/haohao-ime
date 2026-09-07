@@ -42,4 +42,4 @@ Final APK: `haohao-ime-20260922-internal-arm64.apk`, stored in the local private
 - 本轮验证：257 项 Android JVM 测试、17 项构建逻辑测试、32 项真机 instrumentation 测试通过；ARM64 Regression 与测试 APK 构建成功；Lint 从 47 个错误降为 0，仍有 132 个警告，主要涉及未使用资源、文案、API 建议和绘制问题。
 - 官网 29 项测试与静态校验、语音网关 20 项测试、Go 翻译网关测试及 `go vet` 均通过。官网固定哈希文件的 Windows 换行规则见[官网维护说明](../../website/README.md)。
 - 真实付费云翻译、腾讯语音服务连通性和长期使用未在本轮重测；自动测试通过不代表这些边界已经验收。本轮回归测试未覆盖安装用户的主应用。
-- 后续修复包的 `versionCode` 递增为 `20260923`；覆盖升级仍须使用 `public-signing.properties` 固定的原签名身份，不能以本机普通 Debug 密钥替代。
+- 后续修复包的 `versionCode` 递增为 `20260923`。所有者随后明确要求生成新签名并在云服务器备份；新包无法覆盖旧签名安装，不能自动卸载或清除旧应用数据。新签名及跨电脑恢复方式见[签名备份说明](internal-test-202609.md#新签名与跨电脑恢复)。
