@@ -137,6 +137,7 @@ open class TrimeInputMethodService : LifecycleInputMethodService() {
         prefs.keyboard.spacebarSlideCursor,
         prefs.keyboard.backspaceSlideDelete,
         prefs.keyboard.heightMode,
+        prefs.keyboard.keycapStyle,
         prefs.keyboard.oneHandMode,
         prefs.advanced.ignoreSystemGestureInsets,
     )

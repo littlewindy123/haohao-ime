@@ -8,6 +8,12 @@
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <!-- 輸入法平臺名稱  -->
     <string name="app_name_release">好好輸入法</string>
+    <string name="keycap_style">按鍵樣式</string>
+    <string name="keycap_style_classic">經典</string>
+    <string name="keycap_style_raised">立體</string>
+    <string name="keycap_style_hint">選擇樣式與配色，再試試實際打字手感。</string>
+    <string name="keycap_style_try">試試目前鍵盤</string>
+    <string name="keycap_style_theme_hint">按鍵樣式適用於好好輸入法主題。</string>
     <string name="app_name_debug">好好輸入法（除錯）</string>
     <!-- Preference settings -->
     <string name="qq_group_1">同文 QQ 羣 1</string>
@@ -37,7 +43,7 @@
     <string name="quick_settings_adjust_custom_feedback">調整自訂回饋參數</string>
     <string name="quick_settings_theme_current">目前：%1$s</string>
     <string name="quick_settings_theme_haohao">好好主題</string>
-    <string name="all_settings">更多進階設定</string>
+    <string name="all_settings">設定</string>
     <string name="all_settings_summary">方案、詞典、配置和其他進階選項</string>
     <string name="normal_mode_color">配色</string>
     <string name="normal_mode_color_summary">選取想要的配色</string>
@@ -75,11 +81,11 @@
     <string name="popup_on_key_press">按鍵時彈出顯示字符</string>
     <string name="expand_keypress_area_to_edge">將按鍵範圍擴展至邊緣</string>
     <string name="use_soft_cursor">預編輯區使用插入符號（^）</string>
-    <string name="deploy">部署</string>
+    <string name="deploy">更新輸入設定</string>
     <string name="sync_user_data_immediately">立即同步使用者資料</string>
     <string name="reset_success">回廠成功</string>
     <string name="reset_failure">回廠失敗</string>
-    <string name="deploy_progress">正在部署…</string>
+    <string name="deploy_progress">正在更新設定…</string>
     <string name="other_ime">其他輸入法</string>
     <string name="ui_mode">使用者界面模式</string>
     <string name="advanced">高級</string>
@@ -114,8 +120,8 @@
     <string name="clipboard_output_rules">剪貼簿過濾規則</string>
     <string name="clipboard_suggestion">顯示剪貼簿建議</string>
     <string name="clipboard_suggestion_timeout">剪貼簿項目逾時</string>
-    <string name="deploy_finish">部署完成</string>
-    <string name="open_source_licenses">開放源代碼軟體許可</string>
+    <string name="deploy_finish">輸入設定已更新</string>
+    <string name="open_source_licenses">開源授權與致謝</string>
     <string name="system_default">系統預設</string>
     <string name="key_swipe_travel">觸發滑動手勢的最短距離</string>
     <string name="trime_app_slogan">中文輸入，英文一起懂</string>
@@ -207,13 +213,13 @@
     <string name="grant_permission">授予權限</string>
     <string name="notification_permission_title">沒有通知權限</string>
     <string name="notification_permission_message">尚未賦予通知權限，因此無法在耗時較長的操作完成後給您發送通知。</string>
-    <string name="rime_daemon">Rime 常駐程式</string>
-    <string name="restarting_rime">重新啟動 Rime</string>
-    <string name="select_current_schema">選擇當前方案</string>
-    <string name="enable_schemata">啓用方案</string>
+    <string name="rime_daemon">輸入服務</string>
+    <string name="restarting_rime">正在重新啟動輸入服務</string>
+    <string name="select_current_schema">選擇輸入方式</string>
+    <string name="enable_schemata">管理輸入方式</string>
     <string name="no_schema_to_select">當前沒有方案可選擇。請前往啟用方案。</string>
     <string name="no_schema_to_enable">沒有方案可啟用。請確保您已在使用者資料夾中放入了前置檔案和方案檔案。</string>
-    <string name="schemata">方案</string>
+    <string name="schemata">輸入方式</string>
     <string name="navbar_background">導航欄背景</string>
     <string name="no_theme_to_select">當前沒有主題可選擇。</string>
     <string name="no_color_to_select">當前沒有配色方案可選擇。</string>
@@ -237,7 +243,7 @@
     <string name="top_left">左上</string>
     <string name="top_right">右上</string>
     <string name="candidates_window_position">候選詞視窗位置</string>
-    <string name="deploy_failure">部署失敗</string>
+    <string name="deploy_failure">輸入設定更新失敗</string>
     <string name="view_deploy_failure_log">部署失敗。點此檢視錯誤日誌。</string>
     <string name="hide_input_bar">隱藏輸入工具欄</string>
     <string name="hide_key_symbol">隱藏按鍵符號</string>
@@ -299,7 +305,7 @@
     <string name="haohao_quick_settings">快捷設定</string>
     <string name="haohao_quick_settings_summary">音標與翻譯等待</string>
     <string name="haohao_customize_toolbar">自訂工具列</string>
-    <string name="haohao_toolbar_summary">替換工具，選已有工具可交換位置</string>
+    <string name="haohao_toolbar_summary">顯示、隱藏與排序</string>
     <string name="haohao_toolbar_reset">恢復預設</string>
     <string name="haohao_phrases_empty">還沒有常用語，點右上角 ＋ 新增\n點擊貼上，長按編輯或置頂</string>
     <string name="haohao_clipboard_empty">複製的文字會出現在這裡\n點擊貼上，長按置頂或存為常用語</string>
@@ -376,7 +382,7 @@
     <string name="pinyin_fuzzy_disabled">已關閉</string>
     <string name="pinyin_fuzzy_enabled_count">已開啟 %1$d 組</string>
     <string name="pinyin_correction_applying">正在套用拼音設定…</string>
-    <string name="pinyin_correction_custom_config">目前由你的 Rime 自訂設定管理</string>
+    <string name="pinyin_correction_custom_config">由目前自訂輸入設定管理</string>
     <string name="pinyin_correction_apply_failed">套用失敗，已還原先前的拼音設定</string>
     <string name="pinyin_correction_apply_success">拼音設定已生效</string>
     <string name="pinyin_fuzzy_description">只開啟自己經常混淆的讀音，避免候選變得雜亂。</string>
@@ -511,4 +517,30 @@
     <string name="ime_clip_unavailable">暫時無法讀取</string>
     <string name="ime_back_keyboard">返回鍵盤</string>
     <string name="ime_phrase_saved">已儲存</string>
+    <string name="product_about_summary">好好打字，順便學英語。讓輸入、翻譯和單詞複習自然銜接。</string>
+    <string name="product_feedback">意見與建議</string>
+    <string name="product_feedback_summary">告訴我們哪裡不好用，或你希望增加的功能</string>
+    <string name="product_help">使用說明</string>
+    <string name="product_credits">致謝</string>
+    <string name="product_credits_summary">好好輸入法基於同文輸入法、Rime 等開源專案開發，感謝原作者與社群的貢獻。本專案以 GPL-3.0-or-later 授權發布，原始碼與修改記錄可透過下方入口查看。</string>
+    <string name="product_appearance">外觀</string>
+    <string name="product_appearance_summary">按鍵樣式、鍵盤配色與深淺主題</string>
+    <string name="product_input">輸入</string>
+    <string name="product_learning">學習</string>
+    <string name="product_learning_summary">我的單詞、複習計畫與學習記錄</string>
+    <string name="product_privacy_data">隱私與資料</string>
+    <string name="product_privacy_data_summary">了解資料使用，管理剪貼簿、短語與單詞</string>
+    <string name="product_expert">進階設定</string>
+    <string name="product_expert_summary">自訂輸入設定、詞庫、主題檔案與診斷工具</string>
+    <string name="product_privacy_summary">了解本機輸入、翻譯和語音的資料使用方式</string>
+    <string name="product_data_words_summary">查看、匯出或清理單詞與學習記錄</string>
+    <string name="product_raised_summary">立體鍵帽與按壓回饋，可搭配下方配色</string>
+    <string name="product_selected">已選擇</string>
+    <string name="product_more_themes">更多主題與自訂</string>
+    <string name="product_toolbar_hint">最多選擇 3 個快捷功能，勾選顯示，箭頭排序。修改立即生效。</string>
+    <string name="product_toolbar_limit">最多顯示 3 個快捷功能，請先取消一個再選擇。</string>
+    <string name="product_move_before">將%1$s前移</string>
+    <string name="product_move_after">將%1$s後移</string>
+    <string name="product_notifications">通知設定</string>
+    <string name="product_notifications_summary">在系統中管理通知；關閉不影響日常打字</string>
 </resources>

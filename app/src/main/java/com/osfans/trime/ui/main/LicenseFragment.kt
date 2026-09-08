@@ -16,6 +16,8 @@ import com.mikepenz.aboutlibraries.Libs
 import com.mikepenz.aboutlibraries.entity.License
 import com.osfans.trime.R
 import com.osfans.trime.ui.common.PaddingPreferenceFragment
+import com.osfans.trime.util.Const
+import com.osfans.trime.util.addPreference
 import kotlinx.coroutines.launch
 
 class LicenseFragment : PaddingPreferenceFragment() {
@@ -28,6 +30,13 @@ class LicenseFragment : PaddingPreferenceFragment() {
         lifecycleScope.launch {
             val context = preferenceManager.context
             preferenceScreen = preferenceManager.createPreferenceScreen(requireContext()).apply {
+                addPreference(R.string.product_credits, R.string.product_credits_summary)
+                addPreference(R.string.license, Const.LICENSE_SPDX_ID) {
+                    startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(Const.LICENSE_URL)))
+                }
+                addPreference(R.string.source_code, Const.PRODUCT_REPOSITORY) {
+                    startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(Const.PRODUCT_REPOSITORY)))
+                }
                 val jsonString = resources.openRawResource(R.raw.aboutlibraries)
                     .bufferedReader()
                     .use { it.readText() }

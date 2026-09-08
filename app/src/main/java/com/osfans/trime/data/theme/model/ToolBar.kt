@@ -144,7 +144,13 @@ internal val HAOHAO_TOOLBAR_ACTIONS = listOf(
     "liquid_keyboard_emoji",
 )
 
-internal fun resolveHaoHaoToolbarActions(saved: String): List<String> = (saved.split(',').filter { it in HAOHAO_TOOLBAR_ACTIONS } + HAOHAO_TOOLBAR_ACTIONS).distinct().take(3)
+internal fun resolveHaoHaoToolbarActions(saved: String): List<String> {
+    val explicit = saved.startsWith("v2:")
+    val selected = saved.removePrefix("v2:").split(',').filter { it in HAOHAO_TOOLBAR_ACTIONS }.distinct()
+    return (if (explicit) selected else selected + HAOHAO_TOOLBAR_ACTIONS).distinct().take(3)
+}
+
+internal fun encodeHaoHaoToolbarActions(actions: List<String>): String = "v2:" + actions.filter { it in HAOHAO_TOOLBAR_ACTIONS }.distinct().take(3).joinToString(",")
 
 internal fun replaceHaoHaoToolbarAction(saved: String, slot: Int, action: String): String {
     val actions = resolveHaoHaoToolbarActions(saved).toMutableList()

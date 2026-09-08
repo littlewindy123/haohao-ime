@@ -130,32 +130,40 @@ internal class WordSpeech(private val context: Context) {
     }
 
     fun controls(text: () -> String?): View = LinearLayout(context).apply {
-        orientation = LinearLayout.HORIZONTAL
-        gravity = Gravity.CENTER_VERTICAL
-        minimumHeight = dp(48)
-        addView(icon(text), LinearLayout.LayoutParams(dp(48), dp(48)))
-        addView(
+        orientation = LinearLayout.VERTICAL
+        val actions = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            isBaselineAligned = false
+            minimumHeight = dp(48)
+            addView(icon(text), LinearLayout.LayoutParams(dp(48), dp(48)))
+        }
+        actions.addView(
             AppCompatButton(context).apply {
                 setText(R.string.speech_slow)
                 isAllCaps = false
                 minHeight = dp(48)
+                minimumWidth = 0
+                setPadding(dp(12), dp(10), dp(12), dp(10))
+                stateListAnimator = null
+                elevation = 0f
                 textSize = 14f
                 setTextColor(ContextCompat.getColor(context, R.color.haohao_cocoa))
                 background = ContextCompat.getDrawable(context, R.drawable.haohao_segment_background)
                 setOnClickListener { text()?.let { value -> speak(value, SpeechRate.SLOW) { isAttachedToWindow && text() == value } } }
             },
-            LinearLayout.LayoutParams(dp(88), dp(48)),
+            LinearLayout.LayoutParams(-2, -2).apply { marginStart = dp(8) },
         )
+        addView(actions, LinearLayout.LayoutParams(-1, -2))
         addView(
             TextView(context).apply {
                 setText(R.string.speech_manual)
                 textSize = 12f
-                gravity = Gravity.CENTER_VERTICAL
+                gravity = Gravity.CENTER
                 setTextColor(ContextCompat.getColor(context, R.color.haohao_cocoa_secondary))
-                setPadding(dp(12), 0, 0, 0)
                 labels += this
             },
-            LinearLayout.LayoutParams(0, dp(48), 1f),
+            LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) },
         )
     }
 

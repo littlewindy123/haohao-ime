@@ -16,6 +16,8 @@ import android.view.ViewGroup
 import android.widget.HorizontalScrollView
 import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.RadioButton
+import android.widget.RadioGroup
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.core.content.ContextCompat
@@ -24,6 +26,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
 import com.osfans.trime.R
+import com.osfans.trime.data.prefs.AppPrefs
 import com.osfans.trime.data.theme.ColorManager
 import com.osfans.trime.data.theme.DEFAULT_THEME_ID
 import com.osfans.trime.data.theme.ThemeManager
@@ -44,11 +47,14 @@ class HaoHaoHomeFragment : Fragment() {
                 ColorManager.setColorScheme(scheme)
                 true
             } else {
-                findNavController().navigateWithAnim(NavigationRoute.Theme)
+                findNavController().navigateWithAnim(NavigationRoute.Appearance)
                 false
             }
         },
         selectedPalette = ThemeManager.prefs.normalModeColor.getValue(),
+        selectedStyle = AppPrefs.defaultInstance().keyboard.keycapStyle.getValue(),
+        selectStyle = { AppPrefs.defaultInstance().keyboard.keycapStyle.setValue(it) },
+        styleEnabled = ThemeManager.prefs.selectedTheme.getValue() == DEFAULT_THEME_ID,
     ).apply {
         ViewCompat.setOnApplyWindowInsetsListener(this) { _, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
@@ -66,6 +72,9 @@ internal class HaoHaoHomeView(
     review: () -> Unit,
     selectPalette: (String) -> Boolean,
     selectedPalette: String,
+    selectedStyle: AppPrefs.Keyboard.KeycapStyle = AppPrefs.Keyboard.KeycapStyle.CLASSIC,
+    selectStyle: (AppPrefs.Keyboard.KeycapStyle) -> Unit = {},
+    styleEnabled: Boolean = true,
 ) : ScrollView(context) {
     private val ink = color(R.color.haohao_cocoa)
     private val secondary = color(R.color.haohao_cocoa_secondary)
@@ -181,7 +190,7 @@ internal class HaoHaoHomeView(
             minHeight = dp(48)
             gravity = Gravity.CENTER_VERTICAL
         }
-        clickable(themesTitle) { navigate(NavigationRoute.Theme) }
+        clickable(themesTitle) { navigate(NavigationRoute.Appearance) }
         secondaryColumn.addView(
             LinearLayout(context).apply {
                 gravity = Gravity.CENTER_VERTICAL
@@ -191,12 +200,49 @@ internal class HaoHaoHomeView(
                         gravity = Gravity.CENTER
                         minHeight = dp(48)
                         setPadding(dp(12), 0, dp(4), 0)
-                        clickable(this) { navigate(NavigationRoute.Theme) }
+                        clickable(this) { navigate(NavigationRoute.Appearance) }
                     },
                     LinearLayout.LayoutParams(-2, -2),
                 )
             },
             LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(14) },
+        )
+        val thumbnails = mutableListOf<ThemeThumbnail>()
+        var currentStyle = selectedStyle
+        secondaryColumn.addView(text(R.string.keycap_style, 14f, true))
+        secondaryColumn.addView(
+            RadioGroup(context).apply {
+                orientation = RadioGroup.HORIZONTAL
+                AppPrefs.Keyboard.KeycapStyle.entries.forEach { style ->
+                    addView(
+                        RadioButton(context).apply {
+                            id = View.generateViewId()
+                            setText(style.stringRes)
+                            textSize = 16f
+                            setTextColor(ink)
+                            minHeight = dp(48)
+                            setPadding(dp(4), dp(8), dp(8), dp(8))
+                            isEnabled = styleEnabled
+                            isChecked = style == selectedStyle
+                            setOnCheckedChangeListener { _, checked ->
+                                if (checked) {
+                                    currentStyle = style
+                                    selectStyle(style)
+                                    thumbnails.forEach { it.style = style }
+                                }
+                            }
+                        },
+                        RadioGroup.LayoutParams(0, -2, 1f),
+                    )
+                }
+            },
+            LinearLayout.LayoutParams(-1, -2),
+        )
+        secondaryColumn.addView(
+            text(if (styleEnabled) R.string.keycap_style_hint else R.string.keycap_style_theme_hint, 13f).apply {
+                setTextColor(secondary)
+            },
+            LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) },
         )
         val palettes = listOf(
             HomePalette("default", R.string.home_mint, 0xffe7e2d8.toInt(), 0xffdcece2.toInt()),
@@ -217,7 +263,13 @@ internal class HaoHaoHomeView(
         palettes.forEach { palette ->
             val card = column().apply {
                 setPadding(dp(5), dp(5), dp(5), dp(5))
-                addView(ThemeThumbnail(context, palette), LinearLayout.LayoutParams(-1, dp(68)))
+                addView(
+                    ThemeThumbnail(context, palette).apply {
+                        style = currentStyle
+                        thumbnails.add(this)
+                    },
+                    LinearLayout.LayoutParams(-1, dp(68)),
+                )
                 addView(
                     text(palette.title, 13f).apply {
                         gravity = Gravity.CENTER
@@ -239,6 +291,16 @@ internal class HaoHaoHomeView(
             LinearLayout.LayoutParams(-1, -2),
         )
 
+        secondaryColumn.addView(
+            text(R.string.keycap_style_try, 15f, true).apply {
+                gravity = Gravity.CENTER
+                minHeight = dp(48)
+                setPadding(dp(12), dp(10), dp(12), dp(10))
+                background = rounded(color(R.color.haohao_selection_surface), 14)
+                clickable(this, tryKeyboard)
+            },
+            LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(12) },
+        )
         val settings = column().apply {
             background = rounded(surface)
             setPadding(0, dp(4), 0, dp(4))
@@ -279,6 +341,11 @@ internal data class HomePalette(val id: String, val title: Int, val background: 
 
 private class ThemeThumbnail(context: Context, private val palette: HomePalette) : View(context) {
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+    var style = AppPrefs.Keyboard.KeycapStyle.CLASSIC
+        set(value) {
+            field = value
+            invalidate()
+        }
     init {
         importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
     }
@@ -295,11 +362,107 @@ private class ThemeThumbnail(context: Context, private val palette: HomePalette)
             for (col in 0..7) {
                 val left = gap + col * (keyW + gap)
                 val top = gap + row * (keyH + gap)
+                if (style == AppPrefs.Keyboard.KeycapStyle.RAISED) {
+                    paint.color = 0xff8b8178.toInt()
+                    canvas.drawRoundRect(left, top + dp(2), left + keyW, top + keyH + dp(2), gap, gap, paint)
+                }
                 paint.color = if (row == 2 && (col == 0 || col == 7)) palette.function else Color.WHITE
                 canvas.drawRoundRect(left, top, left + keyW, top + keyH, gap, gap, paint)
             }
         }
         paint.color = palette.function
         canvas.drawRoundRect(gap, gap + 3 * (keyH + gap), w - gap, h - gap, gap, gap, paint)
+    }
+}
+
+class AppearanceSettingsFragment : com.osfans.trime.ui.common.PaddingPreferenceFragment() {
+    override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
+        val ctx = requireContext()
+        val keyboard = AppPrefs.defaultInstance().keyboard
+        val builtIn = ThemeManager.prefs.selectedTheme.getValue() == DEFAULT_THEME_ID
+        preferenceScreen = preferenceManager.createPreferenceScreen(ctx).apply {
+            addPreference(
+                androidx.preference.SwitchPreferenceCompat(ctx).apply {
+                    setTitle(R.string.keycap_style_raised)
+                    setSummary(if (builtIn) R.string.product_raised_summary else R.string.keycap_style_theme_hint)
+                    isIconSpaceReserved = false
+                    isSingleLineTitle = false
+                    isPersistent = false
+                    isEnabled = builtIn
+                    isChecked = keyboard.keycapStyle.getValue() == AppPrefs.Keyboard.KeycapStyle.RAISED
+                    setOnPreferenceChangeListener { _, value ->
+                        keyboard.keycapStyle.setValue(if (value == true) AppPrefs.Keyboard.KeycapStyle.RAISED else AppPrefs.Keyboard.KeycapStyle.CLASSIC)
+                        true
+                    }
+                },
+            )
+            val palettes = listOf("default" to R.string.home_mint, "haohao_mist" to R.string.home_mist, "haohao_apricot" to R.string.home_apricot, "haohao_graphite" to R.string.home_graphite)
+            val choices = mutableMapOf<String, androidx.preference.Preference>()
+            fun renderPalette() {
+                choices.forEach { (id, item) -> item.summary = if (id == ThemeManager.prefs.normalModeColor.getValue()) ctx.getString(R.string.product_selected) else null }
+            }
+            palettes.forEach { (id, label) ->
+                val item = androidx.preference.Preference(ctx).apply {
+                    setTitle(label)
+                    isSingleLineTitle = false
+                    isIconSpaceReserved = false
+                    isEnabled = builtIn
+                    setOnPreferenceClickListener {
+                        ThemeManager.activeThemeOrNull?.colorSchemes?.find { it.id == id }?.let(ColorManager::setColorScheme)
+                        renderPalette()
+                        true
+                    }
+                }
+                choices[id] = item
+                addPreference(item)
+            }
+            renderPalette()
+            val mode = AppPrefs.defaultInstance().advanced.uiMode
+            val modes = AppPrefs.Advanced.UiMode.entries
+            addPreference(
+                androidx.preference.ListPreference(ctx).apply {
+                    key = "appearance_ui_mode"
+                    setTitle(R.string.ui_mode)
+                    isIconSpaceReserved = false
+                    isPersistent = false
+                    entries = modes.map { ctx.getString(it.stringRes) }.toTypedArray()
+                    entryValues = modes.map { it.name }.toTypedArray()
+                    value = mode.getValue().name
+                    summaryProvider = androidx.preference.ListPreference.SimpleSummaryProvider.getInstance()
+                    setOnPreferenceChangeListener { _, value ->
+                        val selected = AppPrefs.Advanced.UiMode.valueOf(value as String)
+                        mode.setValue(selected)
+                        androidx.appcompat.app.AppCompatDelegate.setDefaultNightMode(
+                            when (selected) {
+                                AppPrefs.Advanced.UiMode.AUTO -> androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
+                                AppPrefs.Advanced.UiMode.LIGHT -> androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_NO
+                                AppPrefs.Advanced.UiMode.DARK -> androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_YES
+                            },
+                        )
+                        true
+                    }
+                },
+            )
+            addPreference(
+                androidx.preference.Preference(ctx).apply {
+                    setTitle(R.string.home_try)
+                    isIconSpaceReserved = false
+                    setOnPreferenceClickListener {
+                        (requireActivity() as MainActivity).showTestInputPanel()
+                        true
+                    }
+                },
+            )
+            addPreference(
+                androidx.preference.Preference(ctx).apply {
+                    setTitle(R.string.product_more_themes)
+                    isIconSpaceReserved = false
+                    setOnPreferenceClickListener {
+                        findNavController().navigateWithAnim(NavigationRoute.Theme)
+                        true
+                    }
+                },
+            )
+        }
     }
 }

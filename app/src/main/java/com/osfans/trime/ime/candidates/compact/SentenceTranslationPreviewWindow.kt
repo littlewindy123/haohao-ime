@@ -64,7 +64,7 @@ internal class SentenceTranslationPreviewWindow(private val snapshot: SentenceCa
             },
             LinearLayout.LayoutParams(-1, 0, 1f),
         )
-        addView(speech.controls { snapshot.translation.takeIf { controller.sentenceState == snapshot } }, LinearLayout.LayoutParams(-1, context.dp(48)))
+        addView(speech.controls { snapshot.translation.takeIf { controller.sentenceState == snapshot } }, LinearLayout.LayoutParams(-1, -2))
     }
     override fun onAttached() {
         controller.addSentenceListener(listener)

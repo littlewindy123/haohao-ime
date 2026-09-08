@@ -209,7 +209,7 @@ class WordLearningActivity : AppCompatActivity() {
         label(getString(if ((saved?.source ?: source) == "cloud") R.string.words_source_cloud else R.string.words_source_offline))
         label(getString(R.string.words_save_notice), 13f)
         saved?.takeIf { it.learning }?.let { label(statusText(this, it), 14f, true) }
-        content.addView(speech.controls { english }, LinearLayout.LayoutParams(-1, dp(48)))
+        content.addView(speech.controls { english }, LinearLayout.LayoutParams(-1, -2))
         if (saved != null) {
             button(getString(R.string.words_correct_case)) {
                 val edit = AppCompatEditText(this).apply {
@@ -319,6 +319,7 @@ class WordLearningActivity : AppCompatActivity() {
         page(R.string.words_daily_plan)
         val settings = learning.settings()
         label(getString(R.string.words_plan_hint))
+        label(getString(R.string.words_plan_changes_next_round), 13f)
         val enabled = SwitchCompat(this).apply {
             text = getString(R.string.words_plan_enable)
             thumbTintList = ContextCompat.getColorStateList(this@WordLearningActivity, R.color.haohao_switch_thumb)
@@ -379,7 +380,6 @@ class WordLearningActivity : AppCompatActivity() {
             session = learning.skipRemoved(card.token) ?: session.copy(cards = emptyList())
         }
         page(if (session.daily) R.string.words_daily_plan else R.string.words_review_title)
-        label(sessionDescription(session), 13f)
         val undoToken = learning.undoToken()
         fun undoButton() {
             if (undoToken != null) {
@@ -427,6 +427,7 @@ class WordLearningActivity : AppCompatActivity() {
         }
         // Short windows keep the entire card and its actions reachable in the same scroll area.
         if (resources.configuration.screenHeightDp < 480) {
+            footer.setPadding(0, dp(8), 0, dp(12))
             pageContent.addView(footer, LinearLayout.LayoutParams(-1, -2))
         } else {
             root.addView(footer, LinearLayout.LayoutParams(-1, -2))
@@ -445,15 +446,18 @@ class WordLearningActivity : AppCompatActivity() {
             20f,
             true,
         )
-        label(getString(R.string.words_review_origin), 13f, centered = true).setPadding(0, dp(30), 0, 0)
-        label(if (session.reverse) current.chinese else current.displayEnglish, 38f, true, true).setPadding(0, dp(14), 0, dp(16))
+        label(getString(R.string.words_review_origin), 13f, centered = true)
+        label(if (session.reverse) current.chinese else current.displayEnglish, 38f, true, true).setPadding(0, dp(8), 0, dp(8))
         if (session.answerVisible) {
             label(if (session.reverse) current.displayEnglish else current.chinese, 26f, true, true)
             current.phonetic?.let { label(it, 17f, centered = true) }
             label(getString(if (current.source == "cloud") R.string.words_source_cloud else R.string.words_source_offline), 13f, centered = true)
-            content.addView(speech.controls { current.displayEnglish }, LinearLayout.LayoutParams(-1, dp(48)))
+            content.addView(speech.controls { current.displayEnglish }, LinearLayout.LayoutParams(-1, -2))
             content = footer
-            val buttons = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+            val buttons = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                isBaselineAligned = false
+            }
             val ratings = listOf(R.string.words_forgotten to RecallRating.FORGOTTEN, R.string.words_uncertain to RecallRating.UNCERTAIN, R.string.words_remembered to RecallRating.REMEMBERED)
             ratings.forEachIndexed { index, (title, rating) ->
                 val view = button(getString(title), rating == RecallRating.REMEMBERED) {
@@ -462,14 +466,15 @@ class WordLearningActivity : AppCompatActivity() {
                 content.removeView(view)
                 view.setPadding(dp(4), dp(10), dp(4), dp(10))
                 view.textSize = 14f
+                view.minHeight = dp(72)
                 buttons.addView(view, LinearLayout.LayoutParams(0, -1, 1f).apply { if (index > 0) marginStart = dp(8) })
             }
-            content.addView(buttons, LinearLayout.LayoutParams(-1, dp(72)).apply { topMargin = dp(8) })
+            content.addView(buttons, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) })
         } else {
-            if (!session.reverse) content.addView(speech.controls { current.displayEnglish }, LinearLayout.LayoutParams(-1, dp(48)))
+            if (!session.reverse) content.addView(speech.controls { current.displayEnglish }, LinearLayout.LayoutParams(-1, -2))
             content = footer
             button(getString(R.string.words_reveal), true) { action { learning.reveal(card.token)?.let { renderReview(it) } } }
-                .layoutParams.height = dp(72)
+                .minHeight = dp(72)
         }
         label(getString(R.string.words_review_hint), 13f).setPadding(0, dp(20), 0, 0)
         undoButton()

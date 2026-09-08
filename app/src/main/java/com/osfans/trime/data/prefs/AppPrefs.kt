@@ -193,6 +193,7 @@ class AppPrefs(
             const val SPACEBAR_SLIDE_CURSOR = "spacebar_slide_cursor_enabled"
             const val BACKSPACE_SLIDE_DELETE = "backspace_slide_delete_enabled"
             const val HEIGHT_MODE = "haohao_keyboard_height_mode"
+            const val KEYCAP_STYLE = "haohao_keycap_style"
             val DEFAULT_HEIGHT_MODE = KeyboardHeightMode.COMPACT
             const val ONE_HAND_MODE = "haohao_one_hand_mode"
 
@@ -250,6 +251,11 @@ class AppPrefs(
             OFF(R.string.one_hand_mode_off),
             LEFT(R.string.one_hand_mode_left),
             RIGHT(R.string.one_hand_mode_right),
+        }
+
+        enum class KeycapStyle(override val stringRes: Int) : PreferenceDelegateEnum {
+            CLASSIC(R.string.keycap_style_classic),
+            RAISED(R.string.keycap_style_raised),
         }
 
         data class FeedbackSettings(
@@ -333,6 +339,7 @@ class AppPrefs(
             HEIGHT_MODE,
             DEFAULT_HEIGHT_MODE,
         )
+        val keycapStyle = enum(R.string.keycap_style, KEYCAP_STYLE, KeycapStyle.CLASSIC)
         val oneHandMode = enum(
             R.string.one_hand_mode,
             ONE_HAND_MODE,

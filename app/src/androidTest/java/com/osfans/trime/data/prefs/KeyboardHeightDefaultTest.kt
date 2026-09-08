@@ -14,6 +14,25 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class KeyboardHeightDefaultTest {
     @Test
+    fun keycapStyleDefaultsToClassicAndSurvivesRecreationIndependentlyOfHeight() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val preferences = context.getSharedPreferences("keycap-style-regression", Context.MODE_PRIVATE)
+        preferences.edit().clear().commit()
+        try {
+            assertEquals(AppPrefs.Keyboard.KeycapStyle.CLASSIC, AppPrefs.Keyboard(preferences).keycapStyle.getValue())
+            assertFalse(preferences.contains(AppPrefs.Keyboard.KEYCAP_STYLE))
+            AppPrefs.Keyboard(preferences).heightMode.setValue(AppPrefs.Keyboard.KeyboardHeightMode.ROOMY)
+            for (style in AppPrefs.Keyboard.KeycapStyle.entries) {
+                AppPrefs.Keyboard(preferences).keycapStyle.setValue(style)
+                assertEquals(style, AppPrefs.Keyboard(preferences).keycapStyle.getValue())
+                assertEquals(AppPrefs.Keyboard.KeyboardHeightMode.ROOMY, AppPrefs.Keyboard(preferences).heightMode.getValue())
+            }
+        } finally {
+            preferences.edit().clear().commit()
+        }
+    }
+
+    @Test
     fun unsetHeightIsCompactWhileExplicitChoicesSurviveRecreation() {
         // Dedicated regression-only preferences: never touch the installed user's settings.
         val context = ApplicationProvider.getApplicationContext<Context>()

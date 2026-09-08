@@ -13,9 +13,12 @@ import android.text.TextUtils
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
-import android.widget.Button
+import android.widget.CheckBox
+import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.RadioButton
+import android.widget.RadioGroup
 import android.widget.ScrollView
 import android.widget.SeekBar
 import android.widget.Switch
@@ -35,7 +38,7 @@ import com.osfans.trime.data.theme.ColorManager
 import com.osfans.trime.data.theme.KeyActionManager
 import com.osfans.trime.data.theme.Theme
 import com.osfans.trime.data.theme.model.HAOHAO_TOOLBAR_ACTIONS
-import com.osfans.trime.data.theme.model.replaceHaoHaoToolbarAction
+import com.osfans.trime.data.theme.model.encodeHaoHaoToolbarActions
 import com.osfans.trime.data.theme.model.resolveHaoHaoToolbarActions
 import com.osfans.trime.data.translation.CloudTranslationResult
 import com.osfans.trime.data.translation.CloudTranslationRuntime
@@ -311,25 +314,15 @@ class HaoHaoToolboxWindow :
 
     private fun showToolbarSettings() {
         val pref = AppPrefs.defaultInstance().internal.toolbarActions
-        val actions = resolveHaoHaoToolbarActions(pref.getValue())
-        val labels = actions.mapIndexed { index, action -> "${index + 1}. ${toolbarLabel(action)}" }.toTypedArray()
+        val editor = ToolbarEditorView(context, pref.getValue(), ::toolbarLabel) { pref.setValue(it) }
         service.showDialog(
             AlertDialog.Builder(context)
                 .setTitle(R.string.haohao_customize_toolbar)
-                .setItems(labels) { _, slot ->
-                    service.showDialog(
-                        AlertDialog.Builder(context)
-                            .setTitle(labels[slot])
-                            .setSingleChoiceItems(HAOHAO_TOOLBAR_ACTIONS.map(::toolbarLabel).toTypedArray(), HAOHAO_TOOLBAR_ACTIONS.indexOf(actions[slot])) { dialog, index ->
-                                pref.setValue(replaceHaoHaoToolbarAction(pref.getValue(), slot, HAOHAO_TOOLBAR_ACTIONS[index]))
-                                dialog.dismiss()
-                                showToolbarSettings()
-                            }
-                            .setNegativeButton(R.string.cancel, null).create(),
-                    )
-                }
-                .setNeutralButton(R.string.haohao_toolbar_reset) { _, _ -> pref.setValue("") }
-                .setPositiveButton(R.string.ok, null).create(),
+                .setView(ScrollView(context).apply { addView(editor) })
+                .setNeutralButton(R.string.haohao_toolbar_reset, null)
+                .setPositiveButton(R.string.ok, null).create().apply {
+                    setOnShowListener { getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener { editor.reset() } }
+                },
         )
     }
 
@@ -383,22 +376,19 @@ class HaoHaoToolboxWindow :
                 setTextColor(context.styledColor(android.R.attr.textColorPrimary))
             },
         )
-        val modes = AppPrefs.Keyboard.OneHandMode.entries
+        content.addView(TextView(context).apply { setText(R.string.one_hand_mode) })
         content.addView(
-            Button(context).apply {
-                isAllCaps = false
-                text = "${context.getString(R.string.one_hand_mode)} · ${context.getString(prefs.keyboard.oneHandMode.getValue().stringRes)}"
-                minHeight = dp(48)
-                gravity = Gravity.CENTER_VERTICAL
-                isFocusable = true
-                setOnClickListener {
-                    service.showDialog(
-                        AlertDialog.Builder(context).setTitle(R.string.one_hand_mode)
-                            .setSingleChoiceItems(modes.map { context.getString(it.stringRes) }.toTypedArray(), modes.indexOf(prefs.keyboard.oneHandMode.getValue())) { dialog, index ->
-                                prefs.keyboard.oneHandMode.setValue(modes[index])
-                                text = "${context.getString(R.string.one_hand_mode)} · ${context.getString(modes[index].stringRes)}"
-                                dialog.dismiss()
-                            }.setNegativeButton(R.string.cancel, null).create(),
+            RadioGroup(context).apply {
+                orientation = RadioGroup.VERTICAL
+                AppPrefs.Keyboard.OneHandMode.entries.forEach { mode ->
+                    addView(
+                        RadioButton(context).apply {
+                            id = View.generateViewId()
+                            setText(mode.stringRes)
+                            minHeight = dp(48)
+                            isChecked = prefs.keyboard.oneHandMode.getValue() == mode
+                            setOnClickListener { prefs.keyboard.oneHandMode.setValue(mode) }
+                        },
                     )
                 }
             },
@@ -499,5 +489,87 @@ class HaoHaoToolboxWindow :
         countsJob?.cancel()
         countsJob = null
         tiles.clear()
+    }
+}
+
+internal class ToolbarEditorView(
+    context: android.content.Context,
+    saved: String,
+    private val label: (String) -> String,
+    private val save: (String) -> Unit,
+) : LinearLayout(context) {
+    private val selected = resolveHaoHaoToolbarActions(saved).toMutableList()
+    private val status = TextView(context).apply { setText(R.string.product_toolbar_hint) }
+    private val rows = LinearLayout(context).apply { orientation = VERTICAL }
+
+    init {
+        orientation = VERTICAL
+        setPadding(dp(20), dp(8), dp(20), dp(8))
+        addView(status, LayoutParams(-1, -2))
+        addView(rows, LayoutParams(-1, -2))
+        render()
+    }
+
+    fun reset() {
+        selected.clear()
+        selected.addAll(resolveHaoHaoToolbarActions(""))
+        save("")
+        render()
+    }
+
+    private fun persist() {
+        save(encodeHaoHaoToolbarActions(selected))
+        render()
+    }
+
+    private fun render() {
+        rows.removeAllViews()
+        status.setText(R.string.product_toolbar_hint)
+        (selected + HAOHAO_TOOLBAR_ACTIONS.filterNot { it in selected }).forEach { action ->
+            rows.addView(
+                LinearLayout(context).apply {
+                    gravity = Gravity.CENTER_VERTICAL
+                    minimumHeight = dp(48)
+                    addView(
+                        CheckBox(context).apply {
+                            text = label(action)
+                            minHeight = dp(48)
+                            isChecked = action in selected
+                            setOnCheckedChangeListener { button, checked ->
+                                if (checked && selected.size == 3) {
+                                    render()
+                                    status.setText(R.string.product_toolbar_limit)
+                                    announceForAccessibility(context.getString(R.string.product_toolbar_limit))
+                                } else {
+                                    if (checked) selected.add(action) else selected.remove(action)
+                                    persist()
+                                }
+                            }
+                        },
+                        LayoutParams(0, -2, 1f),
+                    )
+                    for (delta in listOf(-1, 1)) {
+                        val index = selected.indexOf(action)
+                        addView(
+                            ImageButton(context).apply {
+                                setImageResource(R.drawable.ic_baseline_arrow_drop_down_24)
+                                rotation = if (delta < 0) 180f else 0f
+                                imageTintList = ColorStateList.valueOf(context.styledColor(android.R.attr.textColorPrimary))
+                                setBackgroundResource(android.R.drawable.list_selector_background)
+                                contentDescription = context.getString(if (delta < 0) R.string.product_move_before else R.string.product_move_after, label(action))
+                                isEnabled = index >= 0 && index + delta in selected.indices
+                                alpha = if (isEnabled) 1f else 0.25f
+                                setOnClickListener {
+                                    java.util.Collections.swap(selected, index, index + delta)
+                                    persist()
+                                }
+                            },
+                            LayoutParams(dp(48), dp(48)),
+                        )
+                    }
+                },
+                LayoutParams(-1, -2),
+            )
+        }
     }
 }

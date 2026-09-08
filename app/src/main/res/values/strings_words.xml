@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="words_quick_review">Review 5 words</string>
+    <string name="words_quick_review">Start review</string>
+    <string name="words_resume_action">Continue review</string>
     <string name="words_daily_plan">Daily plan</string>
     <string name="words_learning">Learning</string>
     <string name="words_detail">Word meaning</string>
@@ -57,8 +58,9 @@
     <string name="words_review_count">Review %1$d words</string>
     <string name="words_plan_settings">Plan settings</string>
     <string name="words_plan_save">Save settings</string>
-    <string name="words_last_session">Review status</string>
-    <string name="words_session_mode">%1$s · %2$s. Plan changes apply to the next round.</string>
+    <string name="words_last_session">Last review</string>
+    <string name="words_session_mode">%1$s · %2$s</string>
+    <string name="words_plan_changes_next_round">Plan changes apply to the next round.</string>
     <string name="words_undo">Undo last rating</string>
     <string name="words_speech_initializing">Preparing offline pronunciation…</string>
     <string name="words_speech_init_failed">The speech engine did not initialize. Retry or open system speech settings.</string>

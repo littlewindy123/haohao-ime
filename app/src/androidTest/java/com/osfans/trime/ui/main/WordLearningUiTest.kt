@@ -6,7 +6,9 @@ package com.osfans.trime.ui.main
 
 import android.content.Context
 import android.content.Intent
+import android.content.res.Configuration
 import android.graphics.Bitmap
+import android.graphics.Rect
 import android.os.ParcelFileDescriptor
 import android.os.SystemClock
 import android.view.KeyEvent
@@ -16,6 +18,8 @@ import android.view.ViewGroup
 import android.view.inspector.WindowInspector
 import android.widget.EditText
 import android.widget.TextView
+import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.os.LocaleListCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.test.core.app.ActivityScenario
@@ -23,6 +27,7 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.SdkSuppress
 import androidx.test.platform.app.InstrumentationRegistry
+import com.google.android.material.appbar.AppBarLayout
 import com.osfans.trime.R
 import com.osfans.trime.data.footprints.InputFootprints
 import com.osfans.trime.data.prefs.AppPrefs
@@ -36,6 +41,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.kodein.di.instance
@@ -48,6 +54,19 @@ class WordLearningUiTest {
     private val context = ApplicationProvider.getApplicationContext<Context>()
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val store get() = InputFootprints.store
+
+    @Before
+    fun configureIsolatedAppearance() {
+        assertTrue(context.packageName.endsWith(".regression"))
+        val args = InstrumentationRegistry.getArguments()
+        AppPrefs.defaultInstance().advanced.uiMode.setValue(
+            if (args.getString("appearance") == "dark") AppPrefs.Advanced.UiMode.DARK else AppPrefs.Advanced.UiMode.LIGHT,
+        )
+        instrumentation.runOnMainSync {
+            AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(args.getString("locale", "zh-CN")))
+        }
+        instrumentation.waitForIdleSync()
+    }
 
     @Test
     fun syntheticTypingBenchmark() {
@@ -283,6 +302,116 @@ class WordLearningUiTest {
     }
 
     @Test
+    fun reviewControlsDoNotClipText() {
+        assertTrue(context.packageName.endsWith(".regression"))
+        runBlocking {
+            store.clearAll()
+            store.learning.saveMeaning(
+                "把复杂的事情拆分成可以逐步完成的小步骤",
+                "break into manageable steps",
+                "/breɪk ˈɪntuː ˈmænɪdʒəbl steps/",
+                "offline",
+                learning = true,
+            )
+            store.learning.startSession(daily = false)
+        }
+        try {
+            val wordsIntent = Intent(context, MainActivity::class.java).setAction(Intent.ACTION_RUN)
+                .putExtra(MainActivity.EXTRA_SETTINGS_ROUTE, NavigationRoute.InputFootprints)
+            ActivityScenario.launch<MainActivity>(wordsIntent).use { scenario ->
+                awaitCondition {
+                    var ready = false
+                    scenario.onActivity {
+                        ready = it.findViewById<View>(R.id.quick_review)?.isLaidOut == true &&
+                            it.findViewById<TextView>(R.id.footprint_summary)?.text == it.getString(R.string.words_resume, 1)
+                    }
+                    ready
+                }
+                // Landscape intentionally starts with the introduction collapsed.
+                scenario.onActivity { it.findViewById<AppBarLayout>(R.id.word_header).setExpanded(true, false) }
+                instrumentation.waitForIdleSync()
+                for (id in listOf(R.id.quick_review, R.id.daily_plan)) {
+                    var button: View? = null
+                    scenario.onActivity { button = it.findViewById(id) }
+                    assertReachableText(requireNotNull(button))
+                }
+                capture("entry-layout")
+            }
+            val intent = Intent(context, WordLearningActivity::class.java).putExtra("words.mode", "review")
+            ActivityScenario.launch<WordLearningActivity>(intent).use { scenario ->
+                awaitButton(scenario, R.string.words_reveal)
+                assertReviewText(scenario)
+                capture("long-question")
+                click(scenario, R.string.words_reveal)
+                awaitButton(scenario, R.string.words_remembered)
+                assertReviewText(scenario)
+                capture("long-answer")
+                click(scenario, R.string.words_remembered)
+                awaitButton(scenario, R.string.words_undo)
+                assertReviewText(scenario)
+                capture("completed")
+                scenario.recreate()
+                awaitButton(scenario, R.string.words_undo)
+                click(scenario, R.string.words_undo)
+                awaitButton(scenario, R.string.words_remembered)
+                assertEquals(0, runBlocking { store.learning.session()!!.completed })
+                assertEquals(
+                    0,
+                    runBlocking {
+                        val card = store.learning.session()!!.cards.first()
+                        store.learning.find(card.chinese, card.english)!!.reviewCount
+                    },
+                )
+                assertReviewText(scenario)
+                capture("restored-answer")
+            }
+        } finally {
+            runBlocking { store.clearAll() }
+        }
+    }
+
+    private fun assertReviewText(scenario: ActivityScenario<WordLearningActivity>) {
+        var views = emptyList<TextView>()
+        scenario.onActivity { activity ->
+            views = descendants(activity.window.decorView).filterIsInstance<TextView>()
+                .filter { it.isShown && it.text.isNotEmpty() }.toList()
+        }
+        views.forEach { view ->
+            instrumentation.runOnMainSync {
+                val layout = requireNotNull(view.layout)
+                assertTrue("Text height clipped: ${view.text}", layout.height <= view.height - view.totalPaddingTop - view.totalPaddingBottom)
+                for (line in 0 until layout.lineCount) {
+                    assertEquals("Ellipsized text: ${view.text}", 0, layout.getEllipsisCount(line))
+                    assertTrue("Text width clipped: ${view.text}", layout.getLineMax(line) <= view.width - view.totalPaddingLeft - view.totalPaddingRight + 1)
+                }
+            }
+            if (view.isClickable) assertReachableText(view)
+        }
+    }
+
+    private fun assertReachableText(view: View) {
+        instrumentation.runOnMainSync { view.requestRectangleOnScreen(Rect(0, 0, view.width, view.height), true) }
+        instrumentation.waitForIdleSync()
+        instrumentation.runOnMainSync {
+            val args = InstrumentationRegistry.getArguments()
+            val config = view.resources.configuration
+            assertEquals("Unexpected appearance", args.getString("appearance") == "dark", config.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES)
+            args.getString("fontScale")?.toFloat()?.let {
+                assertEquals("Unexpected font scale", it, config.fontScale, 0.01f)
+            }
+            val visible = Rect()
+            assertTrue("Control is not visible", view.getGlobalVisibleRect(visible))
+            assertEquals("Control is clipped horizontally", view.width, visible.width())
+            assertEquals("Control is clipped vertically", view.height, visible.height())
+            assertTrue("Touch target is too short", view.height >= 48 * view.resources.displayMetrics.density - 1)
+            if (view is TextView) {
+                val layout = requireNotNull(view.layout)
+                assertTrue("Control text clipped: ${view.text}", layout.height <= view.height - view.totalPaddingTop - view.totalPaddingBottom)
+            }
+        }
+    }
+
+    @Test
     fun wordsAndReviewRemainUsableAndPersistAcrossRecreation() {
         assertTrue(context.packageName.endsWith(".regression"))
         runBlocking {
@@ -365,12 +494,30 @@ class WordLearningUiTest {
     }
 
     private fun click(scenario: ActivityScenario<WordLearningActivity>, title: Int) {
+        var target: View? = null
         scenario.onActivity { activity ->
-            val button = descendants(activity.window.decorView)
+            target = descendants(activity.window.decorView)
                 .first { (it as? TextView)?.text?.toString() == activity.getString(title) || it.contentDescription == activity.getString(title) }
-            assertTrue(button.isEnabled)
-            button.performClick()
         }
+        val button = requireNotNull(target)
+        assertReachableText(button)
+        val location = IntArray(2)
+        instrumentation.runOnMainSync {
+            assertTrue(button.isEnabled)
+            button.getLocationOnScreen(location)
+        }
+        val x = location[0] + button.width / 2f
+        val y = location[1] + button.height / 2f
+        val now = SystemClock.uptimeMillis()
+        for (action in listOf(MotionEvent.ACTION_DOWN, MotionEvent.ACTION_UP)) {
+            val event = MotionEvent.obtain(now, SystemClock.uptimeMillis(), action, x, y, 0)
+            try {
+                assertTrue(instrumentation.uiAutomation.injectInputEvent(event, true))
+            } finally {
+                event.recycle()
+            }
+        }
+        instrumentation.waitForIdleSync()
     }
 
     @Test

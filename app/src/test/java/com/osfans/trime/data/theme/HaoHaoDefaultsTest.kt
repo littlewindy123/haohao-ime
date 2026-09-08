@@ -292,6 +292,35 @@ class HaoHaoDefaultsTest :
             pressed.shadow shouldBe null
         }
 
+        "raised keycaps keep every touch cell and fit the face and base at any density" {
+            for (density in listOf(1, 2, 3, 4)) {
+                for (bottomGap in listOf(1, 2, 4)) {
+                    fun surface(pressed: Boolean) = calculateKeySurfaceGeometry(
+                        width = 30 * density,
+                        height = 40 * density,
+                        paddingLeft = density,
+                        paddingTop = 4 * density,
+                        paddingRight = density,
+                        paddingBottom = bottomGap * density,
+                        shadowOffsetY = density,
+                        pressOffsetX = 0,
+                        pressOffsetY = 2 * density,
+                        pressed = pressed,
+                        raisedDepth = 3 * density,
+                    )
+                    val resting = surface(false)
+                    val pressed = surface(true)
+                    resting.logicalCell shouldBe pressed.logicalCell
+                    resting.base shouldBe pressed.base
+                    resting.base!!.bottom shouldBeLessThanOrEqual resting.logicalCell.bottom
+                    pressed.cap.bottom shouldBeLessThanOrEqual resting.base!!.bottom
+                    pressed.cap.top - resting.cap.top shouldBe minOf(2, bottomGap) * density
+                    pressed.cap.right - pressed.cap.left shouldBe resting.cap.right - resting.cap.left
+                    pressed.cap.bottom - pressed.cap.top shouldBe resting.cap.bottom - resting.cap.top
+                }
+            }
+        }
+
         "height modes keep reference caps centered inside touch rows" {
             listOf(
                 58 to 49,
@@ -482,6 +511,15 @@ class HaoHaoDefaultsTest :
             replaceHaoHaoToolbarAction(swapped, -1, "Hide") shouldBe swapped
             val customTheme = ToolBar(primaryButton = ToolBar.Button(action = "custom"))
             customTheme.customizedHaoHaoButtons(swapped) shouldContainExactly customTheme.equalWidthButtonsInDisplayOrder()
+        }
+
+        "explicit toolbar selection preserves removal order and the toolbox escape routes" {
+            resolveHaoHaoToolbarActions("v2:") shouldContainExactly emptyList()
+            resolveHaoHaoToolbarActions("v2:HaoHaoPhrases,Hide,HaoHaoPhrases,clipboard_window") shouldContainExactly listOf("HaoHaoPhrases", "clipboard_window")
+            val encoded = com.osfans.trime.data.theme.model.encodeHaoHaoToolbarActions(listOf("HaoHaoPhrases", "HaoHaoPhrases", "invalid", "HaoHaoEditor"))
+            resolveHaoHaoToolbarActions(encoded) shouldContainExactly listOf("HaoHaoPhrases", "HaoHaoEditor")
+            val toolbar = ToolBar(primaryButton = ToolBar.Button(action = "HaoHaoToolbox"), buttons = listOf(ToolBar.Button(action = "Hide")))
+            toolbar.customizedHaoHaoButtons("v2:").map { it.action } shouldContainExactly listOf("HaoHaoToolbox", "Hide")
         }
 
         "HaoHao toolbox resolves unavailable tools without waiting" {

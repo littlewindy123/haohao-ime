@@ -17,6 +17,7 @@ import android.graphics.Rect
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.view.KeyEvent
+import androidx.core.graphics.ColorUtils
 import com.mikepenz.iconics.IconicsDrawable
 import com.mikepenz.iconics.utils.sizeDp
 import com.osfans.trime.daemon.RimeDaemon
@@ -73,6 +74,7 @@ internal data class KeySurfaceGeometry(
     val logicalCell: KeySurfaceRect,
     val cap: KeySurfaceRect,
     val shadow: KeySurfaceRect?,
+    val base: KeySurfaceRect? = null,
 )
 
 internal fun calculateKeySurfaceGeometry(
@@ -86,6 +88,7 @@ internal fun calculateKeySurfaceGeometry(
     pressOffsetX: Int,
     pressOffsetY: Int,
     pressed: Boolean,
+    raisedDepth: Int = 0,
 ): KeySurfaceGeometry {
     val logicalCell = KeySurfaceRect(0, 0, width, height)
     val safeLeft = paddingLeft.coerceIn(0, width)
@@ -100,6 +103,11 @@ internal fun calculateKeySurfaceGeometry(
     val layered = effectiveShadowOffset > 0
     val effectivePressOffsetX = pressOffsetX.coerceIn(-safeLeft, paddingRight.coerceAtLeast(0))
     val effectivePressOffsetY = pressOffsetY.coerceIn(-safeTop, paddingBottom.coerceAtLeast(0))
+    val depth = raisedDepth.coerceIn(0, paddingBottom.coerceAtLeast(0))
+    if (depth > 0) {
+        val cap = if (pressed) capBase.offset(0, pressOffsetY.coerceIn(0, depth)) else capBase
+        return KeySurfaceGeometry(logicalCell, cap, null, capBase.offset(0, depth))
+    }
     val cap = if (layered && pressed) capBase.offset(effectivePressOffsetX, effectivePressOffsetY) else capBase
     val shadow = if (layered && !pressed) capBase.offset(0, effectiveShadowOffset) else null
     return KeySurfaceGeometry(logicalCell, cap, shadow)
@@ -147,6 +155,12 @@ class KeyView(
         strokeCap = Paint.Cap.ROUND
     }
     private val isHaoHaoTheme = ThemeManager.prefs.selectedTheme.getValue() == DEFAULT_THEME_ID
+    private val raisedKeycap = isHaoHaoTheme && keyboardPrefs.keycapStyle.getValue() == AppPrefs.Keyboard.KeycapStyle.RAISED
+    private val raisedFace = GradientDrawable().apply { orientation = GradientDrawable.Orientation.TOP_BOTTOM }
+    private val basePaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private var raisedFaceColor: Int? = null
+    private var restingSurface: KeySurfaceGeometry? = null
+    private var pressedSurface: KeySurfaceGeometry? = null
 
     private var cachedIcon: IconicsDrawable? = null
     private var cachedIconName: String? = null
@@ -390,12 +404,21 @@ class KeyView(
     override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
         super.onLayout(changed, left, top, right, bottom)
         boundsValid = false
+        restingSurface = null
+        pressedSurface = null
     }
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
 
         drawBackground(canvas, key)
+
+        val save = canvas.save()
+        if (raisedKeycap && key.verticalGroupPosition < 0 && key.isPressed) {
+            // Labels, icons and hints travel with the face, independent of the font scale.
+            val travel = dp(2).coerceIn(0, minOf(dp(3), paddingBottom.coerceAtLeast(0)))
+            canvas.translate(-sp(key.keyPressOffsetX), travel - sp(key.keyPressOffsetY))
+        }
 
         val label = key.getLabel().let {
             if (it == "enter_labels") keyboardView.labelEnter else it
@@ -416,6 +439,7 @@ class KeyView(
         if (hint.isNotEmpty()) {
             drawSymbol(canvas, hint, isTop = false)
         }
+        canvas.restoreToCount(save)
     }
 
     private fun drawBackground(canvas: Canvas, k: Key) {
@@ -433,7 +457,7 @@ class KeyView(
             bg.draw(canvas)
             return
         }
-        val geometry = calculateKeySurfaceGeometry(
+        val geometry = (if (k.isPressed) pressedSurface else restingSurface) ?: calculateKeySurfaceGeometry(
             width = width,
             height = height,
             paddingLeft = paddingLeft,
@@ -442,10 +466,33 @@ class KeyView(
             paddingBottom = paddingBottom,
             shadowOffsetY = dp(keyboard.keyShadowOffsetY).roundToInt(),
             pressOffsetX = sp(k.keyPressOffsetX).roundToInt(),
-            pressOffsetY = sp(k.keyPressOffsetY).roundToInt(),
+            pressOffsetY = if (raisedKeycap) dp(2) else sp(k.keyPressOffsetY).roundToInt(),
             pressed = k.isPressed,
-        )
+            raisedDepth = if (raisedKeycap) dp(3) else 0,
+        ).also {
+            if (k.isPressed) pressedSurface = it else restingSurface = it
+        }
         val depthAlpha = if (k.click?.isFunctional == true) FUNCTION_KEY_DEPTH_ALPHA else 1f
+
+        if (geometry.base != null && bg is GradientDrawable) {
+            val faceColor = k.getSurfaceColor()
+            if (raisedFaceColor != faceColor) {
+                raisedFaceColor = faceColor
+                raisedFace.colors = intArrayOf(
+                    ColorUtils.blendARGB(faceColor, Color.WHITE, 0.12f),
+                    faceColor,
+                    ColorUtils.blendARGB(faceColor, Color.BLACK, 0.06f),
+                )
+                basePaint.color = ColorUtils.blendARGB(faceColor, Color.BLACK, 0.28f)
+                raisedFace.setStroke(dp(1), ColorUtils.blendARGB(faceColor, Color.BLACK, 0.12f))
+            }
+            val base = geometry.base
+            canvas.drawRoundRect(base.left.toFloat(), base.top.toFloat(), base.right.toFloat(), base.bottom.toFloat(), cornerRadius, cornerRadius, basePaint)
+            raisedFace.cornerRadius = cornerRadius
+            raisedFace.setBounds(geometry.cap.left, geometry.cap.top, geometry.cap.right, geometry.cap.bottom)
+            raisedFace.draw(canvas)
+            return
+        }
 
         geometry.shadow?.let { shadow ->
             val shadowColor = runCatching { ColorManager.getColor("key_shadow_color") }.getOrDefault(Color.TRANSPARENT)

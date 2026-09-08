@@ -5,14 +5,16 @@
 
 package com.osfans.trime.ui.main
 
-import android.app.AlertDialog
 import android.os.Bundle
+import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.activityViewModels
 import androidx.preference.Preference
+import com.osfans.trime.BuildConfig
 import com.osfans.trime.R
 import com.osfans.trime.ui.common.PaddingPreferenceFragment
 import com.osfans.trime.util.AppUtils
 import com.osfans.trime.util.Logcat
+import com.osfans.trime.util.addPreference
 
 class DeveloperFragment : PaddingPreferenceFragment() {
     private val viewModel: MainViewModel by activityViewModels()
@@ -59,6 +61,9 @@ class DeveloperFragment : PaddingPreferenceFragment() {
                 }
             },
         )
+        screen.addPreference(R.string.librime_version, BuildConfig.LIBRIME_VERSION)
+        screen.addPreference(R.string.opencc_version, BuildConfig.OPENCC_VERSION)
+        screen.addPreference(R.string.build_info, "${BuildConfig.BUILD_COMMIT_HASH} / ${BuildConfig.BUILD_TYPE}")
         preferenceScreen = screen
     }
 

@@ -42,6 +42,18 @@ sealed class NavigationRoute : Parcelable {
     data object AllSettings : NavigationRoute()
 
     @Serializable
+    data object Appearance : NavigationRoute()
+
+    @Serializable
+    data object Expert : NavigationRoute()
+
+    @Serializable
+    data object PrivacyData : NavigationRoute()
+
+    @Serializable
+    data object PrivacyPolicy : NavigationRoute()
+
+    @Serializable
     data object SchemaList : NavigationRoute()
 
     @Serializable
@@ -102,6 +114,18 @@ sealed class NavigationRoute : Parcelable {
             fragment<LanguageSettingsFragment, LanguageSettings> {
                 label = ctx.getString(R.string.home_translation)
             }
+            fragment<AppearanceSettingsFragment, Appearance> {
+                label = ctx.getString(R.string.product_appearance)
+            }
+            fragment<ExpertSettingsFragment, Expert> {
+                label = ctx.getString(R.string.product_expert)
+            }
+            fragment<PrivacyDataFragment, PrivacyData> {
+                label = ctx.getString(R.string.product_privacy_data)
+            }
+            fragment<PrivacyPolicyFragment, PrivacyPolicy> {
+                label = ctx.getString(R.string.privacy_policy)
+            }
             fragment<AllSettingsFragment, AllSettings> {
                 label = ctx.getString(R.string.all_settings)
             }
@@ -141,7 +165,7 @@ sealed class NavigationRoute : Parcelable {
                 label = ctx.getString(R.string.about)
             }
             fragment<LicenseFragment, License> {
-                label = ctx.getString(R.string.license)
+                label = ctx.getString(R.string.open_source_licenses)
             }
             fragment<InputFootprintsFragment, InputFootprints> {
                 label = ctx.getString(R.string.input_footprints_title)

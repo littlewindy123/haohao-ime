@@ -45,22 +45,28 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
+            android:baselineAligned="false"
+            android:gravity="center_vertical"
             android:orientation="horizontal">
             <androidx.appcompat.widget.AppCompatButton
                 android:id="@+id/quick_review"
                 style="@style/Widget.HaoHao.HeaderButton"
                 android:layout_width="0dp"
-                android:layout_height="wrap_content"
+                android:layout_height="match_parent"
                 android:layout_weight="1"
                 android:minWidth="0dp"
+                android:paddingTop="10dp"
+                android:paddingBottom="10dp"
                 android:text="@string/words_quick_review" />
             <androidx.appcompat.widget.AppCompatButton
                 android:id="@+id/daily_plan"
                 style="@style/Widget.HaoHao.SegmentButton"
                 android:layout_width="0dp"
-                android:layout_height="wrap_content"
+                android:layout_height="match_parent"
                 android:layout_marginStart="8dp"
                 android:layout_weight="1"
+                android:paddingTop="10dp"
+                android:paddingBottom="10dp"
                 android:text="@string/words_daily_plan" />
         </LinearLayout>
     </LinearLayout>

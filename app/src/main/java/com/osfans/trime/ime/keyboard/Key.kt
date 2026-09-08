@@ -279,6 +279,21 @@ class Key(
         else -> if (isPressed) hlKeyBackground else keyBackground
     }
 
+    // Resolve solid keycap colors without GradientDrawable.getColor (API 24).
+    internal fun getSurfaceColor(): Int = when (appearanceType) {
+        2 -> ColorManager.getColor(if (isPressed) "hilited_on_key_back_color" else "on_key_back_color")
+        1 -> if (isPressed) {
+            ColorManager.getColor("hilited_off_key_back_color")
+        } else {
+            getColor(selfConfig?.keyBackColor ?: "", ColorManager.getColor("off_key_back_color"))
+        }
+        else -> if (isPressed) {
+            getColor(selfConfig?.hlKeyBackColor ?: "", ColorManager.getColor("hilited_key_back_color"))
+        } else {
+            getColor(selfConfig?.keyBackColor ?: "", ColorManager.getColor("key_back_color"))
+        }
+    }
+
     fun getTextColor(): Int = when (appearanceType) {
         2 -> if (isPressed) hlOnKeyTextColor else onKeyTextColor
         1 -> if (isPressed) hlOffKeyTextColor else getColor(selfConfig?.keyTextColor ?: "", offKeyTextColor)

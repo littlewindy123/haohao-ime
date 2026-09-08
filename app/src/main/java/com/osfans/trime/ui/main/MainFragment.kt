@@ -175,13 +175,11 @@ class MainFragment : Fragment(R.layout.fragment_main) {
         }
         binding.moreButton.setOnClickListener { anchor ->
             PopupMenu(requireContext(), anchor).apply {
-                menu.add(MENU_GROUP, MENU_DEPLOY, MENU_DEPLOY, R.string.deploy)
-                menu.add(MENU_GROUP, MENU_DEVELOPER, MENU_DEVELOPER, R.string.developer)
+                menu.add(MENU_GROUP, MENU_DEPLOY, MENU_DEPLOY, R.string.all_settings)
                 menu.add(MENU_GROUP, MENU_ABOUT, MENU_ABOUT, R.string.about)
                 setOnMenuItemClickListener { item ->
                     when (item.itemId) {
-                        MENU_DEPLOY -> viewModel.rime.launchOnReady { it.deploy() }
-                        MENU_DEVELOPER -> findNavController().navigateWithAnim(NavigationRoute.Developer)
+                        MENU_DEPLOY -> findNavController().navigateWithAnim(NavigationRoute.AllSettings)
                         MENU_ABOUT -> findNavController().navigateWithAnim(NavigationRoute.About)
                         else -> return@setOnMenuItemClickListener false
                     }
@@ -368,7 +366,7 @@ class MainFragment : Fragment(R.layout.fragment_main) {
             findNavController().navigateWithAnim(NavigationRoute.CloudTranslation)
         }
         binding.themeDestination.setOnClickListener {
-            findNavController().navigateWithAnim(NavigationRoute.Theme)
+            findNavController().navigateWithAnim(NavigationRoute.Appearance)
         }
         binding.allSettingsDestination.setOnClickListener {
             findNavController().navigateWithAnim(NavigationRoute.AllSettings)
@@ -604,7 +602,6 @@ class MainFragment : Fragment(R.layout.fragment_main) {
     private companion object {
         const val MENU_GROUP = 100
         const val MENU_DEPLOY = 101
-        const val MENU_DEVELOPER = 102
         const val MENU_ABOUT = 103
         const val TRANSLATION_DELAY_STEP_MS = 100
         const val TRANSLATION_DELAY_STEPS = 10
@@ -613,75 +610,73 @@ class MainFragment : Fragment(R.layout.fragment_main) {
     }
 }
 
-class AllSettingsFragment : TopOptionsPreferenceFragment() {
-
-    private fun PreferenceGroup.addDestinationPreference(
-        @StringRes title: Int,
-        @DrawableRes icon: Int,
-        route: NavigationRoute,
-    ) {
-        addPreference(title, icon = icon) {
-            findNavController().navigateWithAnim(route)
+class AllSettingsFragment : PaddingPreferenceFragment() {
+    override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
+        preferenceScreen = preferenceManager.createPreferenceScreen(requireContext()).apply {
+            fun destination(title: Int, summary: Int, route: NavigationRoute) {
+                addPreference(title, summary) { findNavController().navigateWithAnim(route) }
+            }
+            destination(R.string.product_appearance, R.string.product_appearance_summary, NavigationRoute.Appearance)
+            destination(R.string.product_input, R.string.home_input_summary, NavigationRoute.InputPreferences)
+            destination(R.string.home_translation, R.string.home_cloud_optional, NavigationRoute.LanguageSettings)
+            destination(R.string.product_learning, R.string.product_learning_summary, NavigationRoute.InputFootprints)
+            destination(R.string.product_privacy_data, R.string.product_privacy_data_summary, NavigationRoute.PrivacyData)
+            addCategory("") {
+                addPreference(R.string.product_expert, R.string.product_expert_summary) { findNavController().navigateWithAnim(NavigationRoute.Expert) }
+                addPreference(R.string.about) { findNavController().navigateWithAnim(NavigationRoute.About) }
+            }
         }
     }
+}
 
-    override fun onCreatePreferences(
-        savedInstanceState: Bundle?,
-        rootKey: String?,
-    ) {
+class ExpertSettingsFragment : PaddingPreferenceFragment() {
+    override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
         preferenceScreen = preferenceManager.createPreferenceScreen(requireContext()).apply {
-            addDestinationPreference(R.string.home_input_preferences, R.drawable.ic_baseline_keyboard_24, NavigationRoute.InputPreferences)
-            addDestinationPreference(R.string.ime_common_phrases, R.drawable.ic_clipboard_24, NavigationRoute.CommonPhrases)
-            addDestinationPreference(R.string.developer, R.drawable.ic_baseline_tune_24, NavigationRoute.Developer)
-            addDestinationPreference(R.string.about, R.drawable.ic_baseline_more_horiz_24, NavigationRoute.About)
-            addDestinationPreference(
-                R.string.schemata,
-                R.drawable.ic_round_view_list_24,
-                NavigationRoute.SchemaList,
-            )
-            addDestinationPreference(
-                R.string.user_dictionary,
-                R.drawable.ic_baseline_book_24,
-                NavigationRoute.UserDict,
-            )
-            addDestinationPreference(
-                R.string.profile,
-                R.drawable.ic_baseline_snippet_folder_24,
-                NavigationRoute.Profile,
-            )
-            addCategory("") {
-                isIconSpaceReserved = false
-                addDestinationPreference(
-                    R.string.general,
-                    R.drawable.ic_baseline_tune_24,
-                    NavigationRoute.General,
-                )
-                addDestinationPreference(
-                    R.string.virtual_keyboard,
-                    R.drawable.ic_baseline_keyboard_24,
-                    NavigationRoute.VirtualKeyboard,
-                )
-                addDestinationPreference(
-                    R.string.candidates_window,
-                    R.drawable.ic_baseline_list_alt_24,
-                    NavigationRoute.CandidatesWindow,
-                )
-                addDestinationPreference(
-                    R.string.theme,
-                    R.drawable.ic_baseline_color_lens_24,
-                    NavigationRoute.Theme,
-                )
-                addDestinationPreference(
-                    R.string.clipboard,
-                    R.drawable.ic_clipboard_24,
-                    NavigationRoute.Clipboard,
-                )
-                addDestinationPreference(
-                    R.string.advanced,
-                    R.drawable.ic_baseline_more_horiz_24,
-                    NavigationRoute.Advanced,
-                )
+            addPreference(R.string.product_expert, R.string.product_expert_summary)
+            for ((title, route) in listOf(
+                R.string.schemata to NavigationRoute.SchemaList,
+                R.string.user_dictionary to NavigationRoute.UserDict,
+                R.string.profile to NavigationRoute.Profile,
+                R.string.general to NavigationRoute.General,
+                R.string.virtual_keyboard to NavigationRoute.VirtualKeyboard,
+                R.string.candidates_window to NavigationRoute.CandidatesWindow,
+                R.string.theme to NavigationRoute.Theme,
+                R.string.advanced to NavigationRoute.Advanced,
+                R.string.developer to NavigationRoute.Developer,
+            )) {
+                addPreference(title) { findNavController().navigateWithAnim(route) }
             }
+            addPreference(R.string.deploy) { RimeDaemon.getFirstSessionOrNull()?.launchOnReady { it.deploy() } }
+        }
+    }
+}
+
+class PrivacyDataFragment : PaddingPreferenceFragment() {
+    override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
+        preferenceScreen = preferenceManager.createPreferenceScreen(requireContext()).apply {
+            addPreference(R.string.privacy_policy, R.string.product_privacy_summary) { findNavController().navigateWithAnim(NavigationRoute.PrivacyPolicy) }
+            addPreference(R.string.product_notifications, R.string.product_notifications_summary) {
+                val ctx = requireContext()
+                val intent = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                    android.content.Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                        .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, ctx.packageName)
+                } else {
+                    android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, android.net.Uri.parse("package:${ctx.packageName}"))
+                }
+                startActivity(intent)
+            }
+            addPreference(R.string.ime_clip_settings) { findNavController().navigateWithAnim(NavigationRoute.Clipboard) }
+            addPreference(R.string.ime_common_phrases) { findNavController().navigateWithAnim(NavigationRoute.CommonPhrases) }
+            addPreference(R.string.product_learning, R.string.product_data_words_summary) { findNavController().navigateWithAnim(NavigationRoute.InputFootprints) }
+        }
+    }
+}
+
+class PrivacyPolicyFragment : PaddingPreferenceFragment() {
+    override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
+        preferenceScreen = preferenceManager.createPreferenceScreen(requireContext()).apply {
+            addPreference(R.string.privacy_policy, R.string.haohao_privacy_policy)
+            getPreference(0).isSelectable = false
         }
     }
 }

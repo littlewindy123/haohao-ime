@@ -102,8 +102,8 @@ class InputFootprintsFragment : Fragment(R.layout.fragment_input_footprints) {
                 launch {
                     store.learning.taskSummary.collect { summary ->
                         binding.quickReview.text = when {
-                            summary.active != null -> getString(R.string.words_resume, summary.active.cards.size)
-                            summary.quickCount > 0 -> getString(R.string.words_review_count, summary.quickCount)
+                            summary.active != null -> getString(R.string.words_resume_action)
+                            summary.quickCount > 0 -> getString(R.string.words_quick_review)
                             else -> getString(R.string.words_last_session)
                         }
                         binding.footprintSummary.text = WordLearningActivity.taskText(requireContext(), summary)

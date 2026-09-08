@@ -110,7 +110,7 @@ class HaoHaoQuickSettingsTest {
                 activity.findViewById<TestInputPanel>(R.id.test_input_panel).dismiss()
 
                 homeAction(navHost, R.string.home_all_themes).performClick()
-                assertTrue(navHost.navController.currentDestination?.hasRoute<NavigationRoute.Theme>() == true)
+                assertTrue(navHost.navController.currentDestination?.hasRoute<NavigationRoute.Appearance>() == true)
                 assertTrue(activity.findViewById<View>(R.id.mainToolbar).isVisible)
                 navHost.navController.popBackStack()
                 navHost.childFragmentManager.executePendingTransactions()
@@ -128,6 +128,60 @@ class HaoHaoQuickSettingsTest {
             keyboard.vibrateOnKeyRepeat.setValue(originalVibrateRepeat)
             keyboard.vibrationDuration.setValue(originalDuration)
             keyboard.vibrationAmplitude.setValue(originalAmplitude)
+        }
+    }
+
+    @Test
+    fun consumerSettingsKeepAdvancedOptionsAndCreditsReachable() {
+        launchInputPreferences { _, navHost, activity ->
+            fun open(route: NavigationRoute): androidx.preference.PreferenceScreen {
+                navHost.navController.navigate(route)
+                navHost.childFragmentManager.executePendingTransactions()
+                return (navHost.childFragmentManager.primaryNavigationFragment as androidx.preference.PreferenceFragmentCompat).preferenceScreen
+            }
+            fun titles(group: androidx.preference.PreferenceGroup): List<String> = (0 until group.preferenceCount).flatMap { index ->
+                val item = group.getPreference(index)
+                if (item is androidx.preference.PreferenceGroup) titles(item) else listOf(item.title.toString())
+            }
+            val settings = titles(open(NavigationRoute.AllSettings))
+            assertEquals(listOf(R.string.product_appearance, R.string.product_input, R.string.home_translation, R.string.product_learning, R.string.product_privacy_data, R.string.product_expert, R.string.about).map(activity::getString), settings)
+            val appearance = open(NavigationRoute.Appearance)
+            val mode = appearance.findPreference<androidx.preference.ListPreference>("appearance_ui_mode")!!
+            assertEquals(AppPrefs.defaultInstance().advanced.uiMode.getValue().name, mode.value)
+            assertEquals(3, mode.entries.size)
+            val expert = titles(open(NavigationRoute.Expert))
+            for (id in listOf(R.string.schemata, R.string.user_dictionary, R.string.profile, R.string.theme, R.string.developer, R.string.deploy)) assertTrue(expert.contains(activity.getString(id)))
+            val about = titles(open(NavigationRoute.About))
+            assertTrue(about.contains(activity.getString(R.string.open_source_licenses)))
+            assertFalse(about.contains(activity.getString(R.string.librime_version)))
+            assertFalse(about.contains(activity.getString(R.string.qq_group_1)))
+            val privacy = open(NavigationRoute.PrivacyPolicy)
+            assertEquals(activity.getString(R.string.haohao_privacy_policy), privacy.getPreference(0).summary)
+            val licenses = titles(open(NavigationRoute.License))
+            assertTrue(licenses.contains(activity.getString(R.string.product_credits)))
+            assertTrue(licenses.contains(activity.getString(R.string.source_code)))
+        }
+    }
+
+    @Test
+    fun homeAndRecreationStayUsableWithoutNotificationPermission() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        if (android.os.Build.VERSION.SDK_INT >= 33) {
+            assertEquals(android.content.pm.PackageManager.PERMISSION_DENIED, context.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS))
+        }
+        ActivityScenario.launch<MainActivity>(Intent(context, MainActivity::class.java).setAction(Intent.ACTION_MAIN)).use { scenario ->
+            fun assertHome() {
+                androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().waitForIdleSync()
+                scenario.onActivity { activity ->
+                    assertTrue("The home window must receive focus without a permission dialog", activity.hasWindowFocus())
+                    val host = activity.supportFragmentManager.findFragmentById(R.id.nav_host_fragment) as NavHostFragment
+                    host.childFragmentManager.executePendingTransactions()
+                    assertTrue(host.childFragmentManager.primaryNavigationFragment is HaoHaoHomeFragment)
+                }
+            }
+            assertHome()
+            scenario.recreate()
+            assertHome()
         }
     }
 
