@@ -329,14 +329,15 @@ class CompactCandidateDelegate : InputBroadcastReceiver {
         if (!isSentenceMode()) return
         val state = cloudCandidateController.sentenceState
         val matching = state.source == renderedCells.firstOrNull()?.item?.candidate?.text
+        val revealed = matching && cloudCandidateController.allowsSentencePreview &&
+            revealController.state == CandidateTranslationRevealState.READY
         sentenceStrip.bind(
             state,
-            renderedCells.map { cell ->
+            if (!revealed) emptyList() else renderedCells.map { cell ->
                 val entry = ConfiguredCandidateTranslationRepository.lookup(cell.item.candidate.text)
                 SentenceTranslationCell(cell.width, entry?.translation, entry?.phonetic?.takeIf { candidatePreferences.bilingualPhonetic.getValue() })
             },
-            revealed = matching && cloudCandidateController.allowsSentencePreview &&
-                revealController.state == CandidateTranslationRevealState.READY,
+            revealed = revealed,
         )
     }
 
@@ -550,7 +551,9 @@ class CompactCandidateDelegate : InputBroadcastReceiver {
                 targetCandidateCount()
             }
             val candidates = data.candidates.toCompactCandidateItems(targetCount, preedit)
-            val translationHints = candidates.associateWith { translationHintFor(it, translationMode) }
+            // Sentence translations have their own fixed lane. They must not delay Chinese geometry.
+            val translationHints = if (separateTranslationLane) emptyMap() else
+                candidates.associateWith { translationHintFor(it, translationMode) }
             // Translation arrivals may reveal text, but must not move the Chinese touch targets.
             val reusableGeometry = rowGeometry.takeIf {
                 it?.candidates == candidates && it.width == availableWidth && it.mode == translationMode && it.enabled == translationEnabled
@@ -724,14 +727,17 @@ class CompactCandidateDelegate : InputBroadcastReceiver {
     }
 
     override fun onRimeKeyInput() {
-        renderGeneration++
-        renderJob?.cancel()
-        renderJob = null
-        renderedCells = emptyList()
+        // Keep presenting the last valid Chinese snapshot while newer native work is pending.
+        // Cancelling its model on every physical key starved the row during continuous typing.
+        // Translation invalidation/reveal and version-checked selection remain independent.
         renderSentenceStrip()
     }
 
     override fun onStartInput(info: EditorInfo) {
+        renderGeneration++
+        renderJob?.cancel()
+        renderJob = null
+        renderedCells = emptyList()
         onRimeKeyInput()
         latestCandidates = null
         currentPreedit = null

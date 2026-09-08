@@ -7,6 +7,7 @@ package com.osfans.trime.ui.main
 
 import android.os.Bundle
 import android.view.View
+import android.view.ViewGroup
 import androidx.appcompat.app.AlertDialog
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
@@ -49,6 +50,12 @@ class CloudTranslationSettingsFragment : Fragment(R.layout.fragment_cloud_transl
     ) {
         super.onViewCreated(view, savedInstanceState)
         viewBinding = FragmentCloudTranslationSettingsBinding.bind(view)
+        // Source selection belongs above provider/credential setup in every distribution.
+        val sourceSection = binding.candidateSourceSection
+        (sourceSection.parent as ViewGroup).apply {
+            removeView(sourceSection)
+            addView(sourceSection, 0)
+        }
         selectedProvider = config.activeProvider()
         if (!BuildConfig.INTERNAL_CLOUD_ENABLED) {
             binding.customEndpoint.setText(config.custom()?.endpoint.orEmpty())

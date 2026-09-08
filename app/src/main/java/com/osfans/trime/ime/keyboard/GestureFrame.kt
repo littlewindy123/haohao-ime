@@ -61,6 +61,9 @@ open class GestureFrame(context: Context) : FrameLayout(context) {
     var onSwipe: ((behavior: KeyBehavior) -> Unit)? = null
 
     var isRepeatable = false
+    // A repeat is a timer opportunity, not an independent physical key press. Do not queue
+    // missed timer ticks when the input engine is still working on the previous deletion.
+    var canRepeat: () -> Boolean = { true }
     var isSlideCursor = false
     var isSlideDelete = false
     var slideStepDensity = 1f
@@ -164,7 +167,7 @@ open class GestureFrame(context: Context) : FrameLayout(context) {
                 }
 
                 if (isLongPressed) {
-                    dispatchBehavior(KeyBehavior.LONG_CLICK, true)
+                    if (isRepeatable) onCancel?.invoke() else dispatchBehavior(KeyBehavior.LONG_CLICK, true)
                     return true
                 }
 
@@ -242,9 +245,11 @@ open class GestureFrame(context: Context) : FrameLayout(context) {
         repeatJob = lifecycleScope.launch {
             try {
                 while (true) {
-                    if (vibrateOnKeyRepeat) InputFeedbackManager.keyPressVibrate(this@GestureFrame)
-                    dispatchBehavior(KeyBehavior.CLICK, true)
-                    delay(repeatInterval.toLong())
+                    if (canRepeat()) {
+                        if (vibrateOnKeyRepeat) InputFeedbackManager.keyPressVibrate(this@GestureFrame)
+                        dispatchBehavior(KeyBehavior.CLICK, true)
+                    }
+                    delay(repeatInterval.toLong().coerceAtLeast(16L))
                 }
             } finally {
                 onCancel?.invoke()
@@ -299,6 +304,11 @@ open class GestureFrame(context: Context) : FrameLayout(context) {
         longPressJob?.cancel()
         repeatJob?.cancel()
         doubleTapJob?.cancel()
+    }
+
+    override fun onDetachedFromWindow() {
+        cancelJobs()
+        super.onDetachedFromWindow()
     }
 
     fun getNStep(start: Float, end: Float, step: Float): Int = (if (start < end) 1 else -1) *

@@ -1,0 +1,11 @@
+<resources>
+    <color name="learning_word_ink">#64D8B5</color>
+    <color name="learning_meaning_ink">#FFA686</color>
+    <color name="learning_link_ink">#8EBEFF</color>
+    <color name="learning_recall_green">#64D8B5</color>
+    <color name="learning_on_recall_green">#103C30</color>
+    <color name="learning_recall_red">#56352F</color>
+    <color name="learning_on_recall_red">#FFB49A</color>
+    <color name="learning_recall_amber">#504327</color>
+    <color name="learning_on_recall_amber">#FFDA83</color>
+</resources>

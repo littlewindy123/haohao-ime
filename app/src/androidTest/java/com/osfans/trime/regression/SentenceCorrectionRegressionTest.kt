@@ -23,6 +23,43 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class SentenceCorrectionRegressionTest {
     @Test(timeout = 180_000)
+    fun rapidSentenceTypingAndDeletionKeepEveryKey() = runBlocking {
+        check(InstrumentationRegistry.getInstrumentation().targetContext.packageName.endsWith(".regression"))
+        val session = RimeDaemon.createSession("rapid-sentence-deletion")
+        try {
+            session.runOnReady {
+                selectSchema("luna_pinyin_simp")
+                setRuntimeOption("ascii_mode", false)
+                setRuntimeOption("_haohao_no_personalized_learning", true)
+                for (input in listOf("woaini", "womenmingtianwanshangyiqiquchifan")) {
+                    clearComposition()
+                    input.forEach { processKeyDeferred(it.code) }
+                    refreshPresentation()
+                    assertEquals(input, getRawInput())
+                    val times = mutableListOf<Long>()
+                    repeat(input.length) { index ->
+                        val start = System.nanoTime()
+                        processKeyDeferred(0xff08)
+                        times += (System.nanoTime() - start) / 1_000_000
+                        assertEquals(input.dropLast(index + 1), getRawInput())
+                    }
+                    refreshPresentation()
+                    assertEquals("", getRawInput())
+                    InstrumentationRegistry.getInstrumentation().sendStatus(0, Bundle().apply {
+                        putString("stream", "\nDELETE chars=${input.length} totalMs=${times.sum()} maxMs=${times.maxOrNull()}\n")
+                    })
+                }
+            }
+        } finally {
+            session.runOnReady {
+                clearComposition()
+                setRuntimeOption("_haohao_no_personalized_learning", false)
+            }
+            RimeDaemon.destroySession("rapid-sentence-deletion")
+        }
+    }
+
+    @Test(timeout = 180_000)
     fun fixedSentenceDiagnostics() = runBlocking {
         check(InstrumentationRegistry.getInstrumentation().targetContext.packageName.endsWith(".regression"))
         val prefs = AppPrefs.defaultInstance().pinyin.smartCorrection

@@ -201,6 +201,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
             android:background="@color/haohao_divider" />
 
         <LinearLayout
+            android:id="@+id/candidate_source_section"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"

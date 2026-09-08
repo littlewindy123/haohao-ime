@@ -80,7 +80,6 @@ internal class SentenceTranslationStrip(
             whole.visibility = View.INVISIBLE
             words.visibility = View.INVISIBLE
             sentence.text = ""
-            words.removeAllViews()
             return
         }
         val text = state.translation.orEmpty()
@@ -90,7 +89,6 @@ internal class SentenceTranslationStrip(
         whole.visibility = if (wide || status) View.VISIBLE else View.INVISIBLE
         words.visibility = if (wide || status) View.INVISIBLE else View.VISIBLE
         if (wide || status) {
-            words.removeAllViews()
             sentence.text = if (wide) text else ""
             if (wide) {
                 sentence.setOnClickListener { onExpand(state) }
@@ -120,27 +118,35 @@ internal class SentenceTranslationStrip(
         }
         sentence.text = ""
         sentence.setOnClickListener(null)
-        words.removeAllViews()
-        words.layoutParams = words.layoutParams.apply { this.width = cells.sumOf { it.width }.coerceAtLeast(1) }
+        val rowWidth = cells.sumOf { it.width }.coerceAtLeast(1)
+        if (words.layoutParams.width != rowWidth) {
+            words.layoutParams = words.layoutParams.apply { this.width = rowWidth }
+        }
+        while (words.childCount > cells.size) words.removeViewAt(words.childCount - 1)
+        while (words.childCount < cells.size) {
+            words.addView(label().apply {
+                maxLines = 2
+                ellipsize = TextUtils.TruncateAt.END
+            }, LinearLayout.LayoutParams(1, -1))
+        }
         cells.forEachIndexed { index, cell ->
             val value = if (index == 0) state.translation ?: cell.translation else cell.translation
             val measured = value?.let { sentence.paint.measureText(it).toInt() + horizontalPadding * 2 } ?: 0
             val fits = value != null && !needsSentenceTranslationLane(value, measured, cell.width)
-            words.addView(
-                label().apply {
-                    gravity = Gravity.TOP or Gravity.START
-                    maxLines = 2
-                    ellipsize = TextUtils.TruncateAt.END
-                    this.text = if (fits) listOfNotNull(value, cell.phonetic).joinToString("\n") else ""
-                    if (index == 0 && state.translation != null) {
-                        setOnLongClickListener {
-                            onExpand(state)
-                            true
-                        }
+            (words.getChildAt(index) as TextView).apply {
+                val nextText = if (fits) listOfNotNull(value, cell.phonetic).joinToString("\n") else ""
+                if (this.text.toString() != nextText) this.text = nextText
+                if (layoutParams.width != cell.width) {
+                    layoutParams = layoutParams.apply { this.width = cell.width }
+                }
+                setOnLongClickListener(null)
+                if (index == 0 && state.translation != null) {
+                    setOnLongClickListener {
+                        onExpand(state)
+                        true
                     }
-                },
-                LinearLayout.LayoutParams(cell.width, -1),
-            )
+                }
+            }
         }
     }
 

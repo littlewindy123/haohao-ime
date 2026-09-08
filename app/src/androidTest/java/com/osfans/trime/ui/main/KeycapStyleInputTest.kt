@@ -35,6 +35,127 @@ import org.junit.Test
 import java.io.File
 
 class KeycapStyleInputTest {
+    @Test(timeout = 180_000)
+    fun rapidBurstPublishesBeforeEntireInputQueueIsDrained() {
+        check(context.packageName.endsWith(".regression"))
+        check(Settings.Secure.getString(context.contentResolver, Settings.Secure.DEFAULT_INPUT_METHOD).startsWith(context.packageName + "/"))
+        val intent = Intent(context, MainActivity::class.java).setAction(Intent.ACTION_RUN)
+        ActivityScenario.launch<MainActivity>(intent).use { scenario ->
+            showEditor(scenario); awaitKeyboard()
+            val session = requireNotNull(RimeDaemon.getFirstSessionOrNull())
+            lateinit var service: com.osfans.trime.ime.core.TrimeInputMethodService
+            instrumentation.runOnMainSync {
+                service = WindowInspector.getGlobalWindowViews().flatMap {
+                    descendants(it).filterIsInstance<com.osfans.trime.ime.keyboard.KeyboardView>().toList()
+                }.first { it.isShown }.service
+            }
+            try {
+                runBlocking { session.runOnReady {
+                    selectSchema("luna_pinyin_simp"); setRuntimeOption("ascii_mode", false)
+                    setRuntimeOption("_haohao_no_personalized_learning", true); clearComposition()
+                } }
+                val input = "womenmingtianwanshangyiqiquchifan".repeat(2)
+                val before = com.osfans.trime.ime.core.TypingPerformanceMonitor.snapshot.value.processedKeyCount
+                instrumentation.runOnMainSync {
+                    input.forEach { letter -> service.postRimeKey { processKeyDeferred(letter.code) } }
+                }
+                val versions = mutableSetOf<Long>()
+                val deadline = SystemClock.uptimeMillis() + 60_000
+                while (SystemClock.uptimeMillis() < deadline) {
+                    val processed = com.osfans.trime.ime.core.TypingPerformanceMonitor.snapshot.value.processedKeyCount - before
+                    if (processed >= input.length) break
+                    if (processed > 0) versions += session.run { presentationFlow.value.version }
+                    SystemClock.sleep(16)
+                }
+                assertTrue("Continuous input starved all intermediate presentations", versions.size >= 2)
+                assertEquals(input.length, com.osfans.trime.ime.core.TypingPerformanceMonitor.snapshot.value.processedKeyCount - before)
+                runBlocking { session.runOnReady { assertEquals(input, getRawInput()) } }
+                instrumentation.sendStatus(2, android.os.Bundle().apply {
+                    putString("stream", "\nBURST keys=${input.length} intermediateVersions=${versions.size}\n")
+                })
+            } finally {
+                runBlocking { session.runOnReady { clearComposition(); setRuntimeOption("_haohao_no_personalized_learning", false) } }
+            }
+        }
+    }
+
+    @Test(timeout = 180_000)
+    fun heldDeleteDoesNotBuildBacklogOrContinueAfterRelease() {
+        check(context.packageName.endsWith(".regression"))
+        check(Settings.Secure.getString(context.contentResolver, Settings.Secure.DEFAULT_INPUT_METHOD).startsWith(context.packageName + "/"))
+        val intent = Intent(context, MainActivity::class.java).setAction(Intent.ACTION_RUN)
+        ActivityScenario.launch<MainActivity>(intent).use { scenario ->
+            showEditor(scenario)
+            awaitKeyboard()
+            val session = requireNotNull(RimeDaemon.getFirstSessionOrNull())
+            val oldRepeat = prefs.repeatInterval.getValue()
+            try {
+                // Deliberately fast timer: the producer must slow down when the engine is busy.
+                instrumentation.runOnMainSync { prefs.repeatInterval.setValue(20) }
+                runBlocking {
+                    session.runOnReady {
+                        selectSchema("luna_pinyin_simp")
+                        setRuntimeOption("ascii_mode", false)
+                        setRuntimeOption("_haohao_no_personalized_learning", true)
+                        clearComposition()
+                        "womenmingtianwanshangyiqiquchifan".repeat(2).forEach { processKeyDeferred(it.code) }
+                        refreshPresentation()
+                    }
+                }
+                SystemClock.sleep(400)
+                val delete = awaitKeyboard().first { it.second.getCode(com.osfans.trime.ime.keyboard.KeyBehavior.CLICK) == android.view.KeyEvent.KEYCODE_DEL }.first
+                val before = com.osfans.trime.ime.core.TypingPerformanceMonitor.snapshot.value
+                var processedAtRelease = -1
+                var originalCancel: (() -> Unit)? = null
+                instrumentation.runOnMainSync {
+                    originalCancel = delete.onCancel
+                    delete.onCancel = {
+                        // Capture when ACTION_UP is handled, not before injection/main-thread handoff.
+                        if (processedAtRelease < 0) {
+                            processedAtRelease = com.osfans.trime.ime.core.TypingPerformanceMonitor.snapshot.value.processedKeyCount
+                        }
+                        originalCancel?.invoke()
+                    }
+                }
+                val down = SystemClock.uptimeMillis()
+                touch(delete, MotionEvent.ACTION_DOWN, down)
+                var maximumDepth = 0
+                try {
+                    repeat(40) {
+                        SystemClock.sleep(100)
+                        val snapshot = com.osfans.trime.ime.core.TypingPerformanceMonitor.snapshot.value
+                        maximumDepth = maxOf(maximumDepth, snapshot.queueDepth)
+                    }
+                } finally {
+                    touch(delete, MotionEvent.ACTION_UP, down)
+                    instrumentation.runOnMainSync { delete.onCancel = originalCancel }
+                }
+                SystemClock.sleep(1200)
+                val after = com.osfans.trime.ime.core.TypingPerformanceMonitor.snapshot.value
+                instrumentation.sendStatus(2, android.os.Bundle().apply {
+                    putString("stream", "\nHELD_DELETE sampledQueue=$maximumDepth trailing=${after.processedKeyCount - processedAtRelease}\n")
+                })
+                assertTrue("Release callback must have run", processedAtRelease >= 0)
+                assertTrue("Delete events built up: depth=$maximumDepth", maximumDepth <= 1)
+                assertTrue("Long hold must delete several characters", processedAtRelease - before.processedKeyCount >= 3)
+                assertTrue("Historical peak grew beyond one outstanding repeat", after.maximumQueueDepth <= maxOf(before.maximumQueueDepth, 1))
+                assertTrue("Release must not enqueue another deletion", after.processedKeyCount - processedAtRelease <= 1)
+                assertEquals(0, after.queueDepth)
+                val settled = after.processedKeyCount
+                SystemClock.sleep(500)
+                assertEquals(settled, com.osfans.trime.ime.core.TypingPerformanceMonitor.snapshot.value.processedKeyCount)
+            } finally {
+                instrumentation.runOnMainSync { prefs.repeatInterval.setValue(oldRepeat) }
+                runBlocking {
+                    session.runOnReady {
+                        clearComposition()
+                        setRuntimeOption("_haohao_no_personalized_learning", false)
+                    }
+                }
+            }
+        }
+    }
+
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val context = instrumentation.targetContext
     private val prefs get() = AppPrefs.defaultInstance().keyboard
@@ -83,6 +204,15 @@ class KeycapStyleInputTest {
     }
 
     private fun showEditor(scenario: ActivityScenario<MainActivity>) {
+        // ActivityScenario's RESUMED callback can precede window focus. Requesting
+        // IME in that gap is ignored on some Xiaomi builds.
+        val focusDeadline = SystemClock.uptimeMillis() + 10_000
+        var focused = false
+        while (!focused && SystemClock.uptimeMillis() < focusDeadline) {
+            scenario.onActivity { focused = it.hasWindowFocus() }
+            if (!focused) SystemClock.sleep(50)
+        }
+        assertTrue("Test activity must own window focus before requesting IME", focused)
         scenario.onActivity { activity ->
             activity.window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
             activity.showTestInputPanel()
@@ -92,6 +222,23 @@ class KeycapStyleInputTest {
         }
         instrumentation.waitForIdleSync()
         SystemClock.sleep(400)
+        lateinit var editor: EditText
+        scenario.onActivity { activity ->
+            editor = descendants(activity.window.decorView).filterIsInstance<EditText>().first { it.isShown }
+        }
+        val down = SystemClock.uptimeMillis()
+        touch(editor, MotionEvent.ACTION_DOWN, down)
+        touch(editor, MotionEvent.ACTION_UP, down)
+        instrumentation.waitForIdleSync()
+        scenario.onActivity { activity ->
+            val root = activity.findViewById<View>(android.R.id.content)
+            val bitmap = Bitmap.createBitmap(root.width, root.height, Bitmap.Config.ARGB_8888)
+            root.draw(Canvas(bitmap))
+            File(context.getExternalFilesDir(null), "input-start.png").outputStream().use {
+                bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
+            }
+            bitmap.recycle()
+        }
     }
 
     @Test(timeout = 180_000)

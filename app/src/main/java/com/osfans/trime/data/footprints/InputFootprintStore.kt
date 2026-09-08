@@ -109,7 +109,7 @@ internal object InputFootprints {
                 context.applicationContext,
                 InputFootprintDatabase::class.java,
                 databaseFile(context).absolutePath,
-            ).addMigrations(WORD_LEARNING_MIGRATION, WORD_DISPLAY_UNDO_MIGRATION, SENTENCE_MIGRATION).build()
+            ).addMigrations(WORD_LEARNING_MIGRATION, WORD_DISPLAY_UNDO_MIGRATION, SENTENCE_MIGRATION, LEARNING_PROGRESS_MIGRATION).build()
         try {
             database.openHelper.writableDatabase
             storeInstance = InputFootprintStore(database)

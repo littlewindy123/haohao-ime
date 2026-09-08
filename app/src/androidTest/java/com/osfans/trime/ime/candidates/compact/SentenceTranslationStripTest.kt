@@ -24,6 +24,26 @@ import splitties.dimensions.dp
 @RunWith(AndroidJUnit4::class)
 class SentenceTranslationStripTest {
     @Test
+    fun fastHideAndRevealReuseWordViewsWithoutKeepingOldActions() {
+        InstrumentationRegistry.getInstrumentation().runOnMainSync {
+            val context = ApplicationProvider.getApplicationContext<Context>()
+            val strip = SentenceTranslationStrip(context, 13f, Color.BLACK, Typeface.DEFAULT, 4, {}, {})
+            val cells = List(4) { SentenceTranslationCell(240, "hello") }
+            strip.bind(SentenceCandidateState("你好", "hello", SentenceCandidateStatus.READY), cells, true)
+            val words = strip.root.getChildAt(0) as LinearLayout
+            val original = (0 until words.childCount).map(words::getChildAt)
+            repeat(100) {
+                strip.bind(SentenceCandidateState(), emptyList(), false)
+                assertEquals(View.INVISIBLE, words.visibility)
+                strip.bind(SentenceCandidateState("好", "good", SentenceCandidateStatus.READY), cells, true)
+                assertEquals(original, (0 until words.childCount).map(words::getChildAt))
+            }
+            strip.bind(SentenceCandidateState("好", status = SentenceCandidateStatus.WAITING), cells, true)
+            assertTrue(!words.getChildAt(0).performLongClick())
+        }
+    }
+
+    @Test
     fun phraseUsesWholeLaneAndChineseGeometryNeverMovesWhenTranslationArrives() {
         InstrumentationRegistry.getInstrumentation().runOnMainSync {
             val base = ApplicationProvider.getApplicationContext<Context>()

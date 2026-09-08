@@ -129,14 +129,16 @@ internal class WordSpeech(private val context: Context) {
         buttons += this
     }
 
-    fun controls(text: () -> String?): View = LinearLayout(context).apply {
+    fun controls(compact: Boolean = false, flat: Boolean = false, text: () -> String?): View = LinearLayout(context).apply {
         orientation = LinearLayout.VERTICAL
         val actions = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER
+            gravity = if (flat) Gravity.START or Gravity.CENTER_VERTICAL else Gravity.CENTER
             isBaselineAligned = false
             minimumHeight = dp(48)
-            addView(icon(text), LinearLayout.LayoutParams(dp(48), dp(48)))
+            addView(icon(text).apply {
+                if (flat) imageTintList = ColorStateList.valueOf(ContextCompat.getColor(context, R.color.learning_word_ink))
+            }, LinearLayout.LayoutParams(dp(48), dp(48)))
         }
         actions.addView(
             AppCompatButton(context).apply {
@@ -150,14 +152,14 @@ internal class WordSpeech(private val context: Context) {
                 stateListAnimator = null
                 elevation = 0f
                 textSize = 14f
-                setTextColor(ContextCompat.getColor(context, R.color.haohao_cocoa))
-                background = ContextCompat.getDrawable(context, R.drawable.haohao_segment_background)
+                setTextColor(ContextCompat.getColor(context, if (flat) R.color.learning_link_ink else R.color.haohao_cocoa))
+                background = if (flat) null else ContextCompat.getDrawable(context, R.drawable.haohao_segment_background)
                 setOnClickListener { text()?.let { value -> speak(value, SpeechRate.SLOW) { isAttachedToWindow && text() == value } } }
             },
             LinearLayout.LayoutParams(-2, -2).apply { marginStart = dp(8) },
         )
         addView(actions, LinearLayout.LayoutParams(-1, -2))
-        addView(
+        if (!compact) addView(
             TextView(context).apply {
                 setText(R.string.speech_manual)
                 textSize = 12f

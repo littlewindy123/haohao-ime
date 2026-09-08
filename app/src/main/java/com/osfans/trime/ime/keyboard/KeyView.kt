@@ -183,6 +183,9 @@ class KeyView(
     init {
         setWillNotDraw(false)
         isRepeatable = key.click?.isRepeatable ?: false
+        canRepeat = {
+            key.getCode(KeyBehavior.CLICK) != KeyEvent.KEYCODE_DEL || service.canRepeatDelete()
+        }
         isSlideCursor = key.click?.isSlideCursor == true && keyboardPrefs.spacebarSlideCursor.getValue()
         isSlideDelete = key.click?.isSlideDelete == true && keyboardPrefs.backspaceSlideDelete.getValue()
         if (isHaoHaoTheme) {

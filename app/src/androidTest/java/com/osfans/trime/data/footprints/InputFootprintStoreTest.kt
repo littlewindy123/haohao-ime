@@ -188,7 +188,7 @@ class InputFootprintStoreTest {
             old.version = 1
         }
         val migrated = Room.databaseBuilder(context, InputFootprintDatabase::class.java, file.absolutePath)
-            .addMigrations(WORD_LEARNING_MIGRATION, WORD_DISPLAY_UNDO_MIGRATION, SENTENCE_MIGRATION).build()
+            .addMigrations(WORD_LEARNING_MIGRATION, WORD_DISPLAY_UNDO_MIGRATION, SENTENCE_MIGRATION, LEARNING_PROGRESS_MIGRATION).build()
         try {
             val upgraded = InputFootprintStore(migrated)
             assertEquals(7, upgraded.find("sample")!!.useCount)
@@ -292,7 +292,7 @@ class InputFootprintStoreTest {
             old.version = 2
         }
         val migrated = Room.databaseBuilder(context, InputFootprintDatabase::class.java, file.absolutePath)
-            .addMigrations(WORD_LEARNING_MIGRATION, WORD_DISPLAY_UNDO_MIGRATION, SENTENCE_MIGRATION).build()
+            .addMigrations(WORD_LEARNING_MIGRATION, WORD_DISPLAY_UNDO_MIGRATION, SENTENCE_MIGRATION, LEARNING_PROGRESS_MIGRATION).build()
         try {
             val learning = WordLearningStore(migrated)
             val word = learning.find("中国", "China")!!

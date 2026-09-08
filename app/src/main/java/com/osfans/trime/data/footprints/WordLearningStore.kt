@@ -69,6 +69,7 @@ internal interface WordLearningDao {
 
 internal class WordLearningStore(private val database: InputFootprintDatabase) {
     private val dao = database.wordLearningDao()
+    val progress = LearningProgress(database)
     val words = dao.observeWords()
     private val json = Json {
         ignoreUnknownKeys = true
@@ -130,6 +131,7 @@ internal class WordLearningStore(private val database: InputFootprintDatabase) {
         dao.save(saved)
         dao.prune(headword, normalized)
         if (!saved.learning) {
+            progress.exclude(headword, normalized, now)
             val state = settings()
             val undo = decodeUndo(state.undoJson)
             if (undo?.session?.cards?.any { it.chinese == headword && it.english == normalized } == true) {
@@ -157,17 +159,22 @@ internal class WordLearningStore(private val database: InputFootprintDatabase) {
         val state = settings()
         val savedWords = dao.words()
         val learningKeys = savedWords.filter { it.learning }.map { it.chinese to it.english }.toSet()
-        decodeSession(state.sessionJson)?.takeIf { session -> session.cards.any { (it.chinese to it.english) in learningKeys } }?.let { return@withTransaction it }
+        val previous = decodeSession(state.sessionJson)?.takeIf { session -> session.cards.any { (it.chinese to it.english) in learningKeys } }
+        val task = progress.ensure(now, state, previous)
+        previous?.let { return@withTransaction it }
         val day = dayKey(now)
         val answers = dao.dailyAnswers(day)
         val answeredKeys = answers.map { it.chinese to it.english }.toSet()
         val available = savedWords.filter { (it.chinese to it.english) !in answeredKeys }
         val newLimit = if (daily) (state.newLimit - if (extra) 0 else answers.count { it.wasNew }).coerceAtLeast(0) else 5
         val reviewLimit = if (daily) (state.reviewLimit - if (extra) 0 else answers.count { !it.wasNew }).coerceAtLeast(0) else 5
-        val selected = selectReviewWords(available, now, newLimit, reviewLimit, if (daily) newLimit + reviewLimit else 5)
-        val result = WordReviewSession(cards = selected.map { ReviewCard(it.chinese, it.english) }, reverse = daily && state.reverse, daily = daily)
+        val selected = if (daily && !extra && task != null) {
+            val keys = progress.remaining(day).map { it.key }.toSet()
+            savedWords.filter { it.learning && (it.chinese to it.english) in keys }.sortedWith(compareBy({ it.reviewCount == 0 }, { it.nextReviewAt ?: Long.MAX_VALUE }, { it.createdAt }))
+        } else selectReviewWords(available, now, newLimit, reviewLimit, if (daily) newLimit + reviewLimit else 5)
+        val pending = progress.remaining(day).filter { it.pendingRepeat }.map { it.key }.toSet()
+        val result = WordReviewSession(cards = selected.map { ReviewCard(it.chinese, it.english, repeat = (it.chinese to it.english) in pending) }, reverse = daily && state.reverse, daily = daily)
         dao.saveState(state.copy(sessionJson = json.encodeToString(result), undoJson = null))
-        dao.pruneDays(dayKey(now - 31 * LEARNING_DAY_MS))
         result
     }
 
@@ -194,17 +201,19 @@ internal class WordLearningStore(private val database: InputFootprintDatabase) {
         val card = session.cards.firstOrNull() ?: return@withTransaction session
         // The persisted card token makes double taps and retries idempotent across recreation.
         if (card.token != token || !session.answerVisible) return@withTransaction session
+        progress.ensure(now, state, session)
         val word = dao.find(card.chinese, card.english)?.takeIf { it.learning }
-        val day = dayKey(maxOf(now, word?.lastReviewedAt ?: now))
-        val insertedDay = word != null && !card.repeat && dao.dailyAnswers(day).none { it.chinese == word.chinese && it.english == word.english }
+        val day = dayKey(now)
+        val insertedDay = word != null && dao.dailyAnswers(day).none { it.chinese == word.chinese && it.english == word.english }
         if (word != null) {
             if (!card.repeat) {
                 dao.save(scheduleWord(word, rating, now))
-                dao.recordDay(WordReviewDayEntity(dayKey(maxOf(now, word.lastReviewedAt ?: now)), word.chinese, word.english, word.reviewCount == 0))
             } else if (rating == RecallRating.FORGOTTEN) {
                 // A same-session retry is practice, not a second daily completion or interval jump.
                 dao.save(word.copy(stage = 0, nextReviewAt = maxOf(now, word.lastReviewedAt ?: now) + LEARNING_DAY_MS))
             }
+            dao.recordDay(WordReviewDayEntity(day, word.chinese, word.english, !card.repeat && word.reviewCount == 0))
+            progress.record(card, word, rating, now)
         }
         val result = advanceReview(session, rating.takeIf { word != null })
         val undo = word?.let { ReviewUndo(card.token, it, session, day, insertedDay) }
@@ -232,6 +241,7 @@ internal class WordLearningStore(private val database: InputFootprintDatabase) {
             ),
         )
         if (undo.insertedDay) dao.deleteDay(undo.day, current.chinese, current.english)
+        progress.undo(token)
         // Rotate the restored token so callbacks from the old card cannot rate it again.
         val restored = undo.session.copy(
             cards = undo.session.cards.mapIndexed { index, card ->
@@ -253,9 +263,10 @@ internal class WordLearningStore(private val database: InputFootprintDatabase) {
         result
     }
 
-    suspend fun clearAll() {
+    suspend fun clearAll() = database.withTransaction {
         dao.clearWords()
         dao.clearDays()
+        progress.clear()
         dao.saveState(settings().copy(sessionJson = null, undoJson = null))
     }
 
@@ -267,5 +278,5 @@ internal class WordLearningStore(private val database: InputFootprintDatabase) {
         runCatching { json.decodeFromString<WordReviewSession>(it) }.getOrNull()
     }
 
-    private fun dayKey(now: Long): String = SimpleDateFormat("yyyy-MM-dd", Locale.ROOT).format(Date(now))
+    private fun dayKey(now: Long): String = learningDay(now)
 }

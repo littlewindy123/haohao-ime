@@ -11,14 +11,23 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
-    entities = [InputFootprintEntity::class, SavedWordEntity::class, WordReviewDayEntity::class, WordLearningStateEntity::class, SavedSentenceEntity::class, SentenceSettingsEntity::class],
-    version = 4,
+    entities = [InputFootprintEntity::class, SavedWordEntity::class, WordReviewDayEntity::class, WordLearningStateEntity::class, SavedSentenceEntity::class, SentenceSettingsEntity::class, LearningDayTask::class, LearningReviewEvent::class],
+    version = 5,
     exportSchema = false,
 )
 abstract class InputFootprintDatabase : RoomDatabase() {
     internal abstract fun inputFootprintDao(): InputFootprintDao
     internal abstract fun wordLearningDao(): WordLearningDao
     internal abstract fun sentenceDao(): SentenceDao
+    internal abstract fun learningProgressDao(): LearningProgressDao
+}
+
+internal val LEARNING_PROGRESS_MIGRATION = object : Migration(4, 5) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS learning_tasks (day TEXT NOT NULL, targets TEXT NOT NULL, completed INTEGER NOT NULL, PRIMARY KEY(day))")
+        db.execSQL("CREATE TABLE IF NOT EXISTS learning_events (token TEXT NOT NULL, chinese TEXT NOT NULL, english TEXT NOT NULL, occurredAt INTEGER NOT NULL, day TEXT NOT NULL, rating TEXT NOT NULL, kind TEXT NOT NULL, undone INTEGER NOT NULL, PRIMARY KEY(token))")
+        db.execSQL("CREATE INDEX IF NOT EXISTS index_learning_events_day ON learning_events(day)")
+    }
 }
 
 internal val SENTENCE_MIGRATION = object : Migration(3, 4) {

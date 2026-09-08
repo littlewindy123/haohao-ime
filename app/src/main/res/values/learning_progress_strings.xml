@@ -1,0 +1,36 @@
+<resources>
+    <string name="study_home">好好学习</string>
+    <string name="study_today">今天，学一点</string>
+    <string name="study_new_label">今日新学</string>
+    <string name="study_review_label">今日复习</string>
+    <string name="study_plan_heading">按自己的节奏</string>
+    <string name="study_progress">已完成 %1$d / %2$d 词</string>
+    <string name="study_counts">新学 %1$d · 复习 %2$d</string>
+    <string name="study_remaining">待新学 %1$d · 待复习 %2$d</string>
+    <string name="study_rest">今天可以休息</string>
+    <string name="study_checked">今日已打卡 ✓</string>
+    <string name="study_streak">连续 %1$d 天 · 累计打卡 %2$d 天</string>
+    <string name="study_empty">输入时收藏单词，加入你的学习计划。</string>
+    <string name="study_calendar">打卡日历</string>
+    <string name="study_stats">学习统计</string>
+    <string name="study_words">我的词本</string>
+    <string name="study_sentences">句子本</string>
+    <string name="study_pending">完成重练，即可打卡</string>
+    <string name="study_extra">今日已学 %1$d 词 · 目标外学习 %2$d 词</string>
+    <string name="study_calendar_legend">✓ 已打卡　· 学过　留白为无记录</string>
+    <string name="study_previous_month">上个月</string>
+    <string name="study_next_month">下个月</string>
+    <string name="study_date">%1$d 年 %2$d 月</string>
+    <string name="study_done_status">完成目标</string>
+    <string name="study_partial_status">学过，未记录达标</string>
+    <string name="study_none_status">无记录</string>
+    <string name="study_days">累计学习 %1$d 天</string>
+    <string name="study_due">当前到期 %1$d 词</string>
+    <string name="study_ratings">复习反馈</string>
+    <string name="study_ratings_note">以下是主动反馈的次数，包含重练，不包含已撤销的反馈；不是实际记忆率。旧版本没有的评分记录不会补造。</string>
+    <string name="study_rating_count">%1$s：%2$d 次</string>
+    <string name="study_recent_days">最近 30 个学习日</string>
+    <string name="study_no_stats">完成一次有效反馈后，这里就会留下你的学习记录。</string>
+    <string name="study_history_note">仅展示本机保留下来的真实记录；升级前的学习日不推定为打卡。</string>
+    <string name="study_enable_hint">完成今日计划，自动打卡。</string>
+</resources>

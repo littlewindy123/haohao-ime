@@ -4,7 +4,7 @@
     <string name="home_customize">外观与布局</string>
     <string name="home_input_preferences">输入设置</string>
     <string name="home_words">我的单词</string>
-    <string name="home_review">今日复习</string>
+    <string name="home_review">好好学习</string>
     <string name="home_translation">翻译与发音</string>
     <string name="home_translation_settings">翻译设置</string>
     <string name="home_speech">英文发音</string>
@@ -31,7 +31,7 @@
     <string name="home_cloud_optional">翻译来源 · 英文发音</string>
     <string name="home_input_summary">候选 · 高度 · 按键反馈</string>
     <string name="home_words_summary">收藏与学习</string>
-    <string name="home_review_summary">翻卡，记住新单词</string>
+    <string name="home_review_summary">今日任务 · 打卡 · 进度</string>
     <string name="ime_switch_keyboard">切换输入法</string>
     <string name="ime_keyboard_settings">键盘设置</string>
     <string name="ime_clips_phrases">剪贴板与常用语</string>

@@ -5,7 +5,12 @@
     <string name="sentences_saved">已收藏到句子本</string>
     <string name="sentences_save_failed">未能保存：请确认译文有效，且中文不超过200字、英文不超过2000字符</string>
     <string name="sentences_auto">自动保留最近100条</string>
-    <string name="sentences_consent">仅在本机保存本输入法已上屏且已有译文的中英对照。不会读取聊天历史或额外请求翻译；密码框不记录。超过100条淘汰最旧的未收藏记录，已收藏的句子保留。你可以随时关闭、删除或清空。</string>
+    <string name="sentences_consent">自动留下已上屏、有译文的中英对照。\n\n只存本机 · 最近 100 条\n收藏的句子一直保留\n不读聊天历史，不记密码，不额外请求翻译\n\n随时可以关闭、删除或清空。</string>
+    <string name="sentences_auto_title">让句子自动留下来</string>
+    <string name="sentences_enable">开启自动记录</string>
+    <string name="sentences_not_now">暂不开启</string>
+    <string name="sentences_delete_title">删除这些记录？</string>
+    <string name="sentences_close">收起</string>
     <string name="sentences_recent">最近记录</string>
     <string name="sentences_favorites">已收藏</string>
     <string name="sentences_search">搜索中文或英文</string>

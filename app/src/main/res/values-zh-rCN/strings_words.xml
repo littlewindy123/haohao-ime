@@ -60,7 +60,7 @@
     <string name="words_plan_save">保存设置</string>
     <string name="words_last_session">上轮复习</string>
     <string name="words_session_mode">%1$s · %2$s</string>
-    <string name="words_plan_changes_next_round">计划修改从下一轮生效。</string>
+    <string name="words_plan_changes_next_round">今日目标开始后保持不变；修改数量用于明天的目标，额外学习单独计算。</string>
     <string name="words_undo">撤销上次评分</string>
     <string name="words_speech_initializing">正在准备离线发音…</string>
     <string name="words_speech_init_failed">语音引擎未能初始化，可以重试或打开系统语音设置。</string>

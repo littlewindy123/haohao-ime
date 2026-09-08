@@ -22,12 +22,14 @@ class SentenceStoreTest {
         fixture.close()
         // Remove exactly the v4 additions; the unchanged word/review tables are v3 schema.
         android.database.sqlite.SQLiteDatabase.openDatabase(file.absolutePath, null, 0).use {
+            it.execSQL("DROP TABLE learning_tasks")
+            it.execSQL("DROP TABLE learning_events")
             it.execSQL("DROP TABLE saved_sentences")
             it.execSQL("DROP TABLE sentence_settings")
             it.version = 3
         }
         val upgraded = Room.databaseBuilder(context, InputFootprintDatabase::class.java, file.absolutePath)
-            .addMigrations(SENTENCE_MIGRATION).build()
+            .addMigrations(SENTENCE_MIGRATION, LEARNING_PROGRESS_MIGRATION).build()
         try {
             val after = WordLearningStore(upgraded)
             assertEquals(word, after.find("我自己的解释", "learn"))

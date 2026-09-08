@@ -825,10 +825,7 @@ internal class CloudTranslationConfigStore(
                         secrets.fingerprintMaterial(SECRET_CUSTOM_BEARER_TOKEN)
             }
         }
-        return MessageDigest.getInstance("SHA-256")
-            .digest(raw.toByteArray(StandardCharsets.UTF_8))
-            .joinToString("") { "%02x".format(it) }
-            .take(16)
+        return translationFingerprint(raw).take(16)
     }
 
     private companion object {

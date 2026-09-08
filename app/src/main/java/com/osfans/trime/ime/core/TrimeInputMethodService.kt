@@ -188,6 +188,8 @@ open class TrimeInputMethodService : LifecycleInputMethodService() {
         }
     }
 
+    internal fun canRepeatDelete(): Boolean = !inputPipeline.hasPendingInput
+
     /** Post one lossless key command. Consecutive keys may share one presentation refresh. */
     fun postRimeKey(block: suspend RimeApi.() -> Unit): Boolean {
         val inputSessionId = activeInputSessionId

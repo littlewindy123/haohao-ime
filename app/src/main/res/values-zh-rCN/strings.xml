@@ -426,9 +426,9 @@
     <string name="cloud_translation_candidate_fallback">本地无释义时在线补全</string>
     <string name="cloud_translation_candidate_fallback_summary">默认关闭；仅发送顶部可见且离线未命中的候选，最多 5 项。</string>
     <string name="cloud_translation_candidate_source">候选翻译来源</string>
-    <string name="cloud_translation_candidate_source_summary">关闭只用本地词库；开启只用云端。授权后推荐“混合”：本地优先，云端补充。最多发送 5 个可见候选。</string>
-    <string name="cloud_translation_source_local">关闭</string>
-    <string name="cloud_translation_source_cloud">开启</string>
+    <string name="cloud_translation_candidate_source_summary">本地不联网；云端翻译需授权。混合模式优先查词典，缺少时再联网。整句翻译需要云端支持。</string>
+    <string name="cloud_translation_source_local">本地词典</string>
+    <string name="cloud_translation_source_cloud">云端</string>
     <string name="cloud_translation_source_hybrid">混合</string>
     <string name="cloud_translation_internal_ready">双云直连可用 · 阿里主用、百度备用\n凭据到期日：%1$s</string>
     <string name="cloud_translation_internal_expired">双云直连配置已过期或无效\n凭据到期日：%1$s</string>

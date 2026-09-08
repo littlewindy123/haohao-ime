@@ -14,6 +14,55 @@ import kotlinx.coroutines.yield
 
 class RimeInputPipelineTest :
     FunSpec({
+        test("slow continuous keys publish intermediate snapshots without loss or reordering") {
+            runBlocking {
+                var clock = 0L
+                val keys = mutableListOf<Int>()
+                val visible = mutableListOf<List<Int>>()
+                val pipeline = RimeInputPipeline(this, { visible += keys.toList() }, clockNanos = { clock })
+                try {
+                    repeat(10) { key -> pipeline.postKey { keys += key; clock += 20_000_000L } }
+                    pipeline.awaitIdle()
+                    keys shouldContainExactly (0..9).toList()
+                    visible.map { it.size } shouldContainExactly listOf(2, 4, 6, 8, 10)
+                } finally { pipeline.close() }
+            }
+        }
+
+        test("repeat backpressure includes queue, native work and presentation flush") {
+            runBlocking {
+                val nativeStarted = CompletableDeferred<Unit>()
+                val releaseNative = CompletableDeferred<Unit>()
+                val presentationStarted = CompletableDeferred<Unit>()
+                val releasePresentation = CompletableDeferred<Unit>()
+                val pipeline = RimeInputPipeline(
+                    scope = this,
+                    flushPresentation = {
+                        presentationStarted.complete(Unit)
+                        releasePresentation.await()
+                    },
+                )
+                try {
+                    pipeline.hasPendingInput shouldBe false
+                    pipeline.postKey {
+                        nativeStarted.complete(Unit)
+                        releaseNative.await()
+                    }
+                    pipeline.hasPendingInput shouldBe true
+                    nativeStarted.await()
+                    pipeline.hasPendingInput shouldBe true
+                    releaseNative.complete(Unit)
+                    presentationStarted.await()
+                    pipeline.hasPendingInput shouldBe true
+                    releasePresentation.complete(Unit)
+                    pipeline.awaitIdle()
+                    pipeline.hasPendingInput shouldBe false
+                } finally {
+                    pipeline.close()
+                }
+            }
+        }
+
         test("one thousand keys remain lossless and ordered while presentations coalesce") {
             runBlocking {
                 val processed = mutableListOf<Int>()
@@ -22,6 +71,7 @@ class RimeInputPipelineTest :
                     RimeInputPipeline(
                         scope = this,
                         flushPresentation = { presentationCount += 1 },
+                        clockNanos = { 0L },
                     )
 
                 repeat(1_000) { value ->

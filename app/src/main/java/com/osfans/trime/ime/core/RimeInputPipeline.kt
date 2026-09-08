@@ -109,11 +109,15 @@ internal class RimeInputPipeline(
     private val onKeyQueued: () -> Unit = {},
     private val onFailure: (Throwable) -> Unit = {},
     private val clockNanos: () -> Long = System::nanoTime,
+    private val presentationBudgetNanos: Long = 32_000_000L,
 ) {
     private val commands = Channel<RimeInputCommand>(capacity = Channel.UNLIMITED)
     private val closed = AtomicBoolean(false)
     private val nextSequence = AtomicLong(0)
     private val pendingCount = AtomicInteger(0)
+    private val processingBatch = AtomicBoolean(false)
+    /** Includes native processing AND the presentation flush, not only queued commands. */
+    val hasPendingInput: Boolean get() = pendingCount.get() > 0 || processingBatch.get()
     private val maximumQueueDepth = AtomicInteger(0)
     private val processedKeyCount = AtomicInteger(0)
     private val lastQueueWaitMicros = AtomicLong(0)
@@ -202,12 +206,17 @@ internal class RimeInputPipeline(
             while (currentCoroutineContext().isActive) {
                 val command = deferredCommand ?: commands.receiveCatching().getOrNull() ?: break
                 deferredCommand = null
+                processingBatch.set(true)
                 if (command is RimeInputCommand.Key) {
                     var current: RimeInputCommand.Key = command
                     var batchSize = 0
+                    val batchStarted = clockNanos()
                     while (true) {
                         execute(current)
                         batchSize += 1
+                        // A continuous producer must not starve visible composition updates.
+                        // Preserve every key; only split presentation batches, never input events.
+                        if (clockNanos() - batchStarted >= presentationBudgetNanos) break
                         when (val next = commands.tryReceive().getOrNull()) {
                             is RimeInputCommand.Key -> current = next
                             else -> {
@@ -221,11 +230,14 @@ internal class RimeInputPipeline(
                     }
                     flushPresentationSafely()
                     publishSnapshot()
+                    kotlinx.coroutines.yield()
                 } else {
                     execute(command)
                 }
+                processingBatch.set(false)
             }
         } finally {
+            processingBatch.set(false)
             deferredCommand?.let(::cancelPendingCommand)
             while (true) {
                 val command = commands.tryReceive().getOrNull() ?: break

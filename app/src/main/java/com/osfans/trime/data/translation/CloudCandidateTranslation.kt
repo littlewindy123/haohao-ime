@@ -29,8 +29,6 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import org.kodein.di.instance
-import java.nio.charset.StandardCharsets
-import java.security.MessageDigest
 import java.util.concurrent.CopyOnWriteArraySet
 
 internal const val CLOUD_CANDIDATE_CACHE_MAX_ENTRIES = 4_096
@@ -212,8 +210,7 @@ internal class CloudCandidateTranslationCache(
 
 private fun candidateTextFingerprint(text: String): String {
     if (text.startsWith(CANDIDATE_TEXT_FINGERPRINT_PREFIX)) return text
-    val digest = MessageDigest.getInstance("SHA-256").digest(text.toByteArray(StandardCharsets.UTF_8))
-    return CANDIDATE_TEXT_FINGERPRINT_PREFIX + digest.joinToString("") { "%02x".format(it) }
+    return CANDIDATE_TEXT_FINGERPRINT_PREFIX + translationFingerprint(text)
 }
 
 private const val CANDIDATE_TEXT_FINGERPRINT_PREFIX = "sha256:"
