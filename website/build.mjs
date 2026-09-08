@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { gzipSync } from "node:zlib";
 import "./check.mjs";
 import { verifyPublicApk } from "./verify-apk.mjs";
+import { build } from "esbuild";
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
@@ -35,6 +36,9 @@ assert.match(main, importLine);
 main = model + "\n" + main.replace(importLine, "");
 assert.doesNotMatch(main, /^import |^export /m, "Static production bundle must not need module fetches");
 const css = await readFile(path.join(root, "styles.css"), "utf8");
+const showroomCss = await readFile(path.join(root, "showroom.css"));
+const showroomBuild = await build({ entryPoints: [path.join(root, "showroom.js")], bundle: true, format: "esm", minify: true, write: false, target: "es2022" });
+const showroom = Buffer.from(showroomBuild.outputFiles[0].text);
 const scene = await readFile(path.join(root, "vendor/scene-3d.min.js"));
 let hero = await readFile(path.join(root, "hero.js"), "utf8");
 assert.match(hero, importLine);
@@ -44,12 +48,16 @@ let html = await readFile(path.join(root, "index.html"), "utf8");
 html = html.replace(/main\.js\?v=[^"\s]+/, "main.js?v=" + digest(main).slice(0, 12));
 html = html.replace(/hero\.js\?v=[^"\s]+/, "hero.js?v=" + digest(hero).slice(0, 12));
 html = html.replace(/styles\.css\?v=[^"\s]+/, "styles.css?v=" + digest(css).slice(0, 12));
+html = html.replace(/showroom\.js\?v=[^"\s]+/, "showroom.js?v=" + digest(showroom).slice(0, 12));
+html = html.replace(/showroom\.css\?v=[^"\s]+/, "showroom.css?v=" + digest(showroomCss).slice(0, 12));
 html = html.replaceAll('loading="lazy"', 'loading="lazy" decoding="async"');
 const files = new Map([
   ["index.html", Buffer.from(html)],
   ["styles.css", Buffer.from(css)],
   ["main.js", Buffer.from(main)],
   ["hero.js", Buffer.from(hero)],
+  ["showroom.js", showroom],
+  ["showroom.css", showroomCss],
   ["vendor/scene-3d.min.js", scene],
   ["release.json", Buffer.from(JSON.stringify(release, null, 2) + "\n")],
 ]);
@@ -57,6 +65,10 @@ for (const name of ["haohao-icon.png", "haohao-golden.png", "og.png", "screensho
   files.set("assets/" + name, await readFile(path.join(root, "assets", name)));
 }
 files.set("vendor/gsap-3.15.0.min.js", await readFile(path.join(root, "vendor", "gsap-3.15.0.min.js")));
+for (const name of ["taffy", "raiden", "yasuo", "nailong", "kun", "lanyangyang"]) {
+  const filename = "assets/keycap-" + name + ".webp";
+  files.set(filename, await readFile(path.join(root, filename)));
+}
 files.set("vendor/three-LICENSE.txt", await readFile(path.join(root, "vendor/three-LICENSE.txt")));
 // Every image URL is content-addressed, including the preloaded fallback image.
 html = html.replace(/((?:src|href)="|content=")(assets\/[^"?]+)(?:\?[^"\s]*)?"/g, (tag, prefix, name) =>
