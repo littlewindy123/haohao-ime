@@ -1,54 +1,42 @@
-import { getCandidates, REVEAL_DELAY_MS } from "./demo-model.mjs";
-
-const host = document.querySelector("#keyboard-scene");
-const study = document.querySelector("#hero-study");
-const choices = [...document.querySelectorAll("[data-hero-example]")];
-const chinese = document.querySelector("#hero-chinese"), english = document.querySelector("#hero-english");
-const collect = document.querySelector("#collect-demo"), saved = document.querySelector("#saved-word");
-const status = document.querySelector("#hero-status");
-const motion = matchMedia("(prefers-reduced-motion: reduce)");
-let scene, timer, selected = "nihao", loading = false, failed = false, gone = false;
-
-function showExample(value, pressKey = true) {
-  clearTimeout(timer); selected = value;
-  const word = getCandidates(value)[0];
-  choices.forEach(button => button.setAttribute("aria-pressed", String(button.dataset.heroExample === value)));
-  study.classList.remove("is-collected"); collect.disabled = true;
-  collect.textContent = "收藏演示"; saved.textContent = "我的词本";
-  chinese.textContent = word.chinese; english.textContent = word.english;
-  study.classList.toggle("is-changing", !motion.matches);
-  if (pressKey) scene?.press(value[0]);
-  timer = setTimeout(() => {
-    study.classList.remove("is-changing"); collect.disabled = false;
-    status.textContent = `${word.chinese}，${word.english}。可以试试收藏。`;
-  }, motion.matches ? 0 : REVEAL_DELAY_MS);
+import { greetingEvents, mountKeyboard } from './keyboard-model.mjs';
+const host = document.querySelector('#keyboard-scene'), text = document.querySelector('#hero-greeting'), button = document.querySelector('#hero-pause');
+const fallback = mountKeyboard(host), motion = matchMedia('(prefers-reduced-motion: reduce)');
+let scene, timeline, visible = true, userPaused = false, gone = false, failed = false, loading = false;
+function staticView() { scene?.dispose(); scene = undefined; host.classList.remove('is-ready'); }
+function sync() {
+  const active = !gone && visible && !document.hidden && !motion.matches && !navigator.connection?.saveData && !userPaused;
+  if (active) timeline?.play(); else timeline?.pause();
+  button.setAttribute('aria-label', userPaused ? '继续动画' : '暂停动画'); button.setAttribute('aria-pressed', String(userPaused)); button.dataset.paused = String(userPaused);
 }
-choices.forEach(button => button.addEventListener("click", () => showExample(button.dataset.heroExample)));
-collect.addEventListener("click", () => {
-  study.classList.add("is-collected"); collect.textContent = "已收进示意词本"; collect.disabled = true;
-  saved.textContent = `${chinese.textContent} · ${english.textContent}`;
-  status.textContent = "收藏演示完成，仅本页展示，不会保存数据。"; scene?.collect();
-});
-function staticView() { scene?.dispose(); scene = undefined; host.classList.remove("is-ready"); }
+function setupTimeline() {
+  timeline?.kill(); timeline = undefined;
+  if (motion.matches || navigator.connection?.saveData || !window.gsap) {
+    text.textContent = '你好，欢迎你来看我的作品。跪求star支持'; button.hidden = true; return;
+  }
+  button.hidden = false; text.textContent = '';
+  const sequence = greetingEvents();
+  timeline = window.gsap.timeline({ paused: true, repeat: -1 });
+  for (const event of sequence.events) timeline.call(() => {
+    if (event.text !== undefined) text.textContent = event.text;
+    if (event.key) { scene?.press(event.key); if (!scene) fallback.press(event.key); }
+  }, [], event.time);
+  timeline.to({}, { duration: .01 }, sequence.duration); sync();
+}
 async function loadScene() {
-  if (scene || loading || failed || gone || motion.matches || navigator.connection?.saveData || document.hidden) return;
+  if (scene || loading || failed || gone || !visible || document.hidden || motion.matches || navigator.connection?.saveData) return;
   loading = true;
   try {
-    const { createKeyboardScene } = await import("./vendor/scene-3d.min.js");
-    if (gone || document.hidden || motion.matches || navigator.connection?.saveData) return;
-    scene = createKeyboardScene(host, {
-      onReady: () => host.classList.add("is-ready"),
-      onFail: () => { failed = true; staticView(); },
-      onKey: () => showExample(selected, false),
-    });
-  } catch { failed = true; staticView(); host.querySelector("canvas")?.remove(); }
+    const { createKeyboardScene } = await import("./vendor/scene-3d.min.js?v=20260908-keycaps");
+    if (gone || document.hidden || !visible || motion.matches) return;
+    scene = createKeyboardScene(host, { interactive: false, onReady: () => host.classList.add('is-ready'), onFail: () => { failed = true; staticView(); } });
+  } catch { failed = true; staticView(); host.querySelector('canvas')?.remove(); }
   finally { loading = false; }
 }
-motion.addEventListener("change", () => { if (motion.matches) staticView(); else loadScene(); });
-document.addEventListener("visibilitychange", () => {
-  if (document.hidden) { clearTimeout(timer); study.classList.remove("is-changing"); collect.disabled = study.classList.contains("is-collected"); }
-  else loadScene();
-});
-window.addEventListener("pagehide", () => { gone = true; clearTimeout(timer); staticView(); });
-window.addEventListener("pageshow", () => { gone = false; loadScene(); });
-loadScene();
+button.addEventListener('click', () => { userPaused = !userPaused; sync(); });
+const observer = new IntersectionObserver(entries => { visible = entries[0].isIntersecting; sync(); if (visible) loadScene(); });
+observer.observe(host);
+motion.addEventListener('change', () => { staticView(); setupTimeline(); loadScene(); });
+document.addEventListener('visibilitychange', () => { sync(); if (!document.hidden) loadScene(); });
+window.addEventListener('pagehide', () => { gone = true; timeline?.kill(); timeline = undefined; staticView(); observer.disconnect(); });
+window.addEventListener('pageshow', () => { gone = false; observer.observe(host); if (!timeline) setupTimeline(); loadScene(); });
+setupTimeline(); loadScene();

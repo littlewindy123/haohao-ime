@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "ecdictCommit": "bc015ed2e24a7abef49fc6dbbb7fe32c1dadaf8b",
+  "tatoebaDate": "2026-09-05",
+  "upstreamSha256": {
+    "ecdict.csv": "1a6947e04785db63613a92e14903cdae7954f7e84860b10e68e5c7cbb3f9c3cf",
+    "eng.tsv.bz2": "db035e9dbe35d6fe86410bbf16dd3ce735a3d4b74f92b4ee5482bba11cb970bc",
+    "cmn.tsv.bz2": "50e966ec563aebff2af0629e6a127cf41ad2b0a71801336086ec1e7a318bb082",
+    "links.tsv.bz2": "0833aea5473c24040a1d34d080a57250152f3129a049730276f395ba6482ff09"
+  },
+  "words": 30000,
+  "wordsWithExamples": 9674,
+  "examples": 21163,
+  "sha256": "01efec08d1aa860ac8e6f21c1caede006e1aacf9a7425cba319db173c7537203",
+  "bytes": 16805888
+}

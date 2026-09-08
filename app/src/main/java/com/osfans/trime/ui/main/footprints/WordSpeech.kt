@@ -140,10 +140,12 @@ internal class WordSpeech(private val context: Context) {
         }
         actions.addView(
             AppCompatButton(context).apply {
-                setText(R.string.speech_slow)
+                setText(R.string.learning_slow_short)
+                contentDescription = context.getString(R.string.speech_slow)
+                minWidth = 0
+                minimumWidth = dp(64)
                 isAllCaps = false
                 minHeight = dp(48)
-                minimumWidth = 0
                 setPadding(dp(12), dp(10), dp(12), dp(10))
                 stateListAnimator = null
                 elevation = 0f

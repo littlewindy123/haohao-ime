@@ -26,7 +26,7 @@ assert.match(html, /<aside[^>]+id="privacy"/);
 assert.doesNotMatch(html, /完全离线|不请求网络权限|0<\/strong>网络权限|新版安装包准备中/);
 assert.match(html, /默认仅本地/);
 assert.match(html, /云翻译.*(?:同意|配置)/);
-assert.match(html, /早期测试版本的实际运行画面/);
+assert.match(html, /早期测试版本的真实画面/);
 assert.match(html, /Debug 测试版/);
 assert.match(release.sha256, /^[a-f0-9]{64}$/);
 assert.equal(release.internalCloudEnabled, false);
@@ -60,18 +60,17 @@ assert.match(css, /scroll-snap-type:\s*x mandatory/);
 assert.match(css, /\.keyboard-crop\s*\{[^}]*aspect-ratio:\s*1\.22\s*\/\s*1/);
 assert.match(css, /\.keyboard-crop img\s*\{[^}]*object-fit:\s*cover;[^}]*object-position:\s*bottom/);
 assert.doesNotMatch(html, /phone-speaker|roadmap-ledger|\bstyle="|\bon(?:click|load|error)="/, "避免装饰性手机外框、冗余进度表及违反 CSP 的内联代码");
-assert.equal((html.match(/<figure\b/g) || []).length, 5);
+assert.equal((html.match(/<figure\b/g) || []).length, 4);
 assert.match(html, /<noscript>/);
 assert.match(html, /<h1>好好输入法<\/h1>/, "首屏必须首先建立品牌识别");
 assert.match(html, /id="keyboard-scene"/);
-assert.match(html, /class="scene-still"/);
 const hero = html.match(/<section class="hero-scene"[\s\S]*?<\/section>/)?.[0];
 assert.ok(hero);
 assert.doesNotMatch(hero, /Trime|Rime|ARM64|SHA-256|固定签名|Debug|scene-index/);
 assert.match(hero, /给好好一个 Star/);
-assert.match(hero, /仅网页演示，不保存数据/);
-assert.equal((hero.match(/data-hero-example=/g) || []).length, 3);
-assert.match(hero, /id="collect-demo"/);
+assert.match(hero, /id="hero-pause"/);
+assert.match(hero, /id="hero-greeting"/);
+assert.doesNotMatch(hero, /data-hero-example|collect-demo|我的词本|按一圈|浮起键帽/);
 assert.doesNotMatch(html, /blob\/codex\//);
 assert.doesNotMatch(html, /还在认真打磨中|下一次更新|OPEN SOURCE · GPL-3.0|class="eyebrow"|feature-label/);
 assert.doesNotMatch(html, /[—–]/);
@@ -110,7 +109,7 @@ for (const [foreground, background] of [["453b32", "faf8f2"], ["706559", "fffdf8
 }
 assert.doesNotMatch(css, /html\.motion-ready/, "不得先隐藏正文再依赖 JS 揭示");
 assert.doesNotMatch(html + script, /fonts\.(googleapis|gstatic)\.com|googletagmanager|google-analytics|analytics\.js|plausible|umami/i);
-const localAssets = [...html.matchAll(/(?:src|href)="([^"#]+)"/g)]
+const localAssets = [...html.matchAll(/(?:data-src|src|href|poster)="([^"#]+)"/g)]
   .map((match) => match[1]).filter((value) => !/^(?:https?:|mailto:|tel:)/.test(value))
   .map((value) => value.split("?")[0]).filter((value) => !value.startsWith("downloads/"));
 for (const asset of new Set([...localAssets, "demo-model.mjs", "release.json"])) {
@@ -124,7 +123,23 @@ for (const image of ["screenshot-light.png", "screenshot-dark.png", "screenshot-
   assert.equal(data.readUInt32BE(20), 2400);
 }
 const controller = await readFile(path.join(root, "hero.js"), "utf8");
-const textBytes = gzipSync(Buffer.from(html + css + script + model + controller)).length;
+const showroom = await readFile(path.join(root, 'showroom.js'), 'utf8');
+const skinModel = await readFile(path.join(root, 'skins.mjs'), 'utf8');
+assert.equal((html.match(/id="skin-studio"/g) || []).length, 1);
+assert.match(showroom, /Object.entries\(SKINS\)/);
+assert.equal((html.match(/data-skin-view=/g) || []).length, 0);
+assert.equal((html.match(/角色皮肤为同人设计，暂未内置 App，非官方联名/g) || []).length, 1);
+assert.equal((html.match(/data-demo-video/g) || []).length, 2);
+for (const kind of ['sentence','cards']) for (const ext of ['mp4','webm','webp']) {
+  const info = await stat(path.join(root,`assets/demo-${kind}.${ext}`)); assert.ok(info.size > 0 && info.size < 2*1024*1024);
+}
+const showroomCss = await readFile(path.join(root, 'showroom.css'), 'utf8');
+assert.match(showroom, /data-studio-key|dataset.studioKey/);
+assert.match(showroomCss, /prefers-reduced-motion/);
+assert.match(html, /href="showroom\.css/);
+assert.equal((html.match(/<script[^>]+src="showroom\.js/g) || []).length, 1);
+assert.doesNotMatch(showroom, /localStorage|sessionStorage|fetch\(|XMLHttpRequest|setInterval\(/);
+const textBytes = gzipSync(Buffer.from(html + css + script + model + controller + showroom + showroomCss + skinModel)).length;
 const scene = await readFile(path.join(root, "scene.js"), "utf8");
 const sceneBundle = await readFile(path.join(root, "vendor/scene-3d.min.js"));
 const sceneHash = (await readFile(path.join(root, "vendor/scene-3d.sha256"), "utf8")).trim();
@@ -134,6 +149,7 @@ assert.ok((await stat(path.join(root, "assets/keyboard-still.webp"))).size <= 20
 for (const requirement of [/prefers-reduced-motion/, /saveData/, /document.hidden/, /catch/, /import\("\.\/vendor/]) assert.match(controller, requirement);
 for (const requirement of [/IntersectionObserver/, /visibilitychange/, /cancelAnimationFrame/, /dispose\(/, /webglcontextlost/]) assert.match(scene, requirement);
 assert.doesNotMatch(controller + scene + script, /localStorage|sessionStorage|indexedDB|fetch\(|XMLHttpRequest|setInterval\(|addEventListener\("wheel"/, "演示不保存数据、不请求云端、不接管滚轮");
-assert.ok(textBytes < 18 * 1024, "首屏文本压缩预算超限");
-assert.ok(textBytes + gzipSync(vendor).length < 50 * 1024, "含动画库的文本压缩预算超限");
+// The merged interactive editor includes its CSS and input logic (previously not counted).
+assert.ok(textBytes < 26 * 1024, "含可输入展台及样式的文本压缩预算超限");
+assert.ok(textBytes + gzipSync(vendor).length < 54 * 1024, "含动画库的文本压缩预算超限");
 console.log("网站检查通过：品牌一致、下载、隐私文案、资源、无障碍与动效降级；文本 gzip " + textBytes + " bytes；含 GSAP " + (textBytes + gzipSync(vendor).length) + " bytes");

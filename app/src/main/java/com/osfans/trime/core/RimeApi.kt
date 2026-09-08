@@ -65,6 +65,7 @@ interface RimeApi {
     suspend fun refreshPresentation()
 
     suspend fun setCommitSessionId(inputSessionId: Long)
+    suspend fun setCommitSentence(sentence: CommitSentence?) {}
 
     suspend fun simulateKeySequence(
         sequence: String,

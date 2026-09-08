@@ -83,7 +83,9 @@ import java.util.concurrent.atomic.AtomicLong
 open class TrimeInputMethodService : LifecycleInputMethodService() {
     private lateinit var rime: RimeSession
     private lateinit var inputPipeline: RimeInputPipeline
-    private var activeInputSessionId = 0L
+    @Volatile private var activeInputSessionId = 0L
+    @Volatile private var sentenceEditorActive = false
+    private val sentenceLifecycle = AtomicLong()
 
     private val prefs = AppPrefs.defaultInstance()
     private lateinit var decorView: View
@@ -176,9 +178,11 @@ open class TrimeInputMethodService : LifecycleInputMethodService() {
      */
     fun postRimeJob(block: suspend RimeApi.() -> Unit): Boolean {
         val inputSessionId = activeInputSessionId
+        val sentence = inputView?.sentenceCommitSnapshot()
         return inputPipeline.postBarrier {
             rime.runOnReady {
                 setCommitSessionId(inputSessionId)
+                setCommitSentence(sentence)
                 block()
             }
         }
@@ -187,9 +191,11 @@ open class TrimeInputMethodService : LifecycleInputMethodService() {
     /** Post one lossless key command. Consecutive keys may share one presentation refresh. */
     fun postRimeKey(block: suspend RimeApi.() -> Unit): Boolean {
         val inputSessionId = activeInputSessionId
+        val sentence = inputView?.sentenceCommitSnapshot()
         return inputPipeline.postKey {
             rime.runOnReady {
                 setCommitSessionId(inputSessionId)
+                setCommitSentence(sentence)
                 block()
             }
         }
@@ -420,6 +426,30 @@ open class TrimeInputMethodService : LifecycleInputMethodService() {
         if (text.isNullOrEmpty() || currentInputConnection == null) return
         if (commitText(text)) {
             InputFootprintRecorder.record(text, currentInputEditorInfo)
+            event.sentence?.takeIf { it.chinese == text }?.let {
+                saveSentence(it.chinese, it.english, false, it.generation, event.inputSessionId)
+            }
+        }
+    }
+
+    internal fun saveSentence(chinese: String, english: String, favorite: Boolean, ticket: Long? = null, session: Long = activeInputSessionId) {
+        val store = com.osfans.trime.data.footprints.InputFootprints.storeOrNull?.sentences ?: return
+        val info = currentInputEditorInfo ?: return
+        if (!InputFootprintPolicy.canRecord(info.inputType, info.imeOptions)) return
+        val generation = ticket ?: store.ticket()
+        val lifecycle = sentenceLifecycle.get()
+        lifecycleScope.launch {
+            try {
+                if (!com.osfans.trime.data.footprints.validSentencePair(chinese.trim(), english.trim())) {
+                    if (favorite || store.automatic()) toast(R.string.sentences_save_failed)
+                    return@launch
+                }
+                val saved = store.save(chinese, english, "translation", favorite, generation) {
+                    activeInputSessionId == session && sentenceEditorActive && sentenceLifecycle.get() == lifecycle
+                }
+                if (favorite) toast(if (saved) R.string.sentences_saved else R.string.sentences_save_failed)
+            } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+            catch (_: Exception) { if (favorite) toast(R.string.sentences_save_failed) }
         }
     }
 
@@ -858,6 +888,8 @@ open class TrimeInputMethodService : LifecycleInputMethodService() {
         attribute: EditorInfo,
         restarting: Boolean,
     ) {
+        sentenceEditorActive = false
+        sentenceLifecycle.incrementAndGet()
         com.osfans.trime.data.speech.SpeechPlayback.stop()
         if (!restarting || activeInputSessionId == 0L) {
             activeInputSessionId = nextInputSessionId.incrementAndGet()
@@ -899,6 +931,7 @@ open class TrimeInputMethodService : LifecycleInputMethodService() {
         attribute: EditorInfo,
         restarting: Boolean,
     ) {
+        sentenceEditorActive = InputFootprintPolicy.canRecord(attribute.inputType, attribute.imeOptions)
         Timber.d("onStartInputView: restarting=$restarting")
         InputFeedbackManager.startInput()
         postRimeJob {
@@ -920,6 +953,8 @@ open class TrimeInputMethodService : LifecycleInputMethodService() {
     }
 
     override fun onFinishInputView(finishingInput: Boolean) {
+        sentenceEditorActive = false
+        sentenceLifecycle.incrementAndGet()
         com.osfans.trime.data.speech.SpeechPlayback.stop()
         Timber.d("onFinishInputView: finishingInput=$finishingInput")
         decorLocationUpdated = false
@@ -938,22 +973,23 @@ open class TrimeInputMethodService : LifecycleInputMethodService() {
 
     fun commitText(text: String): Boolean {
         if (inputView?.captureCloudTranslationText(text) == true) return false
-        commitTextDirect(text)
-        return true
+        return commitTextDirect(text)
     }
 
-    internal fun commitTextDirect(text: String) {
-        val ic = currentInputConnection ?: return
+    internal fun commitTextDirect(text: String): Boolean {
+        val ic = currentInputConnection ?: return false
 
         // when composing text equals commit content, finish composing text as-is
-        if (composingText.isNotEmpty() && composingText == text) {
+        val committed = if (composingText.isNotEmpty() && composingText == text) {
             ic.finishComposingText()
         } else {
             ic.commitText(text, 1)
         }
+        if (!committed) return false
         lastCommittedText = text
         composingText = ""
         InputFeedbackManager.textCommitSpeak(text)
+        return true
     }
 
     /**

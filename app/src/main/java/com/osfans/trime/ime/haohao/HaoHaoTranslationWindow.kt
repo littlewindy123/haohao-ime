@@ -185,13 +185,26 @@ internal class HaoHaoTranslationController : InputBroadcastReceiver {
     }
 
     fun commitSource() {
-        state.draft.takeIf(String::isNotEmpty)?.let(service::commitTextDirect)
+        val current = state
+        if (current.draft.isNotEmpty() && service.commitTextDirect(current.draft)) {
+            current.translation?.let { service.saveSentence(current.draft, it, false) }
+        }
         deactivate()
     }
 
     fun commitTranslation() {
-        state.translation?.takeIf(String::isNotEmpty)?.let(service::commitTextDirect)
+        val current = state
+        current.translation?.takeIf { current.status == HaoHaoTranslationStatus.READY && it.isNotEmpty() }?.let {
+            if (service.commitTextDirect(it)) service.saveSentence(current.draft, it, false)
+        }
         deactivate()
+    }
+
+    fun saveSentence() {
+        val current = state
+        current.translation?.takeIf { current.status == HaoHaoTranslationStatus.READY }?.let {
+            service.saveSentence(current.draft, it, true)
+        }
     }
 
     fun copyTranslation() {
@@ -319,12 +332,22 @@ internal class HaoHaoTranslationWindow(
 
     private val listener = HaoHaoTranslationStateListener(::render)
 
+    private val saveAction = android.widget.ImageButton(context).apply {
+        setImageResource(android.R.drawable.btn_star_big_off)
+        background = null
+        contentDescription = context.getString(R.string.sentences_save)
+        imageTintList = android.content.res.ColorStateList.valueOf(ColorManager.getColor("candidate_text_color"))
+        setPadding(context.dp(12), context.dp(12), context.dp(12), context.dp(12))
+        setOnClickListener { controller.saveSentence() }
+    }
+
     val root = LinearLayout(context).apply {
         orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL
         setPadding(context.dp(4), 0, context.dp(4), 0)
         addView(speechIcon, LinearLayout.LayoutParams(context.dp(48), -1))
         addView(previewScroller, LinearLayout.LayoutParams(0, -1, 1f))
+        addView(saveAction, LinearLayout.LayoutParams(context.dp(48), -1))
         addView(primaryAction, LinearLayout.LayoutParams(context.dp(48), -1))
         addView(closeAction, LinearLayout.LayoutParams(context.dp(48), -1))
         addOnAttachStateChangeListener(
@@ -384,6 +407,8 @@ internal class HaoHaoTranslationWindow(
     }
 
     private fun render(state: HaoHaoTranslationState) {
+        saveAction.isEnabled = state.status == HaoHaoTranslationStatus.READY
+        saveAction.alpha = if (saveAction.isEnabled) 1f else 0.3f
         val currentSpeech = state.translation.takeIf { state.active && state.status == HaoHaoTranslationStatus.READY }
         if (speakingText != currentSpeech) speech.stop()
         speakingText = currentSpeech

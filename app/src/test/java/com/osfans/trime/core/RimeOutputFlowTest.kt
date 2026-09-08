@@ -16,6 +16,21 @@ import kotlinx.coroutines.runBlocking
 
 class RimeOutputFlowTest :
     FunSpec({
+        test("translation snapshots are immutable and only accompany their exact submitted Chinese") {
+            runBlocking {
+                val output = LosslessRimeCommitFlow()
+                val original = CommitSentence("我爱你", "I love you!", 4)
+                val received = async { output.flow.take(3).toList() }
+                output.publish(CommitProto("我爱你"), 11, original)
+                output.publish(CommitProto("我"), 11, original)
+                output.publish(CommitProto("我爱你"), 12, null)
+                val events = received.await()
+                events[0].sentence shouldBe original
+                events[1].sentence shouldBe null
+                events[2].sentence shouldBe null
+                events.map { it.inputSessionId } shouldContainExactly listOf(11L, 11L, 12L)
+            }
+        }
         test("one thousand commits are delivered without loss or reordering") {
             runBlocking {
                 val output = LosslessRimeCommitFlow()

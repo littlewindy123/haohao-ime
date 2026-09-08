@@ -11,13 +11,21 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
-    entities = [InputFootprintEntity::class, SavedWordEntity::class, WordReviewDayEntity::class, WordLearningStateEntity::class],
-    version = 3,
+    entities = [InputFootprintEntity::class, SavedWordEntity::class, WordReviewDayEntity::class, WordLearningStateEntity::class, SavedSentenceEntity::class, SentenceSettingsEntity::class],
+    version = 4,
     exportSchema = false,
 )
 abstract class InputFootprintDatabase : RoomDatabase() {
     internal abstract fun inputFootprintDao(): InputFootprintDao
     internal abstract fun wordLearningDao(): WordLearningDao
+    internal abstract fun sentenceDao(): SentenceDao
+}
+
+internal val SENTENCE_MIGRATION = object : Migration(3, 4) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS saved_sentences (chinese TEXT NOT NULL, english TEXT NOT NULL, source TEXT NOT NULL, createdAt INTEGER NOT NULL, lastUsedAt INTEGER NOT NULL, favorite INTEGER NOT NULL, PRIMARY KEY(chinese, english))")
+        db.execSQL("CREATE TABLE IF NOT EXISTS sentence_settings (id INTEGER NOT NULL, automatic INTEGER NOT NULL, PRIMARY KEY(id))")
+    }
 }
 
 internal val WORD_LEARNING_MIGRATION = object : Migration(1, 2) {

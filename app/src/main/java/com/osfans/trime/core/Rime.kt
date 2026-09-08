@@ -57,6 +57,7 @@ class Rime :
     private val mutablePresentationFlow = MutableStateFlow(RimePresentationSnapshot())
     override val presentationFlow = mutablePresentationFlow.asStateFlow()
     private var commitSessionId = 0L
+    private var commitSentence: CommitSentence? = null
 
     override val isReady: Boolean
         get() =
@@ -220,6 +221,10 @@ class Rime :
 
     override suspend fun setCommitSessionId(inputSessionId: Long) = withRimeContext {
         commitSessionId = inputSessionId
+    }
+
+    override suspend fun setCommitSentence(sentence: CommitSentence?) = withRimeContext {
+        commitSentence = sentence
     }
 
     override suspend fun simulateKeySequence(sequence: String): Boolean = withRimeContext {
@@ -540,7 +545,7 @@ class Rime :
     }
 
     private fun publishCommit(commit: CommitProto) {
-        if (!losslessCommitFlow.publish(commit, commitSessionId)) {
+        if (!losslessCommitFlow.publish(commit, commitSessionId, commitSentence)) {
             Timber.e("Unable to enqueue lossless Rime commit")
         }
     }

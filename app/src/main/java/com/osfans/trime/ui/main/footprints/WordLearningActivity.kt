@@ -55,6 +55,7 @@ class WordLearningActivity : AppCompatActivity() {
     private lateinit var content: LinearLayout
     private var busy = false
     private var showingReview = false
+    private var pageEpoch = 0L
     private val speech by lazy { WordSpeech(this) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -116,6 +117,7 @@ class WordLearningActivity : AppCompatActivity() {
     }
 
     private fun page(title: Int) {
+        pageEpoch++
         speech.clearBindings()
         root.removeAllViews()
         val toolbar = Toolbar(this).apply {
@@ -204,12 +206,19 @@ class WordLearningActivity : AppCompatActivity() {
             label(getString(R.string.words_no_meaning_hint))
             return
         }
+        label(getString(R.string.learning_current_meaning), 13f)
         label(chinese, 23f, emphasis = true)
         phonetic?.takeIf { it.isNotBlank() }?.let { label(it, 17f) }
         label(getString(if ((saved?.source ?: source) == "cloud") R.string.words_source_cloud else R.string.words_source_offline))
-        label(getString(R.string.words_save_notice), 13f)
         saved?.takeIf { it.learning }?.let { label(statusText(this, it), 14f, true) }
         content.addView(speech.controls { english }, LinearLayout.LayoutParams(-1, -2))
+        val references = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        content.addView(references, LinearLayout.LayoutParams(-1, -2))
+        val epoch = pageEpoch
+        lifecycleScope.launch {
+            val entry = com.osfans.trime.data.footprints.StudyLexicon.lookup(this@WordLearningActivity, english)
+            if (epoch == pageEpoch && !isFinishing) renderReferences(references, entry)
+        }
         if (saved != null) {
             button(getString(R.string.words_correct_case)) {
                 val edit = AppCompatEditText(this).apply {
@@ -410,8 +419,7 @@ class WordLearningActivity : AppCompatActivity() {
         val pageContent = content
         val cardSurface = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER_HORIZONTAL
-            minimumHeight = dp(240)
+            minimumHeight = dp(200)
             setPadding(dp(20), dp(20), dp(20), dp(20))
             background = GradientDrawable().apply {
                 cornerRadius = dp(24).toFloat()
@@ -420,64 +428,138 @@ class WordLearningActivity : AppCompatActivity() {
             }
         }
         pageContent.addView(cardSurface, LinearLayout.LayoutParams(-1, -2))
+        content = cardSurface
+        label(if (session.reverse) current.chinese else current.displayEnglish, 38f, true)
+        var phoneticView: TextView? = null
+        if (!session.reverse) {
+            phoneticView = label(current.phonetic.orEmpty(), 17f)
+            content.addView(speech.controls { current.displayEnglish }, LinearLayout.LayoutParams(-1, -2))
+        }
+        val answer = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        cardSurface.addView(answer, LinearLayout.LayoutParams(-1, -2))
+        content = answer
+        label(getString(R.string.learning_current_meaning), 13f)
+        label(if (session.reverse) current.displayEnglish else current.chinese, 26f, true)
+        if (session.reverse) {
+            phoneticView = label(current.phonetic.orEmpty(), 17f)
+            content.addView(speech.controls { current.displayEnglish }, LinearLayout.LayoutParams(-1, -2))
+        }
+        val example = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        answer.addView(example, LinearLayout.LayoutParams(-1, -2))
+        button(getString(R.string.learning_other_meanings)) {
+            openMeaning(this, current.chinese, current.displayEnglish, current.phonetic, current.source)
+        }
+        val epoch = pageEpoch
+        lifecycleScope.launch {
+            val entry = com.osfans.trime.data.footprints.StudyLexicon.lookup(this@WordLearningActivity, current.displayEnglish)
+            if (epoch == pageEpoch && !isFinishing) {
+                if (current.phonetic.isNullOrBlank()) phoneticView?.text = entry?.phonetic.orEmpty()
+                val previous = content
+                content = example
+                label(getString(R.string.learning_examples), 13f)
+                entry?.examples?.firstOrNull()?.let { renderExample(it) } ?: label(getString(R.string.learning_missing))
+                content = previous
+            }
+        }
         val footer = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            minimumHeight = dp(128)
-            setPadding(dp(24), dp(8), dp(24), dp(12))
+            setPadding(dp(20), dp(8), dp(20), dp(12))
         }
-        // Short windows keep the entire card and its actions reachable in the same scroll area.
         if (resources.configuration.screenHeightDp < 480) {
             footer.setPadding(0, dp(8), 0, dp(12))
             pageContent.addView(footer, LinearLayout.LayoutParams(-1, -2))
-        } else {
-            root.addView(footer, LinearLayout.LayoutParams(-1, -2))
         }
-        content = cardSurface
-        label(
-            getString(
-                if (card.repeat) {
-                    R.string.words_review_repeat
-                } else if (session.reverse) {
-                    R.string.words_review_prompt_reverse
-                } else {
-                    R.string.words_review_prompt
-                },
-            ),
-            20f,
-            true,
-        )
-        label(getString(R.string.words_review_origin), 13f, centered = true)
-        label(if (session.reverse) current.chinese else current.displayEnglish, 38f, true, true).setPadding(0, dp(8), 0, dp(8))
-        if (session.answerVisible) {
-            label(if (session.reverse) current.displayEnglish else current.chinese, 26f, true, true)
-            current.phonetic?.let { label(it, 17f, centered = true) }
-            label(getString(if (current.source == "cloud") R.string.words_source_cloud else R.string.words_source_offline), 13f, centered = true)
-            content.addView(speech.controls { current.displayEnglish }, LinearLayout.LayoutParams(-1, -2))
-            content = footer
-            val buttons = LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-                isBaselineAligned = false
+        else root.addView(footer, LinearLayout.LayoutParams(-1, -2))
+        content = footer
+        val controls = android.widget.FrameLayout(this)
+        footer.addView(controls, LinearLayout.LayoutParams(-1, -2))
+        val ratings = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; isBaselineAligned = false; minimumHeight = dp(56) }
+        listOf(R.string.words_forgotten to RecallRating.FORGOTTEN, R.string.words_uncertain to RecallRating.UNCERTAIN, R.string.words_remembered to RecallRating.REMEMBERED).forEachIndexed { index, (title, rating) ->
+            val view = button(getString(title), rating == RecallRating.REMEMBERED) {
+                action { learning.answer(card.token, rating)?.let { renderReview(it) } }
             }
-            val ratings = listOf(R.string.words_forgotten to RecallRating.FORGOTTEN, R.string.words_uncertain to RecallRating.UNCERTAIN, R.string.words_remembered to RecallRating.REMEMBERED)
-            ratings.forEachIndexed { index, (title, rating) ->
-                val view = button(getString(title), rating == RecallRating.REMEMBERED) {
-                    action { learning.answer(card.token, rating)?.let { renderReview(it) } }
+            footer.removeView(view)
+            view.minHeight = dp(56)
+            view.minimumHeight = dp(56)
+            view.setPadding(dp(4), dp(8), dp(4), dp(8))
+            ratings.addView(view, LinearLayout.LayoutParams(0, -2, 1f).apply { if (index > 0) marginStart = dp(8) })
+        }
+        lateinit var reveal: AppCompatButton
+        fun updateAnswer(revealed: Boolean) {
+            answer.visibility = if (revealed) View.VISIBLE else View.GONE
+            ratings.visibility = if (revealed) View.VISIBLE else View.INVISIBLE
+            reveal.visibility = if (revealed) View.INVISIBLE else View.VISIBLE
+        }
+        reveal = button(getString(R.string.words_reveal), true) {
+            action {
+                learning.reveal(card.token)?.let { updated ->
+                    session = updated
+                    updateAnswer(updated.answerVisible)
                 }
-                content.removeView(view)
-                view.setPadding(dp(4), dp(10), dp(4), dp(10))
-                view.textSize = 14f
-                view.minHeight = dp(72)
-                buttons.addView(view, LinearLayout.LayoutParams(0, -1, 1f).apply { if (index > 0) marginStart = dp(8) })
             }
-            content.addView(buttons, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) })
-        } else {
-            if (!session.reverse) content.addView(speech.controls { current.displayEnglish }, LinearLayout.LayoutParams(-1, -2))
-            content = footer
-            button(getString(R.string.words_reveal), true) { action { learning.reveal(card.token)?.let { renderReview(it) } } }
-                .minHeight = dp(72)
         }
-        label(getString(R.string.words_review_hint), 13f).setPadding(0, dp(20), 0, 0)
+        footer.removeView(reveal)
+        reveal.minHeight = dp(56)
+        reveal.minimumHeight = dp(56)
+        controls.addView(reveal, android.widget.FrameLayout.LayoutParams(-1, -2))
+        controls.addView(ratings, android.widget.FrameLayout.LayoutParams(-1, -2))
+        updateAnswer(session.answerVisible)
         undoButton()
+    }
+
+    private fun renderExample(example: com.osfans.trime.data.footprints.StudyExample) {
+        label(example.english, 18f, true)
+        label(example.chinese, 16f)
+        label("Tatoeba · ${example.englishAuthor} / ${example.chineseAuthor} · ${example.license}", 12f)
+        label("英文原句 · 中文原句 · 许可", 12f).apply {
+            val links = android.text.SpannableString(text)
+            links.setSpan(android.text.style.URLSpan("https://tatoeba.org/en/sentences/show/${example.englishId}"), 0, 4, 0)
+            links.setSpan(android.text.style.URLSpan("https://tatoeba.org/en/sentences/show/${example.chineseId}"), 7, 11, 0)
+            links.setSpan(android.text.style.URLSpan("https://creativecommons.org/licenses/by/2.0/fr/"), 14, 16, 0)
+            text = links
+            movementMethod = android.text.method.LinkMovementMethod.getInstance()
+            minHeight = dp(48)
+        }
+    }
+
+    private fun renderReferences(target: LinearLayout, entry: com.osfans.trime.data.footprints.StudyWord?) {
+        val previous = content
+        content = target
+        label(getString(R.string.learning_other_meanings), 18f, true)
+        if (entry == null) {
+            label(getString(R.string.learning_missing))
+        } else {
+            fun meanings(values: List<String>) {
+                values.forEach { label(it, 17f) }
+            }
+            meanings(entry.meanings.take(3))
+            if (entry.meanings.size > 3) {
+                val extra = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; visibility = View.GONE }
+                target.addView(extra)
+                val toggle = button(getString(R.string.learning_expand)) { extra.visibility = View.VISIBLE }
+                content = extra
+                meanings(entry.meanings.drop(3))
+                content = target
+                toggle.setOnClickListener { extra.visibility = View.VISIBLE; toggle.visibility = View.GONE }
+            }
+            if (entry.definition.isNotBlank()) {
+                label(getString(R.string.learning_english_definitions), 16f, true)
+                label(entry.definition, 15f)
+            }
+            button("ECDICT · MIT · 资料来源") {
+                val notice = assets.open("learning/NOTICE.txt").bufferedReader().use { it.readText() }
+                val license = assets.open("learning/ECDICT-LICENSE.txt").bufferedReader().use { it.readText() }
+                AlertDialog.Builder(this).setMessage("$notice\n\n$license").setPositiveButton(android.R.string.ok, null).show()
+            }
+            label(getString(R.string.learning_examples), 18f, true)
+            if (entry.examples.isEmpty()) label(getString(R.string.learning_missing))
+            else entry.examples.forEach(::renderExample)
+            label(getString(R.string.learning_forms), 18f, true)
+            val names = mapOf("p" to "过去式", "d" to "过去分词", "i" to "现在分词", "3" to "第三人称", "r" to "比较级", "t" to "最高级", "s" to "复数", "0" to "原形")
+            val forms = entry.forms.mapNotNull { form -> val parts = form.split(':', limit = 2); names[parts[0]]?.let { "$it  ${parts[1]}" } }
+            label(forms.joinToString("\n").ifBlank { getString(R.string.learning_missing) })
+        }
+        content = previous
     }
 
     private fun sessionDescription(session: WordReviewSession): String = getString(

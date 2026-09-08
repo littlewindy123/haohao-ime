@@ -25,7 +25,6 @@
     />
     <meta name="twitter:image" content="http://124.221.187.214/assets/og.png?v=2" />
     <link rel="icon" href="assets/haohao-golden.png" type="image/png" />
-    <link rel="preload" as="image" href="assets/keyboard-still.webp" />
     <link rel="stylesheet" href="styles.css?v=20260907-3d" />
     <link rel="stylesheet" href="showroom.css?v=20260908" />
     <title>好好输入法官网｜边打字，边学英语。</title>
@@ -79,30 +78,15 @@
               下载体验 <span aria-hidden="true">↓</span>
             </a>
           </div>
-          <p class="download-note">Android 测试版 <a href="#install">安装说明</a></p>
         </div>
         <div class="hero-study" id="hero-study" data-intro="logo">
-          <div class="scene-caption" aria-live="polite" aria-atomic="true">
-            <span id="hero-chinese">你好</span><span class="translation-arrow" aria-hidden="true">→</span><strong id="hero-english">hello</strong>
-          </div>
-          <div class="keyboard-scene" id="keyboard-scene" role="img" aria-label="奶油色立体键盘与薄荷色词本，网页交互示意">
-            <img class="scene-still" src="assets/keyboard-still.webp" width="1200" height="900" fetchpriority="high" alt="" />
-          </div>
-          <div class="scene-wordbook"><span class="book-mark" aria-hidden="true"></span><span id="saved-word">我的词本</span></div>
-          <div class="scene-controls">
-            <div class="scene-examples" aria-label="选择立体演示的词语">
-              <button type="button" data-hero-example="nihao" aria-pressed="true">你好</button>
-              <button type="button" data-hero-example="xuexi" aria-pressed="false">学习</button>
-              <button type="button" data-hero-example="zhongwen" aria-pressed="false">中文</button>
-            </div>
-            <button class="collect-button" id="collect-demo" type="button">收藏演示</button>
-          </div>
-          <p class="scene-note">轻点一个词，看看它的英文。仅网页演示，不保存数据。</p>
-          <span id="hero-status" class="sr-only" role="status"></span>
-          <noscript><p class="scene-note">当前显示静态画面；下载与安装说明照常可用。</p></noscript>
+          <div class="greeting-line"><span id="hero-greeting" aria-hidden="true">你好</span><span class="typing-cursor" aria-hidden="true"></span></div>
+          <span class="sr-only">你好，欢迎你来看我的作品。跪求star支持。</span>
+          <div class="keyboard-scene" id="keyboard-scene" role="img" aria-label="完整正面键盘自动打字"></div>
+          <button class="motion-toggle" id="hero-pause" type="button" aria-label="暂停动画" aria-pressed="false"><span aria-hidden="true"></span></button>
+          <noscript><p>你好，欢迎你来看我的作品。跪求star支持。</p></noscript>
         </div>
         </div>
-        <a class="hero-next shell" href="#features">从一次输入，到一个新单词 <span aria-hidden="true">↓</span></a>
       </section>
 
       <section class="feature-scene" id="features">
@@ -201,30 +185,16 @@
             <figure class="learning-image honey-surface reveal"><img src="assets/review.png" width="1080" height="2400" loading="lazy" alt="早期测试版轻复习：learn 的释义与三档掌握反馈" /><figcaption>回想、查看，再记录这一次的掌握情况。</figcaption></figure>
           </div>
           <p class="screenshot-note">以上为早期测试版本的真实画面，当前版本细节可能有所不同。</p>
-          <details class="keyboard-gallery">
-          <summary>看看键盘的不同样子 <span aria-hidden="true">＋</span></summary>
-          <div class="screenshot-grid" aria-label="好好输入法真实键盘画面，可横向浏览" tabindex="0">
-            <figure class="screenshot-card reveal">
-              <div class="keyboard-crop">
-                <img src="assets/screenshot-light.png" width="1080" height="2400" loading="lazy" alt="好好输入法浅色键盘，中文候选下方显示英文翻译" />
-              </div>
-              <figcaption><strong>好好浅色</strong><span>清爽，不抢内容</span></figcaption>
+          <div class="live-demos" aria-label="手机实录">
+            <figure class="live-demo live-demo-wide">
+              <div class="recording-frame"><video muted loop playsinline preload="none" poster="assets/demo-sentence.webp" data-demo-video aria-label="整句输入实录"><source data-src="assets/demo-sentence.webm" type="video/webm" /><source data-src="assets/demo-sentence.mp4" type="video/mp4" /></video><button type="button" class="video-toggle" aria-label="播放整句输入实录"><span aria-hidden="true">▶</span></button></div>
+              <figcaption>整句输入</figcaption>
             </figure>
-            <figure class="screenshot-card reveal">
-              <div class="keyboard-crop">
-                <img src="assets/screenshot-dark.png" width="1080" height="2400" loading="lazy" alt="好好输入法深色键盘，候选显示英文翻译和美式音标" />
-              </div>
-              <figcaption><strong>好好深色</strong><span>安静，也看得清</span></figcaption>
-            </figure>
-            <figure class="screenshot-card reveal">
-              <div class="keyboard-crop">
-                <img src="assets/screenshot-expanded.png" width="1080" height="2400" loading="lazy" alt="好好输入法展开候选页，以三列网格展示中文、英文和音标" />
-              </div>
-              <figcaption><strong>展开候选</strong><span>多一些选择，少一点翻找</span></figcaption>
+            <figure class="live-demo live-demo-cards">
+              <div class="recording-frame"><video muted loop playsinline preload="none" poster="assets/demo-cards.webp" data-demo-video aria-label="背单词实录"><source data-src="assets/demo-cards.webm" type="video/webm" /><source data-src="assets/demo-cards.mp4" type="video/mp4" /></video><button type="button" class="video-toggle" aria-label="播放背单词实录"><span aria-hidden="true">▶</span></button></div>
+              <figcaption>背单词</figcaption>
             </figure>
           </div>
-          <p class="screenshot-note">早期测试版本的实际运行画面，仅裁切键盘区域；新版细节可能有所不同。</p>
-          </details>
 
           <aside class="privacy-band reveal" id="privacy" aria-labelledby="privacy-title">
             <div>
@@ -311,11 +281,13 @@
           </div>
         </details>
       </div>
+      <p class="concept-disclosure shell">角色皮肤为同人设计，暂未内置 App，非官方联名。</p>
     </footer>
 
     <script src="vendor/gsap-3.15.0.min.js" defer></script>
     <script src="main.js?v=20260907-3d" type="module"></script>
     <script src="hero.js?v=20260907-3d" type="module"></script>
+    <script src="media.js?v=20260908" type="module"></script>
     <script src="showroom.js?v=20260908" type="module"></script>
   </body>
 </html>

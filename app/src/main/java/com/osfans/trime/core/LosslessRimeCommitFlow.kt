@@ -17,6 +17,7 @@ internal class LosslessRimeCommitFlow {
     fun publish(
         commit: CommitProto,
         inputSessionId: Long,
+        sentence: CommitSentence? = null,
     ): Boolean = commit.text.isNullOrEmpty() ||
-        commits.trySend(RimeCommitEvent(commit, inputSessionId)).isSuccess
+        commits.trySend(RimeCommitEvent(commit, inputSessionId, sentence?.takeIf { it.chinese == commit.text })).isSuccess
 }

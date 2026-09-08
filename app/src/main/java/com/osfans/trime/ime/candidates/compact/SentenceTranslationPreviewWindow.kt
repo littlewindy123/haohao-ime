@@ -25,6 +25,7 @@ import splitties.dimensions.dp
 internal class SentenceTranslationPreviewWindow(private val snapshot: SentenceCandidateState) : BoardWindow.NoBarBoardWindow() {
     private val manager: BoardWindowManager by di.instance()
     private val controller: CloudCandidateTranslationController by di.instance()
+    private val service: com.osfans.trime.ime.core.TrimeInputMethodService by di.instance()
     private lateinit var body: TextView
     private lateinit var speech: com.osfans.trime.ui.main.footprints.WordSpeech
     private val listener: () -> Unit = {
@@ -65,6 +66,13 @@ internal class SentenceTranslationPreviewWindow(private val snapshot: SentenceCa
             LinearLayout.LayoutParams(-1, 0, 1f),
         )
         addView(speech.controls { snapshot.translation.takeIf { controller.sentenceState == snapshot } }, LinearLayout.LayoutParams(-1, -2))
+        addView(androidx.appcompat.widget.AppCompatButton(context).apply {
+            setText(R.string.sentences_save)
+            minHeight = context.dp(48)
+            setOnClickListener {
+                if (controller.sentenceState == snapshot) snapshot.translation?.let { service.saveSentence(snapshot.source, it, true) }
+            }
+        }, LinearLayout.LayoutParams(-1, -2))
     }
     override fun onAttached() {
         controller.addSentenceListener(listener)
