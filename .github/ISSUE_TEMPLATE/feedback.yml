@@ -1,0 +1,34 @@
+# SPDX-FileCopyrightText: 2026 HaoHao IME contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+name: 体验反馈、释义纠错或使用建议
+description: 告诉我们一个具体问题或场景，不需要会写代码。
+body:
+  - type: dropdown
+    id: category
+    attributes:
+      label: 你想反馈什么？
+      options:
+        - 输入、界面或兼容性问题
+        - 英文释义或音标不合适
+        - 功能建议或使用问题
+    validations:
+      required: true
+  - type: textarea
+    id: experience
+    attributes:
+      label: 发生了什么，或者你希望怎样？
+      description: 可以写复现步骤、预期行为，或一个你希望改善的使用场景。释义问题请附中文词、当前英文和建议表达。
+      placeholder: 我在……时，发现……，希望可以……
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: 机型、Android 版本和好好输入法版本（可选）
+      placeholder: 小米…… / Android…… / 好好输入法……
+  - type: textarea
+    id: media
+    attributes:
+      label: 截图或补充信息（可选）
+      description: 请使用专门的测试文字，并遮住聊天内容、密码、API Key 等私人信息。不要求提交完整日志。

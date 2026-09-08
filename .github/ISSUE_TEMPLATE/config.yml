@@ -2,9 +2,9 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-blank_issues_enabled: false
+blank_issues_enabled: true
 
 contact_links:
-  - name: GitHub 讨论区 / GitHub Discussions
-    url: https://github.com/osfans/trime/discussions
-    about: 请在这里提出有关如何使用本输入法的疑问。 / Please ask questions about how to use the input method here.
+  - name: 先看看演示与安装说明
+    url: http://124.221.187.214/
+    about: 下载好好输入法、体验网页键盘，或查看测试版安装说明。

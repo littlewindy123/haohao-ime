@@ -6,27 +6,24 @@ SPDX-License-Identifier: GPL-3.0-or-later
 -->
 
 <p align="center">
-  <img src="website/assets/haohao-golden.png" alt="好好输入法的金毛小狗" width="112" />
+  <img src="website/assets/haohao-golden.png" alt="好好输入法的金毛小狗" width="88" />
 </p>
 
 # 好好输入法（HaoHao IME）
 
-**中文输入，英文一起懂。**
+**打中文的时候，也遇见一点英语。**
 
-让每天的中文输入，变成接触英语的小机会。
+一款给中文用户的开源 Android 输入法：在中文候选旁看英文，把想学的词收进自己的词本，有空再复习。
 
-**🙏 跪求一个 Star！喜欢这个想法，就点亮右上角的小星星吧，给好好一点继续做下去的动力。**
+比如输入「你好」，顺便看见 **hello**。遇到想记住的词，再主动收藏、加入学习。学习从你实际用到的词开始。
 
-[看看演示与下载](http://124.221.187.214/) · [反馈体验](https://github.com/littlewindy123/haohao-ime/issues) · [隐私说明](PRIVACY.md)
+**[下载 Android 测试版](http://124.221.187.214/#download) · [在线试键盘与换肤](http://124.221.187.214/#skin-studio) · [反馈体验](https://github.com/littlewindy123/haohao-ime/issues/new/choose)**
 
-## 打字，也能顺便学一点
+Android · 默认本地输入 · 本机词本 · 基于 Trime / Rime · GPL-3.0-or-later
 
-- **看英文**：中文候选旁显示已收录的英文释义，支持离线查词与音标。
-- **学单词**：收藏想学的词，有空打开轻复习或每日计划。
-- **译句子**：主动配置云翻译后，在键盘里查看整句英文。
-- **顺手用**：主题、单手模式、滑动编辑、剪贴板与常用语。
+## 看见一个词，到记住一个词
 
-## 从输入，到自己的词本
+中文照常输入，英文就在旁边。想学时多走一步，忙的时候继续打字。
 
 <table>
   <tr>
@@ -41,9 +38,59 @@ SPDX-License-Identifier: GPL-3.0-or-later
   </tr>
 </table>
 
-*早期测试版真实截图，界面持续更新中。*
+*早期 Android 测试版的实际画面。当前界面持续更新，可在[官网观看输入演示](http://124.221.187.214/#features)。*
 
-目前提供 Android 测试版，默认本地输入，词本留在本机。云翻译需自行配置，联网发音尚未公开开放。下载和升级请先看[官网说明](http://124.221.187.214/)。
+## 为什么把英语放进输入法？
+
+你已经会在手机上打很多中文。好好想利用这个本来就存在的时刻，让熟悉的中文多一个英文对应，再把你愿意学的词留下来。
+
+| 你想做的事 | 好好怎么帮你 |
+| --- | --- |
+| 顺手看看一个词的英文 | 中文候选旁显示已收录的英文释义，可开启美式音标；点击候选仍然提交中文 |
+| 留下对自己有用的词 | 主动收藏、加入学习，组成自己的词本；收藏和学习可分别管理 |
+| 有空再记一遍 | 轻复习与每日计划，先回想、再揭晓；支持撤销最近一次评分与继续未完成的复习 |
+| 想知道一句话怎么说 | 自行配置并同意云翻译后，在键盘中查看整句英文 |
+| 把键盘调顺手 | 中文九键与 26 键、单手模式、键盘高度、滑动编辑、剪贴板和常用语 |
+
+## 先试一下
+
+1. **还不想安装？** 打开[网页键盘](http://124.221.187.214/#skin-studio)，点按键帽、切换皮肤，试试输入 `nihao` 后按空格。
+2. **想在自己的手机上用？** 从[官网](http://124.221.187.214/#download)下载 Android 测试版，按应用引导启用并选择好好输入法。
+3. **开始认识它。** 输入「你好」「学习」，看看命中词的英文；再去「我的单词」试一次收藏和复习。
+
+网页键盘只提供三组拼音示例。角色皮肤是同人网页预览，暂未内置 App，非官方联名。
+
+### 安装前，你可能关心
+
+- **可以离线用吗？** 默认本地输入，命中内置词典时可离线查看释义；未收录的内容不会自动联网补全。
+- **我的词本会同步吗？** 词本和复习进度保存在本机，目前没有账号同步。卸载或清除应用数据会删除它们。
+- **整句翻译开箱即用吗？** 公开测试包不内置共享云凭据，需要自行配置并确认同意；联网发音尚未公开开放。
+- **已经是稳定版了吗？** 目前是 Android 测试版，仍在打磨输入手感、释义质量和机型兼容。升级前请看[安装与签名说明](http://124.221.187.214/#install)，不要直接卸载有词本的旧版。
+
+完整数据边界见[隐私说明](PRIVACY.md)。
+
+## 一起把它变成更好用的日常键盘
+
+如果你也喜欢「从每天用到的中文，积累自己的英语词本」这个方向，欢迎给好好一个 **Star**，方便之后回来体验新版。
+
+我们接下来会继续打磨中文输入手感、英文释义准确性，以及不同屏幕上的复习体验。你不需要会写代码，也能帮上忙：
+
+- **试一次，告诉我们哪里不顺手。** 附上机型、系统版本和复现步骤。
+- **指出一个不合适的英文。** 给出用于测试的中文词、当前释义和你认为更贴切的表达。
+- **带来一个真实的使用场景。** 比如单手打字、横屏输入，或在碎片时间里复习。
+
+[提反馈或建议](https://github.com/littlewindy123/haohao-ime/issues/new/choose) · [看看如何参与](CONTRIBUTING.md) · [项目路线图](ROADMAP.md)
+
+<details>
+<summary>English overview</summary>
+
+HaoHao IME is an open-source Android keyboard for Chinese speakers who want to encounter English during everyday typing. It pairs supported Chinese candidates with English meanings, offers a personal wordbook, and lets you review words you choose to learn.
+
+Local input and dictionary lookup work offline. Cloud sentence translation requires your own configuration and consent. The app is an early Android test build; the website's character skins are previews, not bundled app features.
+
+[Try the web keyboard](http://124.221.187.214/#skin-studio) · [Download](http://124.221.187.214/#download) · [Contribute](CONTRIBUTING.md)
+
+</details>
 
 ## 开发者入口
 
