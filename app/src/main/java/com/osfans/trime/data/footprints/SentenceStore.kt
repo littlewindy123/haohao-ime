@@ -1,16 +1,28 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 package com.osfans.trime.data.footprints
 
-import androidx.room.*
+import androidx.room.Dao
+import androidx.room.Delete
+import androidx.room.Entity
+import androidx.room.Insert
+import androidx.room.OnConflictStrategy
+import androidx.room.PrimaryKey
+import androidx.room.Query
+import androidx.room.withTransaction
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.util.concurrent.atomic.AtomicLong
 
 @Entity(tableName = "saved_sentences", primaryKeys = ["chinese", "english"])
+@kotlinx.serialization.Serializable
 data class SavedSentenceEntity(
-    val chinese: String, val english: String, val source: String,
-    val createdAt: Long, val lastUsedAt: Long, val favorite: Boolean = false,
+    val chinese: String,
+    val english: String,
+    val source: String,
+    val createdAt: Long,
+    val lastUsedAt: Long,
+    val favorite: Boolean = false,
 )
 
 @Entity(tableName = "sentence_settings")
@@ -20,24 +32,35 @@ data class SentenceSettingsEntity(@PrimaryKey val id: Int = 1, val automatic: Bo
 internal interface SentenceDao {
     @Query("SELECT * FROM saved_sentences ORDER BY lastUsedAt DESC, chinese, english")
     fun observe(): Flow<List<SavedSentenceEntity>>
+
     @Query("SELECT * FROM sentence_settings WHERE id = 1")
     suspend fun settings(): SentenceSettingsEntity?
-    @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun settings(value: SentenceSettingsEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun settings(value: SentenceSettingsEntity)
+
     @Query("SELECT * FROM saved_sentences WHERE chinese = :chinese AND english = :english")
     suspend fun find(chinese: String, english: String): SavedSentenceEntity?
-    @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun put(value: SavedSentenceEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun put(value: SavedSentenceEntity)
+
     @Delete suspend fun delete(value: SavedSentenceEntity)
+
     @Query("DELETE FROM saved_sentences WHERE favorite = 0 AND rowid NOT IN (SELECT rowid FROM saved_sentences WHERE favorite = 0 ORDER BY lastUsedAt DESC, rowid DESC LIMIT 100)")
     suspend fun prune()
-    @Query("DELETE FROM saved_sentences WHERE :all OR favorite = 0") suspend fun clear(all: Boolean)
-    @Query("DELETE FROM saved_sentences WHERE favorite = 1") suspend fun clearFavorites()
+
+    @Query("DELETE FROM saved_sentences WHERE :all OR favorite = 0")
+    suspend fun clear(all: Boolean)
+
+    @Query("DELETE FROM saved_sentences WHERE favorite = 1")
+    suspend fun clearFavorites()
 }
 
-internal fun validSentencePair(chinese: String, english: String): Boolean =
-    chinese.isNotBlank() && english.isNotBlank() &&
-        chinese.codePointCount(0, chinese.length) <= 200 && english.codePointCount(0, english.length) <= 2000 &&
-        chinese.any { it in '\u3400'..'\u9fff' } && english.any { it in 'a'..'z' || it in 'A'..'Z' } &&
-        (chinese + english).none { it.isISOControl() && it !in "\n\r\t" }
+internal fun validSentencePair(chinese: String, english: String): Boolean = chinese.isNotBlank() && english.isNotBlank() &&
+    chinese.codePointCount(0, chinese.length) <= 200 && english.codePointCount(0, english.length) <= 2000 &&
+    chinese.any { it in '\u3400'..'\u9fff' } && english.any { it in 'a'..'z' || it in 'A'..'Z' } &&
+    (chinese + english).none { it.isISOControl() && it !in "\n\r\t" }
 
 /** Serializes mode changes, clear and writes; an epoch also invalidates already queued work. */
 internal class SentenceStore(private val database: InputFootprintDatabase) {
@@ -46,6 +69,9 @@ internal class SentenceStore(private val database: InputFootprintDatabase) {
     private val generation = AtomicLong()
     val rows = dao.observe()
     fun ticket(): Long = generation.get()
+    fun invalidatePending() {
+        generation.incrementAndGet()
+    }
     suspend fun automatic(): Boolean = dao.settings()?.automatic == true
     suspend fun setAutomatic(enabled: Boolean) {
         generation.incrementAndGet()
@@ -66,7 +92,9 @@ internal class SentenceStore(private val database: InputFootprintDatabase) {
                     if (ticket != generation.get() || !valid()) throw StaleSentenceWrite()
                     true
                 }
-            } catch (_: StaleSentenceWrite) { false }
+            } catch (_: StaleSentenceWrite) {
+                false
+            }
         }
     }
     suspend fun favorite(value: SavedSentenceEntity, enabled: Boolean) = lock.withLock {

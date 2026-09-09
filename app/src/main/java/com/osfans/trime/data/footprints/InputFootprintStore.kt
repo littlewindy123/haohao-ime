@@ -18,10 +18,12 @@ internal data class InputFootprintCounts(
 )
 
 internal class InputFootprintStore(
-    private val database: InputFootprintDatabase,
+    internal val database: InputFootprintDatabase,
+    private val learningRollbackFile: File? = null,
 ) {
     private val dao = database.inputFootprintDao()
     val learning = WordLearningStore(database)
+    val wordbooks = WordbookStore(database)
     val sentences = SentenceStore(database)
 
     val recent: Flow<List<InputFootprintEntity>> = dao.recent(RECENT_LIMIT)
@@ -79,6 +81,7 @@ internal class InputFootprintStore(
     }
 
     suspend fun clearAll() = database.withTransaction {
+        learningRollbackFile?.let { android.util.AtomicFile(it).delete() }
         dao.deleteAll()
         learning.clearAll()
     }
@@ -102,6 +105,7 @@ internal object InputFootprints {
         get() = storeInstance
 
     internal fun databaseFile(context: Context): File = context.noBackupFilesDir.resolve(DATABASE_NAME)
+    internal fun rollbackFile(context: Context): File = context.noBackupFilesDir.resolve("learning-restore-rollback.json")
 
     fun init(context: Context) {
         val database =
@@ -109,10 +113,10 @@ internal object InputFootprints {
                 context.applicationContext,
                 InputFootprintDatabase::class.java,
                 databaseFile(context).absolutePath,
-            ).addMigrations(WORD_LEARNING_MIGRATION, WORD_DISPLAY_UNDO_MIGRATION, SENTENCE_MIGRATION, LEARNING_PROGRESS_MIGRATION).build()
+            ).addMigrations(WORD_LEARNING_MIGRATION, WORD_DISPLAY_UNDO_MIGRATION, SENTENCE_MIGRATION, LEARNING_PROGRESS_MIGRATION, LEARNING_MODES_MIGRATION, LEARNING_PRACTICE_MIGRATION, WORDBOOK_MIGRATION).build()
         try {
             database.openHelper.writableDatabase
-            storeInstance = InputFootprintStore(database)
+            storeInstance = InputFootprintStore(database, rollbackFile(context))
         } catch (error: Throwable) {
             database.close()
             throw error

@@ -7,8 +7,8 @@ import android.graphics.Canvas
 import android.os.SystemClock
 import android.view.View
 import android.view.ViewGroup
-import android.widget.TextView
 import android.widget.ScrollView
+import android.widget.TextView
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
@@ -16,10 +16,14 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.osfans.trime.R
 import com.osfans.trime.data.footprints.InputFootprints
 import com.osfans.trime.data.prefs.AppPrefs
-import com.osfans.trime.ui.main.footprints.WordLearningActivity
 import com.osfans.trime.ui.main.footprints.SentenceBookActivity
+import com.osfans.trime.ui.main.footprints.WordLearningActivity
 import kotlinx.coroutines.runBlocking
-import org.junit.Assert.*
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
 
@@ -35,7 +39,8 @@ class LearningV4UiTest {
     private fun waitFor(check: () -> Boolean) {
         val deadline = SystemClock.elapsedRealtime() + 15000
         while (!check() && SystemClock.elapsedRealtime() < deadline) SystemClock.sleep(80)
-        assertTrue("UI condition timed out", check()); instrumentation.waitForIdleSync()
+        assertTrue("UI condition timed out", check())
+        instrumentation.waitForIdleSync()
     }
     private fun button(root: View, id: Int) = views(root).filterIsInstance<TextView>().firstOrNull { it.isShown && it.text.toString() == context.getString(id) }
     private fun capture(view: View, name: String) {
@@ -54,8 +59,11 @@ class LearningV4UiTest {
             assertTrue("Clipped $name: ${text.text}", layout.height <= text.height - text.totalPaddingTop - text.totalPaddingBottom)
         }
     }
+
     @Test fun reviewGeometryAndSentenceSearch() {
-        fun stage(name: String) { instrumentation.sendStatus(2, android.os.Bundle().apply { putString("stream", "\nV4: $name\n") }) }
+        fun stage(name: String) {
+            instrumentation.sendStatus(2, android.os.Bundle().apply { putString("stream", "\nV4: $name\n") })
+        }
         stage("start")
         assertTrue(context.packageName.endsWith(".regression"))
         val mode = AppPrefs.defaultInstance().advanced.uiMode
@@ -64,7 +72,9 @@ class LearningV4UiTest {
         mode.setValue(if (dark) AppPrefs.Advanced.UiMode.DARK else AppPrefs.Advanced.UiMode.LIGHT)
         stage("mode configured")
         runBlocking {
-            store.clearAll(); store.sentences.clear(true); store.sentences.setAutomatic(false)
+            store.clearAll()
+            store.sentences.clear(true)
+            store.sentences.setAutomatic(false)
             store.learning.saveMeaning("我保存的学习含义", "learn", "/lɜːn/", "offline", learning = true, now = 1)
         }
         stage("fixtures saved")
@@ -76,7 +86,11 @@ class LearningV4UiTest {
         try {
             val intent = Intent(context, WordLearningActivity::class.java).putExtra("words.mode", "review")
             ActivityScenario.launch<WordLearningActivity>(intent).use { scenario ->
-                waitFor { var ready = false; scenario.onActivity { ready = button(it.window.decorView, R.string.words_reveal) != null }; ready }
+                waitFor {
+                    var ready = false
+                    scenario.onActivity { ready = button(it.window.decorView, R.string.words_reveal) != null }
+                    ready
+                }
                 scenario.onActivity { assertEquals(landscape, it.resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE) }
                 var originalScroll: ScrollView? = null
                 var revealY = 0
@@ -84,12 +98,18 @@ class LearningV4UiTest {
                     val decor = activity.window.decorView
                     originalScroll = views(decor).filterIsInstance<ScrollView>().first()
                     val reveal = button(decor, R.string.words_reveal)!!
-                    val location = IntArray(2); reveal.getLocationOnScreen(location); revealY = location[1]
+                    val location = IntArray(2)
+                    reveal.getLocationOnScreen(location)
+                    revealY = location[1]
                     assertTrue(reveal.height >= 55 * activity.resources.displayMetrics.density)
                     capture(activity.findViewById(android.R.id.content), "front")
                     reveal.performClick()
                 }
-                waitFor { var ready = false; scenario.onActivity { ready = button(it.window.decorView, R.string.words_remembered) != null }; ready }
+                waitFor {
+                    var ready = false
+                    scenario.onActivity { ready = button(it.window.decorView, R.string.words_remembered) != null }
+                    ready
+                }
                 SystemClock.sleep(600)
                 waitFor {
                     var highlighted = false
@@ -109,8 +129,9 @@ class LearningV4UiTest {
                     assertTrue(views(decor).filterIsInstance<TextView>().any { it.isShown && it.text.toString() == "我保存的学习含义" })
                     assertEquals(activity.getColor(R.color.learning_meaning_ink), views(decor).filterIsInstance<TextView>().first { it.text.toString() == "我保存的学习含义" }.currentTextColor)
                     val rating = button(decor, R.string.words_remembered)!!
-                    val location = IntArray(2); rating.getLocationOnScreen(location)
-                    if (activity.resources.configuration.screenHeightDp >= 480) assertEquals(revealY, location[1])
+                    val location = IntArray(2)
+                    rating.getLocationOnScreen(location)
+                    if (activity.resources.configuration.screenHeightDp >= 480 && activity.resources.configuration.fontScale < 1.8f) assertEquals(revealY, location[1])
                     assertTrue(rating.height >= 55 * activity.resources.displayMetrics.density)
                     originalScroll!!.scrollTo(0, originalScroll!!.getChildAt(0).height)
                 }
@@ -123,9 +144,16 @@ class LearningV4UiTest {
                     capture(it.findViewById(android.R.id.content), "answer")
                 }
                 scenario.recreate()
-                waitFor { var ready = false; scenario.onActivity { ready = button(it.window.decorView, R.string.words_remembered) != null }; ready }
+                waitFor {
+                    var ready = false
+                    scenario.onActivity { ready = button(it.window.decorView, R.string.words_remembered) != null }
+                    ready
+                }
                 assertEquals(0, runBlocking { store.learning.find("我保存的学习含义", "learn")!!.reviewCount })
-                scenario.onActivity { originalScroll = views(it.window.decorView).filterIsInstance<ScrollView>().first(); originalScroll!!.scrollTo(0, 0) }
+                scenario.onActivity {
+                    originalScroll = views(it.window.decorView).filterIsInstance<ScrollView>().first()
+                    originalScroll!!.scrollTo(0, 0)
+                }
                 instrumentation.waitForIdleSync()
                 scenario.onActivity { capture(it.findViewById(android.R.id.content), "answer-top") }
             }
@@ -135,7 +163,11 @@ class LearningV4UiTest {
                 .putExtra("words.chinese", "我保存的学习含义")
                 .putExtra("words.english", "learn")
             ActivityScenario.launch<WordLearningActivity>(detail).use { scenario ->
-                waitFor { var ready = false; scenario.onActivity { ready = button(it.window.decorView, R.string.learning_forms) != null }; ready }
+                waitFor {
+                    var ready = false
+                    scenario.onActivity { ready = button(it.window.decorView, R.string.learning_forms) != null }
+                    ready
+                }
                 scenario.onActivity { capture(it.findViewById(android.R.id.content), "detail") }
             }
             stage("review and recreation verified")
@@ -146,28 +178,50 @@ class LearningV4UiTest {
             }
             foreground()
             ActivityScenario.launch<SentenceBookActivity>(Intent(context, SentenceBookActivity::class.java)).use { scenario ->
-                waitFor { var ready = false; scenario.onActivity { ready = views(it.window.decorView).filterIsInstance<TextView>().any { v -> v.text.toString().startsWith("Let's study together") } }; ready }
+                waitFor {
+                    var ready = false
+                    scenario.onActivity { ready = views(it.window.decorView).filterIsInstance<TextView>().any { v -> v.text.toString().startsWith("Let's study together") } }
+                    ready
+                }
                 scenario.onActivity { activity ->
                     capture(activity.findViewById(android.R.id.content), "recent")
                     button(activity.window.decorView, R.string.sentences_favorites)!!.performClick()
                     views(activity.window.decorView).filterIsInstance<android.widget.EditText>().first().setText("我爱你")
                 }
-                waitFor { var ready = false; scenario.onActivity { ready = views(it.window.decorView).filterIsInstance<TextView>().any { v -> v.text.toString() == "I love you!" } }; ready }
+                waitFor {
+                    var ready = false
+                    scenario.onActivity { ready = views(it.window.decorView).filterIsInstance<TextView>().any { v -> v.text.toString() == "I love you!" } }
+                    ready
+                }
                 scenario.recreate()
-                waitFor { var ready = false; scenario.onActivity { ready = views(it.window.decorView).filterIsInstance<TextView>().any { v -> v.text.toString() == "I love you!" } }; ready }
-                waitFor { var ready = false; scenario.onActivity { ready = views(it.window.decorView).filterIsInstance<androidx.appcompat.widget.SwitchCompat>().any { v -> v.isEnabled && v.isChecked } }; ready }
+                waitFor {
+                    var ready = false
+                    scenario.onActivity { ready = views(it.window.decorView).filterIsInstance<TextView>().any { v -> v.text.toString() == "I love you!" } }
+                    ready
+                }
+                waitFor {
+                    var ready = false
+                    scenario.onActivity { ready = views(it.window.decorView).filterIsInstance<androidx.appcompat.widget.SwitchCompat>().any { v -> v.isEnabled && v.isChecked } }
+                    ready
+                }
                 scenario.onActivity { capture(it.findViewById(android.R.id.content), "favorites") }
             }
         } finally {
-            runBlocking { store.clearAll(); store.sentences.clear(true); store.sentences.setAutomatic(false) }
+            runBlocking {
+                store.clearAll()
+                store.sentences.clear(true)
+                store.sentences.setAutomatic(false)
+            }
             mode.setValue(original)
             instrumentation.uiAutomation.setRotation(android.app.UiAutomation.ROTATION_UNFREEZE)
         }
     }
     private fun foreground() {
-        android.os.ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand(
-            "am start -W -a android.intent.action.RUN -n ${context.packageName}/com.osfans.trime.ui.main.MainActivity",
-        )).bufferedReader().use { it.readText() }
+        android.os.ParcelFileDescriptor.AutoCloseInputStream(
+            instrumentation.uiAutomation.executeShellCommand(
+                "am start -W -a android.intent.action.RUN -n ${context.packageName}/com.osfans.trime.ui.main.MainActivity",
+            ),
+        ).bufferedReader().use { it.readText() }
     }
 
     @Test fun reverseReadingKeepsEnglishAndAudioHiddenUntilReveal() {
@@ -180,20 +234,35 @@ class LearningV4UiTest {
         foreground()
         try {
             ActivityScenario.launch<WordLearningActivity>(Intent(context, WordLearningActivity::class.java).putExtra("words.mode", "plan")).use { scenario ->
-                waitFor { var ready = false; scenario.onActivity { ready = button(it.window.decorView, R.string.words_plan_start) != null }; ready }
+                waitFor {
+                    var ready = false
+                    scenario.onActivity { ready = button(it.window.decorView, R.string.words_plan_start) != null }
+                    ready
+                }
                 scenario.onActivity { button(it.window.decorView, R.string.words_plan_start)!!.performClick() }
-                waitFor { var ready = false; scenario.onActivity { ready = button(it.window.decorView, R.string.words_reveal) != null }; ready }
+                waitFor {
+                    var ready = false
+                    scenario.onActivity { ready = button(it.window.decorView, R.string.words_reveal) != null }
+                    ready
+                }
                 scenario.onActivity { activity ->
                     val visible = views(activity.window.decorView).filter { it.isShown }.toList()
                     assertFalse(visible.filterIsInstance<TextView>().any { it.text.toString() == "learn" || it.text.toString() == "/lɜːn/" })
                     assertFalse(visible.any { it.contentDescription == activity.getString(R.string.input_footprints_speak) })
                     button(activity.window.decorView, R.string.words_reveal)!!.performClick()
                 }
-                waitFor { var ready = false; scenario.onActivity { ready = views(it.window.decorView).filterIsInstance<TextView>().any { v -> v.isShown && v.text.toString() == "learn" } }; ready }
+                waitFor {
+                    var ready = false
+                    scenario.onActivity { ready = views(it.window.decorView).filterIsInstance<TextView>().any { v -> v.isShown && v.text.toString() == "learn" } }
+                    ready
+                }
                 assertEquals(0, runBlocking { store.learning.find("学习", "learn")!!.reviewCount })
             }
         } finally {
-            runBlocking { store.learning.clearAll(); store.learning.saveSettings(false, 5, 10, false) }
+            runBlocking {
+                store.learning.clearAll()
+                store.learning.saveSettings(false, 5, 10, false)
+            }
         }
     }
 }

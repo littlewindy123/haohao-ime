@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="learning_weak_words">薄弱词</string>
+    <string name="learning_often_forgotten">最近总忘</string>
+    <string name="learning_often_misspelled">经常拼错</string>
+    <string name="learning_weak_note">根据最近 30 天的记录整理。失败两次进入列表，连续两次独立成功后移出；已暂停学习的词不参与。</string>
+    <string name="learning_weak_empty">暂时没有需要专项练习的词</string>
+    <string name="learning_weak_unknown">历史记录没有拼写结果时不会猜测；从新版开始积累。</string>
+    <string name="learning_weak_count">%1$d 个词 · 最近 30 天</string>
+    <string name="learning_weak_page">显示 %1$d–%2$d / %3$d 个词</string>
+    <string name="learning_weak_previous">上一页</string>
+    <string name="learning_weak_next">下一页</string>
+    <string name="learning_weak_failures">记录失败 %1$d 次</string>
+    <string name="learning_practice">专项加练</string>
+    <string name="learning_practice_note">独立加练，不占每日额度，也不改变正式复习日期。</string>
+    <string name="learning_practice_start">开始加练</string>
+    <string name="learning_practice_resume">继续上次加练</string>
+    <string name="learning_practice_misses">这一轮，值得再练</string>
+    <string name="learning_practice_all_good">这一轮都顺利完成了</string>
+    <string name="learning_spelling_missing">漏字：%1$s</string>
+    <string name="learning_spelling_extra">多余：%1$s</string>
+    <string name="learning_spelling_replace">错字：%1$s → %2$s</string>
+    <string name="learning_spelling_space">空格</string>
+    <string name="learning_backup">备份与恢复</string>
+    <string name="learning_backup_note">备份包含个人词句、词本分组和学习进度。\n文件为普通 JSON，请保存到可信位置。\n不会自动上传。</string>
+    <string name="learning_backup_export">导出学习备份</string>
+    <string name="learning_backup_import">选择备份文件</string>
+    <string name="learning_backup_preview">备份内容</string>
+    <string name="learning_backup_summary">备份于 %1$s\n%2$d 个单词 · %3$d 个句子\n%4$d 条正式记录 · %5$d 条加练记录</string>
+    <string name="learning_backup_full">完整恢复</string>
+    <string name="learning_backup_merge">仅合并内容</string>
+    <string name="learning_backup_full_note">将当前学习内容、计划和进度替换为这份备份。输入设置与输入历史保持不变；恢复前保存本机回滚副本。</string>
+    <string name="learning_backup_merge_note">只补入不存在的单词和句子，重复内容及本机进度保持不变。新词从未学习开始，不导入历史评分。</string>
+    <string name="learning_backup_rollback">撤回上次完整恢复</string>
+    <string name="learning_backup_rollback_note">回到上次完整恢复之前的学习状态。恢复之后新增的学习内容和进度将被替换，完成后此回滚副本会删除。</string>
+    <string name="learning_backup_exported">备份已导出</string>
+    <string name="learning_backup_restored">恢复完成</string>
+    <string name="learning_backup_merged">内容已合并，本机进度保持不变</string>
+    <string name="learning_backup_failed">操作未完成。请检查文件格式、版本或存储权限后重试；学习数据未改变。</string>
+    <string name="learning_backup_too_large">文件超过 16 MiB 或十万条记录的限制，未导入任何数据。</string>
+    <string name="learning_backup_version">不支持此备份格式或版本，未导入任何数据。</string>
+    <string name="learning_backup_export_failed">导出未完成，请重新选择保存位置。未完成的文件不能用于恢复。</string>
+    <string name="learning_backup_limit">支持好好学习备份\n上限：16 MiB、十万条记录</string>
+    <string name="learning_backup_working">正在处理，请稍候…</string>
+    <string name="learning_backup_confirm">确认继续</string>
+    <string name="learning_backup_cancel">取消</string>
+</resources>

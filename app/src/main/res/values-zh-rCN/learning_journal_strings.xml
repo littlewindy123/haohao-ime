@@ -1,0 +1,19 @@
+<resources>
+    <string name="journal_rewards">好好印章</string>
+    <string name="journal_reward_progress">再打卡 %1$d 天，解锁下一枚</string>
+    <string name="journal_reward_complete">全部集齐，继续好好积累</string>
+    <string name="journal_reward_locked">累计 %1$d 天解锁</string>
+    <string name="journal_reward_earned">已解锁 · 累计打卡 %1$d 天</string>
+    <string name="journal_reward_rule">完成当天学习目标，收集一枚印章。按累计天数解锁，中断不扣减；撤销评分后按有效记录重新计算。</string>
+    <string name="journal_reward_names">初次见面|发芽啦|向阳生长|渐入佳境|满月收藏|百日同行</string>
+    <string name="journal_checkins">累计打卡</string>
+    <string name="journal_streak">连续坚持</string>
+    <string name="journal_study_days">学习天数</string>
+    <string name="journal_due">待复习</string>
+    <string name="journal_ratings_note">本人的学习反馈，非记忆率测量。</string>
+    <string name="journal_history_info">记录说明</string>
+    <string name="journal_manage">管理</string>
+    <string name="journal_sentence_count">%1$d 条积累</string>
+    <string name="journal_sentence_hint">留住一句，下次就会说。</string>
+    <string name="journal_recent">最近 7 天</string>
+</resources>

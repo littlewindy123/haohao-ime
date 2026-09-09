@@ -32,9 +32,11 @@ data class SavedWordEntity(
 )
 
 @Entity(tableName = "word_review_days", primaryKeys = ["day", "chinese", "english"])
+@Serializable
 data class WordReviewDayEntity(val day: String, val chinese: String, val english: String, val wasNew: Boolean)
 
 @Entity(tableName = "word_learning_state", primaryKeys = ["id"])
+@Serializable
 data class WordLearningStateEntity(
     val id: Int = 1,
     val planEnabled: Boolean = false,
@@ -43,6 +45,7 @@ data class WordLearningStateEntity(
     val reverse: Boolean = false,
     val sessionJson: String? = null,
     val undoJson: String? = null,
+    val reviewMode: String? = null,
 )
 
 @Serializable
@@ -73,6 +76,7 @@ internal data class ReviewCard(
     val english: String,
     val token: String = UUID.randomUUID().toString(),
     val repeat: Boolean = false,
+    val mode: ReviewMode? = null,
 )
 
 @Serializable
@@ -83,7 +87,28 @@ internal data class WordReviewSession(
     val reverse: Boolean = false,
     val daily: Boolean = false,
     val answerVisible: Boolean = false,
-)
+    val mode: ReviewMode? = null,
+    val spellingDraft: String = "",
+    val spellingCorrect: Boolean? = null,
+    val spellingOutcome: SpellingOutcome? = null,
+    val practiceKind: WeaknessKind? = null,
+    val practiceMisses: List<ReviewCard> = emptyList(),
+) {
+    val currentMode: ReviewMode get() = when (val selected = mode ?: if (reverse) ReviewMode.CHINESE else ReviewMode.ENGLISH) {
+        ReviewMode.MIXED -> cards.firstOrNull()?.mode ?: mixedReviewMode(completed)
+        else -> selected
+    }
+}
+
+@Serializable
+internal enum class ReviewMode { ENGLISH, CHINESE, SPELLING, MIXED }
+
+internal fun mixedReviewMode(index: Int): ReviewMode = listOf(ReviewMode.ENGLISH, ReviewMode.CHINESE, ReviewMode.SPELLING)[index.mod(3)]
+
+internal fun WordLearningStateEntity.selectedMode(): ReviewMode = ReviewMode.entries.firstOrNull { it.name == reviewMode }
+    ?: if (reverse) ReviewMode.CHINESE else ReviewMode.ENGLISH
+
+internal fun spellingMatches(draft: String, expected: String): Boolean = normalizeSavedEnglish(draft.replace('’', '\''))?.let { it == normalizeSavedEnglish(expected.replace('’', '\'')) } == true
 
 internal enum class RecallRating { FORGOTTEN, UNCERTAIN, REMEMBERED }
 
@@ -125,5 +150,10 @@ internal fun advanceReview(session: WordReviewSession, rating: RecallRating?): W
     if (rating == RecallRating.FORGOTTEN && !current.repeat) {
         remaining.add(minOf(2, remaining.size), current.copy(token = UUID.randomUUID().toString(), repeat = true))
     }
-    return session.copy(cards = remaining, completed = session.completed + if (current.repeat || rating == null) 0 else 1, answerVisible = false)
+    val misses = if (session.practiceKind != null && rating != null && rating != RecallRating.REMEMBERED) {
+        (session.practiceMisses + current).distinctBy { it.chinese to it.english }
+    } else {
+        session.practiceMisses
+    }
+    return session.copy(cards = remaining, completed = session.completed + if (current.repeat || rating == null) 0 else 1, answerVisible = false, spellingDraft = "", spellingCorrect = null, spellingOutcome = null, practiceMisses = misses)
 }

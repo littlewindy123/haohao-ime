@@ -1,24 +1,92 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-09-05T07:15:20Z",
+  "generatedAt": "2026-09-09T12:00:35Z",
   "title": "Design System: 好好输入法",
   "extensions": {
+    "colorMeta": {
+      "secondary-text-light": {
+        "role": "neutral",
+        "displayName": "可读的暖灰可可",
+        "tonalRamp": [
+          "oklch(15.000% 0.02796 50.812)",
+          "oklch(26.429% 0.02796 50.812)",
+          "oklch(37.857% 0.02796 50.812)",
+          "oklch(49.286% 0.02796 50.812)",
+          "oklch(60.714% 0.02796 50.812)",
+          "oklch(72.143% 0.02796 50.812)",
+          "oklch(83.571% 0.02796 50.812)",
+          "oklch(95.000% 0.02796 50.812)"
+        ]
+      }
+    },
     "native": {
       "platform": "android",
       "uiToolkit": "Android Views / AppCompat / Material Components",
       "tokenSources": [
         "app/src/main/res/values/colors.xml",
         "app/src/main/res/values-night/colors.xml",
-        "app/src/main/res/values/styles_haohao.xml"
+        "app/src/main/res/values/styles_haohao.xml",
+        "app/src/main/res/values/learning_reading_colors.xml",
+        "app/src/main/res/values-night/learning_reading_colors.xml"
       ],
       "componentSources": {
         "InputFootprintsFragment": "app/src/main/java/com/osfans/trime/ui/main/footprints/InputFootprintsFragment.kt",
         "WordLearningActivity": "app/src/main/java/com/osfans/trime/ui/main/footprints/WordLearningActivity.kt",
-        "InputFootprintRow": "app/src/main/res/layout/item_input_footprint.xml"
+        "InputFootprintRow": "app/src/main/res/layout/item_input_footprint.xml",
+        "LearningChartView": "app/src/main/java/com/osfans/trime/ui/main/footprints/LearningChartView.kt",
+        "LearningBackupActivity": "app/src/main/java/com/osfans/trime/ui/main/footprints/LearningBackupActivity.kt",
+        "KeyView": "app/src/main/java/com/osfans/trime/ime/keyboard/KeyView.kt",
+        "WordbookActivity": "app/src/main/java/com/osfans/trime/ui/main/footprints/WordbookActivity.kt"
+      },
+      "secondaryText": {
+        "lightToken": "secondary-text-light",
+        "darkToken": "secondary-text-dark",
+        "resource": "haohao_cocoa_secondary",
+        "usage": "摘要说明和输入提示复用浅深主题对应资源。浅色令牌的颜色值以 DESIGN.md frontmatter 为准；colorMeta 的色阶仅用于面板展示，不是原生主题资源。",
+        "lightContrast": {
+          "selection-light": 4.651,
+          "page-light": 5.184,
+          "surface-light": 5.605
+        }
       },
       "preview": "design-demos/haohao-learning/native-words.html",
       "previewIsIllustrative": true,
-      "verificationScope": "API 36 模拟器已验证页面重建、复习反馈及浅深色、大字号、横屏和单手布局；实际截图与真机待验边界见 docs/operations/local-first-validation.md。"
+      "verificationScope": "前轮 API 36 模拟器已验证页面重建、复习反馈及浅深色、大字号、横屏和单手布局；覆盖四种学习模式、统计与我的学习，包含 fontScale 1.0 / 1.3 / 2.0、360 / 369dp 窄屏、横屏、800dp 平板及短窗口大字号拼写键盘避让。前轮截图见 .impeccable/review/；当时的真机待验边界见 docs/operations/local-first-validation.md，本轮真机结果另见 verification3322。",
+      "learningPatterns": {
+        "modeSelector": "英译中、中译英、拼写练习和混合回忆采用两行两列按钮，并显示模式说明与选中状态。",
+        "recallFeedback": "先隐藏答案；核对或揭晓后显示评分。拼错或直接查看答案时禁用记住了，并给出文字说明。评分使用红、琥珀、绿语义色和对应前景色。",
+        "spellingInput": "24sp，最小高度 56dp；保留重建草稿，不自动聚焦。短窗口 IME 展开时暂时隐藏工具栏，输入上下内边距从 12dp 减至 4dp，收起后恢复。",
+        "scrollingActions": "窗口高度小于 480dp、fontScale 大于等于 1.8 或拼写模式时，揭晓与评分区域随内容滚动；处理系统栏与 IME insets，确保输入全文可见。",
+        "statistics": "真实数量使用柱状图，跨日回忆自评使用独立数据点；缺样本留空，不插值或预测。无样本时直接说明，同时提供图表无障碍描述与可展开逐项数据。",
+        "profile": "只展示本机真实打卡、反馈与积累；长间隔复习不表述为永久掌握。",
+        "weaknessLists": "薄弱词按最近总忘、经常拼错纵向分组，分别显示真实数量和失败次数，各按 50 词分页并保留重建页码；已有会话提供继续入口，空列表和历史未知拼写记录分别解释。",
+        "independentPractice": "专项加练每轮最多十词，首屏显示会话名称、真实进度、模式和独立说明；最近总忘采用混合回忆，经常拼错使用拼写，揭晓前隐藏反向答案。沿用反馈与单步撤销，完成页显示值得再练的词，不自动续开；明确不占每日额度、不改变正式复习日期。",
+        "backupRestore": "工具栏下使用可增高的原生单列滚动内容与全宽操作，按钮至少 56dp。选择系统文件后，校验成功才预览时间与真实数量；完整恢复、仅合并与一次本机回滚分别说明影响并确认。处理中阻止重复操作，结果以文字和无障碍实时区域表达。",
+        "homePrimaryAction": "薄荷摘要承载真实数量、进度和当前主操作：已有会话优先继续；未保存单词时选书或导入；未开启计划时设置每日数量；有待办时开始，完成时说明休息。已保存但未加入学习时明确引导主动加入；当前会话与下次生效的模式分开说明。默认字号优先呈现主操作，短窗口和大字号允许滚动。",
+        "wordbookManagement": "56dp 原生工具栏下使用一个 ScrollView，左右留白 24dp。详情先显示名称、真实计数、整本加入学习和每日数量入口，再显示搜索、平面词条及分页批量操作。按钮和输入至少 56dp，词条触控至少 48dp，均按内容增高。目录按书名、真实词数、资料版本和添加或打开操作排列；保存、分组、收藏与加入学习保持独立。",
+        "wordbookSelection": "词条英文与中文释义直接换行；48dp 复选框与详情文本区域分开，提供各自无障碍操作说明。每页最多 50 项，页码和总项数可见，翻页清空选择；删除词本前说明只删除分组并保留词和进度。",
+        "importPreview": "先选目标词本，再选择 CSV 或粘贴中英两列；列顺序可切换。预览显示新增、已存在、文件内重复和无效数量；预览及含行号原因的错误清单分别分页。已有项说明保留本机内容与进度，确认有效项前说明只保存、不自动学习；处理中防重复，结果使用文字和无障碍实时区域。",
+        "wordbookControls": "管理页按钮为 16sp、10dp 圆角，全宽、最小 56dp、间隔 12dp；次级操作有细边框，主要操作使用蜂蜜色及对应前景色，关闭静态阴影。标题 24–26sp、词条 17sp、输入 16sp、辅助信息 13–15sp。页面处理系统栏和 IME insets，重绘不主动弹出键盘。"
+      },
+      "keycapTypography": "内置好好主题在 fontScale > 1 时，经典与立体键帽先按平台 SP 转换字号，再将主文字、副符号、提示与图标适配到各自实际键面区域；默认字号、自定义主题保持原排版。键帽按压位移仍使用 dp，固定键面适配不推广为学习页正文缩小。",
+      "verification3322": {
+        "scope": "24129PN74C（API 35）隔离应用：原始尺寸、360dp 窄屏、真实横屏，各默认／1.3／2 倍字号，共 9 组配置、54 项 UI 测试；另 5 项已有 UI 回归、287 项 JVM 测试、51 项设备数据测试及 Lint 通过。",
+        "evidence": "work/learning-next-validation/review-final",
+        "screenshots": 77,
+        "independentReview": "3322 reviewer disposition: ship，无材料修复；展开复核 16 个关键样本，未逐张展开全部 77 图。",
+        "installation": "主代理另已确认日常版同签名覆盖至 3.3.22（20261007）、Room 6→7，原表字段行哈希一致；隔离包已卸载，屏幕、字号、DND 与日常输入法已恢复。"
+      },
+      "verification3323": {
+        "scope": "本轮隔离应用已完成手机原尺寸、360dp 窄屏、横屏各 fontScale 1.0 / 1.3 / 2.0 的 45 项新 UI 验证，默认组断言浅色，其余组断言深色；另补验三种尺寸的浅色 UI 共 15 项通过。另 11 项已有 UI 回归、294 项 JVM、60 项设备数据测试通过。",
+        "evidence": "work/wordbooks-validation/review",
+        "independentReview": "初轮完整展开 21 张 required 样本；唯一浅色次级文字对比度问题修正后，重读 7 张新 native-font1.0 截图并像素采样，最终 disposition: ship。该结论为修复复核，不表示逐张查看目录中全部截图。",
+        "documenterSamples": [
+          "native-font1.0-empty-home.png",
+          "native-font1.0-catalog.png",
+          "native-font1.0-import-preview.png",
+          "landscape-font2.0-personal-book.png"
+        ]
+      }
     }
   },
   "components": [],
@@ -35,6 +103,21 @@
         "name": "The 主题配对 Rule",
         "body": "原生控件引用 `haohao_*` 颜色资源；改动浅色角色时同时检查 `values-night` 对应角色。蜂蜜色按钮使用 `haohao_on_honey`，不能直接复用普通主文字色。",
         "section": "colors"
+      },
+      {
+        "name": "The 次级可读 Rule",
+        "body": "次级文字通过字号和颜色表达层级，不能以低对比度代替层级。`secondary-text-light` 在薄荷选中面、奶油页面与暖白内容面上的普通文字对比度均达到 4.5:1；摘要说明和输入提示复用这一角色。",
+        "section": "colors"
+      },
+      {
+        "name": "The 键面容纳 Rule",
+        "body": "内置好好主题在 fontScale > 1 时，经典与立体键帽均先按平台 SP 转换取得目标字号，再在实际键面内分别安排主文字、副符号、提示与图标，必要时缩放到各自区域，避免字形相碰或越界。默认字号和自定义主题保持原排版；此适配仅用于固定键面，不能据此缩小学习页正文。",
+        "section": "typography"
+      },
+      {
+        "name": "The 输入可见 Rule",
+        "body": "短窗口（高度小于 480dp）、大字号（fontScale ≥ 1.8）或拼写模式下，揭晓与评分区域随内容滚动，不重复叠加页面左右留白。短窗口展开 IME 时暂时隐藏工具栏，拼写输入上下内边距从 12dp 减至 4dp；收起 IME 后恢复。系统栏与键盘 insets 共同参与布局，并滚动至输入框全文可见；重建保留草稿，不自动聚焦或弹出键盘。",
+        "section": "layout"
       }
     ],
     "dos": [

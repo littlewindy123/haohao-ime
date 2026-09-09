@@ -17,27 +17,37 @@ import com.osfans.trime.data.footprints.InputFootprints
 import com.osfans.trime.data.prefs.AppPrefs
 import com.osfans.trime.ui.main.footprints.WordLearningActivity
 import kotlinx.coroutines.runBlocking
-import org.junit.Assert.*
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
 
 class LearningProgressUiTest {
     private val context = ApplicationProvider.getApplicationContext<Context>()
     private val instrument = InstrumentationRegistry.getInstrumentation()
-    private fun views(v: View): Sequence<View> = sequence { yield(v); if (v is ViewGroup) repeat(v.childCount) { yieldAll(views(v.getChildAt(it))) } }
+    private fun views(v: View): Sequence<View> = sequence {
+        yield(v)
+        if (v is ViewGroup) repeat(v.childCount) { yieldAll(views(v.getChildAt(it))) }
+    }
     private fun waitFor(check: () -> Boolean) {
         val until = SystemClock.elapsedRealtime() + 15000
         while (!check() && SystemClock.elapsedRealtime() < until) SystemClock.sleep(80)
-        assertTrue("Learning UI did not settle", check()); instrument.waitForIdleSync()
+        assertTrue("Learning UI did not settle", check())
+        instrument.waitForIdleSync()
     }
     private fun click(s: ActivityScenario<WordLearningActivity>, id: Int) {
         var target: TextView? = null
-        waitFor { s.onActivity { a -> target = views(a.window.decorView).filterIsInstance<TextView>().firstOrNull { it.isShown && it.isClickable && it.text.toString() == a.getString(id) } }; target != null }
+        waitFor {
+            s.onActivity { a -> target = views(a.window.decorView).filterIsInstance<TextView>().firstOrNull { it.isShown && it.isClickable && it.text.toString() == a.getString(id) } }
+            target != null
+        }
         s.onActivity { target!!.requestRectangleOnScreen(Rect(0, 0, target!!.width, target!!.height), true) }
         instrument.waitForIdleSync()
         s.onActivity {
-            val visible = Rect(); assertTrue(target!!.getGlobalVisibleRect(visible))
-            assertEquals(target!!.height, visible.height()); assertTrue(target!!.isEnabled)
+            val visible = Rect()
+            assertTrue(target!!.getGlobalVisibleRect(visible))
+            assertEquals(target!!.height, visible.height())
+            assertTrue(target!!.isEnabled)
             target!!.performClick()
         }
     }
@@ -70,8 +80,10 @@ class LearningProgressUiTest {
             }
             val bitmap = Bitmap.createBitmap(root.width, root.height, Bitmap.Config.ARGB_8888)
             root.draw(Canvas(bitmap))
-            val file = File(context.getExternalFilesDir(null), "learning-progress/$name.png"); file.parentFile!!.mkdirs()
-            file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }; bitmap.recycle()
+            val file = File(context.getExternalFilesDir(null), "learning-progress/$name.png")
+            file.parentFile!!.mkdirs()
+            file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+            bitmap.recycle()
             views(root).filterIsInstance<TextView>().filter { it.isShown && it.text.isNotEmpty() }.forEach { v ->
                 val layout = v.layout ?: return@forEach
                 assertTrue("Text vertically clipped in $name: ${v.text} (${layout.height}/${v.height - v.totalPaddingTop - v.totalPaddingBottom})", layout.height <= v.height - v.totalPaddingTop - v.totalPaddingBottom)
@@ -79,6 +91,7 @@ class LearningProgressUiTest {
             }
         }
     }
+
     @Test fun dashboardCalendarStatisticsAndCheckInSurviveRecreation() {
         assertTrue(context.packageName.endsWith(".regression"))
         val prefs = AppPrefs.defaultInstance().advanced.uiMode
@@ -86,24 +99,40 @@ class LearningProgressUiTest {
         prefs.setValue(if (InstrumentationRegistry.getArguments().getString("dark") == "true") AppPrefs.Advanced.UiMode.DARK else AppPrefs.Advanced.UiMode.LIGHT)
         val learning = InputFootprints.store.learning
         runBlocking {
-            learning.clearAll(); learning.saveSettings(false, 5, 10, false)
+            learning.clearAll()
+            learning.saveSettings(false, 5, 10, false)
             learning.saveMeaning("学习", "learn", "/lɜːn/", "offline", learning = true)
         }
         val landscape = InstrumentationRegistry.getArguments().getString("landscape") == "true"
         assertTrue(instrument.uiAutomation.setRotation(if (landscape) android.app.UiAutomation.ROTATION_FREEZE_90 else android.app.UiAutomation.ROTATION_FREEZE_0))
         // Foreground only our isolated package, never a chat activity.
-        android.os.ParcelFileDescriptor.AutoCloseInputStream(instrument.uiAutomation.executeShellCommand(
-            "am start -W -a android.intent.action.RUN -n ${context.packageName}/com.osfans.trime.ui.main.MainActivity",
-        )).use { it.readBytes() }
+        android.os.ParcelFileDescriptor.AutoCloseInputStream(
+            instrument.uiAutomation.executeShellCommand(
+                "am start -W -a android.intent.action.RUN -n ${context.packageName}/com.osfans.trime.ui.main.MainActivity",
+            ),
+        ).use { it.readBytes() }
         try {
             ActivityScenario.launch<WordLearningActivity>(Intent(context, WordLearningActivity::class.java).putExtra("words.mode", "plan")).use { s ->
-                waitFor { var ready = false; s.onActivity { ready = (it.resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE) == landscape }; ready }
+                waitFor {
+                    var ready = false
+                    s.onActivity { ready = (it.resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE) == landscape }
+                    ready
+                }
+                click(s, R.string.wordbooks_plan)
                 click(s, R.string.words_plan_enable)
-                waitFor { var ready = false; s.onActivity { ready = views(it.window.decorView).filterIsInstance<TextView>().any { v -> v.text.toString() == context.getString(R.string.words_plan_start) } }; ready }
+                click(s, R.string.words_plan_save)
+                waitFor {
+                    var ready = false
+                    s.onActivity { ready = views(it.window.decorView).filterIsInstance<TextView>().any { v -> v.text.toString() == context.getString(R.string.words_plan_start) } }
+                    ready
+                }
                 capture(s, "home")
-                click(s, R.string.words_plan_start); click(s, R.string.words_reveal); click(s, R.string.words_remembered)
+                click(s, R.string.words_plan_start)
+                click(s, R.string.words_reveal)
+                click(s, R.string.words_remembered)
                 waitFor { runBlocking { learning.progress.dashboard(System.currentTimeMillis()).task?.completed == true } }
                 click(s, R.string.study_home)
+                click(s, R.string.study_stats)
                 click(s, R.string.study_calendar)
                 capture(s, "calendar")
                 s.onActivity { activity ->
@@ -119,7 +148,8 @@ class LearningProgressUiTest {
                     val bitmap = Bitmap.createBitmap(rewardRoot.width, rewardRoot.height, Bitmap.Config.ARGB_8888)
                     rewardRoot.draw(Canvas(bitmap))
                     val file = File(context.getExternalFilesDir(null), "learning-progress/rewards.png")
-                    file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }; bitmap.recycle()
+                    file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+                    bitmap.recycle()
                     views(rewardRoot).filterIsInstance<TextView>().first { it.isClickable && it.text.toString() == activity.getString(R.string.sentences_close) }.performClick()
                 }
                 var lastDay: TextView? = null
@@ -136,21 +166,37 @@ class LearningProgressUiTest {
                 }
                 capture(s, "calendar-tail")
                 s.recreate()
-                waitFor { var ready = false; s.onActivity { ready = views(it.window.decorView).filterIsInstance<TextView>().any { v -> v.text.toString() == context.getString(R.string.study_calendar_legend) } }; ready }
+                waitFor {
+                    var ready = false
+                    s.onActivity { ready = views(it.window.decorView).filterIsInstance<TextView>().any { v -> v.text.toString() == context.getString(R.string.study_calendar_legend) } }
+                    ready
+                }
                 capture(s, "calendar-restored")
                 s.onActivity { a -> views(a.window.decorView).first { it.contentDescription == a.getString(R.string.words_back) }.performClick() }
                 click(s, R.string.study_stats)
                 capture(s, "statistics")
                 s.recreate()
-                waitFor { var ready = false; s.onActivity { ready = views(it.window.decorView).filterIsInstance<TextView>().any { v -> v.text.toString() == context.getString(R.string.study_ratings) } }; ready }
+                waitFor {
+                    var ready = false
+                    s.onActivity { ready = views(it.window.decorView).filterIsInstance<TextView>().any { v -> v.text.toString() == context.getString(R.string.study_ratings) } }
+                    ready
+                }
                 assertEquals(1, runBlocking { learning.progress.dashboard(System.currentTimeMillis()).checkins })
                 s.onActivity { a -> views(a.window.decorView).first { it.contentDescription == a.getString(R.string.words_back) }.performClick() }
-                click(s, R.string.words_plan_settings)
+                click(s, R.string.wordbooks_change_mode)
                 capture(s, "settings")
                 s.recreate()
-                waitFor { var ready = false; s.onActivity { ready = views(it.window.decorView).filterIsInstance<TextView>().any { v -> v.text.toString() == context.getString(R.string.study_plan_heading) } }; ready }
+                waitFor {
+                    var ready = false
+                    s.onActivity { ready = views(it.window.decorView).filterIsInstance<TextView>().any { v -> v.text.toString() == context.getString(R.string.study_plan_heading) } }
+                    ready
+                }
                 click(s, R.string.words_plan_save)
-                waitFor { var ready = false; s.onActivity { ready = views(it.window.decorView).filterIsInstance<TextView>().any { v -> v.text.toString() == context.getString(R.string.study_today) } }; ready }
+                waitFor {
+                    var ready = false
+                    s.onActivity { ready = views(it.window.decorView).filterIsInstance<TextView>().any { v -> v.text.toString() == context.getString(R.string.study_today) } }
+                    ready
+                }
             }
         } finally {
             runBlocking { learning.clearAll() }

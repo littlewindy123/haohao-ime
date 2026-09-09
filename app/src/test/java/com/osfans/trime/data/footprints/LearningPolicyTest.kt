@@ -5,6 +5,42 @@ import io.kotest.matchers.shouldBe
 
 class LearningPolicyTest :
     StringSpec({
+        "recall observations exclude same day repeats undone and missing intervals" {
+            fun event(token: String, day: Int, kind: String, rating: String = "REMEMBERED", undone: Boolean = false) = LearningReviewEvent(token, "学习", "learn", day * LEARNING_DAY_MS, "day$day", rating, kind, undone)
+            val samples = recallObservations(listOf(event("a", 0, "new"), event("b", 1, "review", "FORGOTTEN"), event("c", 1, "repeat"), event("d", 2, "review", undone = true), event("e", 4, "review")))
+            samples.first().attempts shouldBe 1
+            samples.first().remembered shouldBe 0
+            samples[1].attempts shouldBe 1
+            samples[1].remembered shouldBe 1
+            recallObservations(listOf(event("x", 9, "review"))).sumOf { it.attempts } shouldBe 0
+        }
+        "mixed review rotates all recall directions and stays stable on reveal" {
+            val session = WordReviewSession(cards = listOf(ReviewCard("学习", "learn")), mode = ReviewMode.MIXED)
+            (0..5).map { session.copy(completed = it).currentMode } shouldBe listOf(
+                ReviewMode.ENGLISH,
+                ReviewMode.CHINESE,
+                ReviewMode.SPELLING,
+                ReviewMode.ENGLISH,
+                ReviewMode.CHINESE,
+                ReviewMode.SPELLING,
+            )
+            session.copy(answerVisible = true).currentMode shouldBe session.currentMode
+            WordReviewSession(reverse = true).currentMode shouldBe ReviewMode.CHINESE
+        }
+        "spelling accepts case spacing and apostrophe variants but not missing letters" {
+            spellingMatches("  GO   home ", "go home") shouldBe true
+            spellingMatches("don't", "don’t") shouldBe true
+            spellingMatches("lern", "learn") shouldBe false
+            spellingMatches("", "learn") shouldBe false
+            spellingMatches("ice cream", "ice-cream") shouldBe false
+        }
+        "next review clears the spelling draft and result" {
+            val session = WordReviewSession(cards = listOf(ReviewCard("学习", "learn")), spellingDraft = "lern", spellingCorrect = false, answerVisible = true)
+            val next = advanceReview(session, RecallRating.FORGOTTEN)
+            next.spellingDraft shouldBe ""
+            next.spellingCorrect shouldBe null
+            next.answerVisible shouldBe false
+        }
         "remembered answers use all five intervals and keep the final interval" {
             var word = SavedWordEntity(chinese = "学习", english = "learn", source = "offline", createdAt = 1)
             val start = 100_000L

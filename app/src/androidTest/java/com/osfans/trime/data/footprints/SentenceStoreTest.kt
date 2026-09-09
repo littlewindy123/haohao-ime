@@ -4,8 +4,12 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
-import org.junit.Assert.*
 
 class SentenceStoreTest {
     @Test fun versionThreeMigrationPreservesAnswersUndoAndSession() = runBlocking {
@@ -22,6 +26,11 @@ class SentenceStoreTest {
         fixture.close()
         // Remove exactly the v4 additions; the unchanged word/review tables are v3 schema.
         android.database.sqlite.SQLiteDatabase.openDatabase(file.absolutePath, null, 0).use {
+            it.execSQL("ALTER TABLE word_learning_state DROP COLUMN reviewMode")
+            it.execSQL("DROP TABLE learning_practice_state")
+            it.execSQL("DROP TABLE wordbook_members")
+            it.execSQL("DROP TABLE wordbooks")
+            it.execSQL("DROP TABLE learning_practice_events")
             it.execSQL("DROP TABLE learning_tasks")
             it.execSQL("DROP TABLE learning_events")
             it.execSQL("DROP TABLE saved_sentences")
@@ -29,7 +38,7 @@ class SentenceStoreTest {
             it.version = 3
         }
         val upgraded = Room.databaseBuilder(context, InputFootprintDatabase::class.java, file.absolutePath)
-            .addMigrations(SENTENCE_MIGRATION, LEARNING_PROGRESS_MIGRATION).build()
+            .addMigrations(SENTENCE_MIGRATION, LEARNING_PROGRESS_MIGRATION, LEARNING_MODES_MIGRATION, LEARNING_PRACTICE_MIGRATION, WORDBOOK_MIGRATION).build()
         try {
             val after = WordLearningStore(upgraded)
             assertEquals(word, after.find("我自己的解释", "learn"))
@@ -47,8 +56,13 @@ class SentenceStoreTest {
     }
     private fun test(block: suspend (InputFootprintStore) -> Unit) = runBlocking {
         val db = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), InputFootprintDatabase::class.java).build()
-        try { block(InputFootprintStore(db)) } finally { db.close() }
+        try {
+            block(InputFootprintStore(db))
+        } finally {
+            db.close()
+        }
     }
+
     @Test fun defaultsManualAndPreservesFullPunctuation() = test { data ->
         val store = data.sentences
         assertFalse(store.automatic())
@@ -57,6 +71,7 @@ class SentenceStoreTest {
         assertEquals("Let's study together tomorrow at 9:00 a.m.!", store.rows.first().single().english)
         assertTrue(data.learning.words.first().isEmpty())
     }
+
     @Test fun recentLimitAndFavoritesAndDuplicatePairs() = test { data ->
         val store = data.sentences
         store.setAutomatic(true)
@@ -72,6 +87,7 @@ class SentenceStoreTest {
         store.clear(false)
         assertEquals(2, store.rows.first().size)
     }
+
     @Test fun disableClearAndInvalidSessionRejectQueuedWrites() = test { data ->
         val store = data.sentences
         store.setAutomatic(true)
@@ -85,12 +101,14 @@ class SentenceStoreTest {
         assertFalse(store.save("旧句子", "Old sentence.", "test", false, valid = { false }))
         assertTrue(store.rows.first().isEmpty())
     }
+
     @Test fun generationChangeInsideTransactionRollsBackWrite() = test { data ->
         val store = data.sentences
         var checks = 0
         assertFalse(store.save("旧句子", "Old sentence.", "test", true, valid = { ++checks == 1 }))
         assertTrue(store.rows.first().isEmpty())
     }
+
     @Test fun lexicalDataIsSeparateAndOffline() = test { data ->
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         data.learning.saveMeaning("学习", "learn", null, "offline", learning = true)

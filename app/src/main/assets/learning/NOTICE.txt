@@ -5,6 +5,15 @@ https://github.com/skywind3000/ECDICT/tree/bc015ed2e24a7abef49fc6dbbb7fe32c1dada
 Selection: 30,000 frequent English entries. Original definition lines are preserved;
 English and Chinese definitions are not asserted to have a one-to-one correspondence.
 
+Built-in wordbooks v1 reuse the same pinned ECDICT source under the MIT license.
+Source CSV SHA-256: 1a6947e04785db63613a92e14903cdae7954f7e84860b10e68e5c7cbb3f9c3cf
+Basic frequency: 1000; cet4 tag: 3846; cet6 tag: 5406; shared entries: 6379.
+Sort by minimum positive bnc/frq rank, then English; choose the first complete
+valid Chinese translation line, without truncation or synthesized answers.
+These reference lists do not assert coverage of the latest official examination
+syllabus. wordbooks-manifest.json records exact sizes, version and checksums.
+Importing a book preserves a local snapshot; resource updates do not overwrite it.
+
 Tatoeba text sentences, September 5, 2026 export.
 https://tatoeba.org/en/terms_of_use
 Creative Commons Attribution 2.0 France:

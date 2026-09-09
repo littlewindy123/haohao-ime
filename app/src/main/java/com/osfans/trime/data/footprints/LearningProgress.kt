@@ -1,7 +1,14 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 package com.osfans.trime.data.footprints
 
-import androidx.room.*
+import androidx.room.Dao
+import androidx.room.Entity
+import androidx.room.Index
+import androidx.room.Insert
+import androidx.room.OnConflictStrategy
+import androidx.room.PrimaryKey
+import androidx.room.Query
+import androidx.room.withTransaction
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -12,6 +19,7 @@ import java.util.Locale
 import java.util.TimeZone
 
 @Entity(tableName = "learning_tasks")
+@Serializable
 internal data class LearningDayTask(
     @PrimaryKey val day: String,
     val targets: String,
@@ -19,6 +27,7 @@ internal data class LearningDayTask(
 )
 
 @Entity(tableName = "learning_events", indices = [Index("day")])
+@Serializable
 internal data class LearningReviewEvent(
     @PrimaryKey val token: String,
     val chinese: String,
@@ -28,6 +37,8 @@ internal data class LearningReviewEvent(
     val rating: String,
     val kind: String,
     val undone: Boolean = false,
+    val mode: String? = null,
+    val spellingOutcome: String? = null,
 )
 
 @Serializable
@@ -47,6 +58,30 @@ internal data class LearningDayStats(val day: String, val fresh: Int, val review
 
 internal data class LearningRatingCount(val rating: String, val count: Int)
 
+/** Observed recall, never a prediction. Missing historical intervals are not invented. */
+internal data class RecallObservation(val days: Int, val remembered: Int, val attempts: Int)
+
+internal fun recallObservations(events: List<LearningReviewEvent>): List<RecallObservation> {
+    val intervals = mutableListOf<Pair<Int, Boolean>>()
+    events.filterNot { it.undone || it.kind == "repeat" }.groupBy { it.chinese to it.english }.values.forEach { history ->
+        history.sortedBy { it.occurredAt }.zipWithNext().forEach { (previous, current) ->
+            val days = ((current.occurredAt - previous.occurredAt) / LEARNING_DAY_MS).toInt()
+            if (days >= 1 && current.kind == "review") intervals += days to (current.rating == RecallRating.REMEMBERED.name)
+        }
+    }
+    return listOf(1, 3, 7, 14, 30).map { upper ->
+        val lower = when (upper) {
+            1 -> 0
+            3 -> 1
+            7 -> 3
+            14 -> 7
+            else -> 14
+        }
+        val sample = intervals.filter { it.first > lower && (it.first <= upper || upper == 30) }
+        RecallObservation(upper, sample.count { it.second }, sample.size)
+    }
+}
+
 internal data class LearningDashboard(
     val day: String,
     val task: LearningDayTask?,
@@ -63,15 +98,17 @@ internal data class LearningDashboard(
     val studyDays get() = days.count { it.total > 0 }
 }
 
-internal fun learningDay(now: Long, zone: TimeZone = TimeZone.getDefault()): String =
-    SimpleDateFormat("yyyy-MM-dd", Locale.ROOT).apply { timeZone = zone }.format(Date(now))
+internal fun learningDay(now: Long, zone: TimeZone = TimeZone.getDefault()): String = SimpleDateFormat("yyyy-MM-dd", Locale.ROOT).apply { timeZone = zone }.format(Date(now))
 
 internal fun learningStreak(completed: Set<String>, today: String): Int {
     val format = SimpleDateFormat("yyyy-MM-dd", Locale.ROOT).apply { timeZone = TimeZone.getTimeZone("UTC") }
     val calendar = Calendar.getInstance(format.timeZone).apply { time = format.parse(today)!! }
     if (today !in completed) calendar.add(Calendar.DAY_OF_MONTH, -1)
     var count = 0
-    while (format.format(calendar.time) in completed) { count++; calendar.add(Calendar.DAY_OF_MONTH, -1) }
+    while (format.format(calendar.time) in completed) {
+        count++
+        calendar.add(Calendar.DAY_OF_MONTH, -1)
+    }
     return count
 }
 
@@ -82,25 +119,52 @@ internal fun taskIsComplete(targets: List<DailyLearningTarget>, answered: Set<Pa
 
 @Dao
 internal interface LearningProgressDao {
-    @Query("SELECT * FROM learning_tasks WHERE day = :day") suspend fun task(day: String): LearningDayTask?
-    @Query("SELECT * FROM learning_tasks ORDER BY day DESC") suspend fun tasks(): List<LearningDayTask>
-    @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun save(task: LearningDayTask)
-    @Insert(onConflict = OnConflictStrategy.ABORT) suspend fun record(event: LearningReviewEvent)
-    @Query("SELECT * FROM learning_events WHERE token = :token") suspend fun event(token: String): LearningReviewEvent?
-    @Query("SELECT * FROM learning_events WHERE undone = 0") suspend fun events(): List<LearningReviewEvent>
-    @Query("SELECT EXISTS(SELECT 1 FROM learning_events WHERE day = :day AND undone = 0)") suspend fun hasFeedback(day: String): Boolean
-    @Query("SELECT rating, COUNT(*) AS count FROM learning_events WHERE undone = 0 GROUP BY rating") suspend fun ratingCounts(): List<LearningRatingCount>
-    @Query("UPDATE learning_events SET undone = 1 WHERE token = :token") suspend fun undo(token: String)
-    @Query("SELECT * FROM word_review_days") suspend fun days(): List<WordReviewDayEntity>
-    @Query("DELETE FROM learning_tasks") suspend fun clearTasks()
-    @Query("DELETE FROM learning_events") suspend fun clearEvents()
+    @Query("SELECT * FROM learning_tasks WHERE day = :day")
+    suspend fun task(day: String): LearningDayTask?
+
+    @Query("SELECT * FROM learning_tasks ORDER BY day DESC")
+    suspend fun tasks(): List<LearningDayTask>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun save(task: LearningDayTask)
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    suspend fun record(event: LearningReviewEvent)
+
+    @Query("SELECT * FROM learning_events WHERE token = :token")
+    suspend fun event(token: String): LearningReviewEvent?
+
+    @Query("SELECT * FROM learning_events WHERE undone = 0")
+    suspend fun events(): List<LearningReviewEvent>
+
+    @Query("SELECT EXISTS(SELECT 1 FROM learning_events WHERE day = :day AND undone = 0)")
+    suspend fun hasFeedback(day: String): Boolean
+
+    @Query("SELECT rating, COUNT(*) AS count FROM learning_events WHERE undone = 0 GROUP BY rating")
+    suspend fun ratingCounts(): List<LearningRatingCount>
+
+    @Query("UPDATE learning_events SET undone = 1 WHERE token = :token")
+    suspend fun undo(token: String)
+
+    @Query("SELECT * FROM word_review_days")
+    suspend fun days(): List<WordReviewDayEntity>
+
+    @Query("DELETE FROM learning_tasks")
+    suspend fun clearTasks()
+
+    @Query("DELETE FROM learning_events")
+    suspend fun clearEvents()
 }
 
 /** Called within the learning store's Room transaction; never on an input callback. */
 internal class LearningProgress(private val database: InputFootprintDatabase) {
     private val dao = database.learningProgressDao()
     private val words = database.wordLearningDao()
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private val json = Json {
+        ignoreUnknownKeys = true
+        encodeDefaults = true
+    }
+    suspend fun events(): List<LearningReviewEvent> = dao.events()
     fun targets(task: LearningDayTask?): List<DailyLearningTarget> = task?.let {
         // Corrupted task data must not turn into a successful empty goal.
         runCatching { json.decodeFromString<List<DailyLearningTarget>>(it.targets) }.getOrDefault(emptyList())
@@ -113,18 +177,24 @@ internal class LearningProgress(private val database: InputFootprintDatabase) {
         val active = words.words().filter { it.learning }
         val byKey = active.associateBy { it.chinese to it.english }
         val answers = words.dailyAnswers(day)
-        val completed = answers.mapNotNull { answer -> byKey[answer.chinese to answer.english]?.let {
-            DailyLearningTarget(it.chinese, it.english, answer.wasNew)
-        } }.let { rows -> rows.filter { it.wasNew }.take(state.newLimit) + rows.filterNot { it.wasNew }.take(state.reviewLimit) }
+        val completed = answers.mapNotNull { answer ->
+            byKey[answer.chinese to answer.english]?.let {
+                DailyLearningTarget(it.chinese, it.english, answer.wasNew)
+            }
+        }.let { rows -> rows.filter { it.wasNew }.take(state.newLimit) + rows.filterNot { it.wasNew }.take(state.reviewLimit) }
         val answeredKeys = answers.map { it.chinese to it.english }.toSet()
-        val carry = session?.cards.orEmpty().mapNotNull { card -> byKey[card.chinese to card.english]?.let {
-            DailyLearningTarget(it.chinese, it.english, it.reviewCount == 0, pendingRepeat = card.repeat)
-        } }
+        val carry = session?.cards.orEmpty().mapNotNull { card ->
+            byKey[card.chinese to card.english]?.let {
+                DailyLearningTarget(it.chinese, it.english, it.reviewCount == 0, pendingRepeat = card.repeat)
+            }
+        }
         val included = (carry + completed).distinctBy { it.key }
         val selected = selectReviewWords(
             active.filter { (it.chinese to it.english) !in answeredKeys && included.none { target -> target.key == (it.chinese to it.english) } },
-            now, (state.newLimit - included.count { it.wasNew }).coerceAtLeast(0),
-            (state.reviewLimit - included.count { !it.wasNew }).coerceAtLeast(0), Int.MAX_VALUE,
+            now,
+            (state.newLimit - included.count { it.wasNew }).coerceAtLeast(0),
+            (state.reviewLimit - included.count { !it.wasNew }).coerceAtLeast(0),
+            Int.MAX_VALUE,
         ).map { DailyLearningTarget(it.chinese, it.english, it.reviewCount == 0) }
         val task = LearningDayTask(day, json.encodeToString(included + selected))
         dao.save(task)
@@ -137,10 +207,27 @@ internal class LearningProgress(private val database: InputFootprintDatabase) {
         return targets(dao.task(day)).filter { !it.excluded && (it.key !in answered || it.pendingRepeat) }
     }
 
-    suspend fun record(card: ReviewCard, word: SavedWordEntity, rating: RecallRating, now: Long) {
+    suspend fun record(card: ReviewCard, word: SavedWordEntity, rating: RecallRating, now: Long, mode: ReviewMode? = null, outcome: SpellingOutcome? = null) {
         val day = learningDay(now)
-        dao.record(LearningReviewEvent(card.token, word.chinese, word.english, now, day, rating.name,
-            if (card.repeat) "repeat" else if (word.reviewCount == 0) "new" else "review"))
+        dao.record(
+            LearningReviewEvent(
+                card.token,
+                word.chinese,
+                word.english,
+                now,
+                day,
+                rating.name,
+                if (card.repeat) {
+                    "repeat"
+                } else if (word.reviewCount == 0) {
+                    "new"
+                } else {
+                    "review"
+                },
+                mode = mode?.name,
+                spellingOutcome = outcome?.name,
+            ),
+        )
         val task = dao.task(day) ?: return
         val updated = targets(task).map { target ->
             if (target.key == (word.chinese to word.english)) target.copy(pendingRepeat = !card.repeat && rating == RecallRating.FORGOTTEN) else target
@@ -162,9 +249,15 @@ internal class LearningProgress(private val database: InputFootprintDatabase) {
 
     suspend fun exclude(chinese: String, english: String, now: Long) {
         val task = dao.task(learningDay(now)) ?: return
-        dao.save(task.copy(targets = json.encodeToString(targets(task).map {
-            if (it.key == (chinese to english)) it.copy(excluded = true) else it
-        })))
+        dao.save(
+            task.copy(
+                targets = json.encodeToString(
+                    targets(task).map {
+                        if (it.key == (chinese to english)) it.copy(excluded = true) else it
+                    },
+                ),
+            ),
+        )
         refresh(task.day)
     }
 
@@ -185,9 +278,20 @@ internal class LearningProgress(private val database: InputFootprintDatabase) {
         }
         val targets = targets(tasks[today])
         val answered = days[today].orEmpty().map { it.chinese to it.english }.toSet()
-        LearningDashboard(today, tasks[today], targets, targets.count { !it.excluded && it.key in answered && !it.pendingRepeat }, targets.count { !it.excluded && it.key in answered }, stats,
-            dao.ratingCounts().associate { it.rating to it.count }, learningStreak(tasks.values.filter { it.completed }.map { it.day }.toSet(), today))
+        LearningDashboard(
+            today,
+            tasks[today],
+            targets,
+            targets.count { !it.excluded && it.key in answered && !it.pendingRepeat },
+            targets.count { !it.excluded && it.key in answered },
+            stats,
+            dao.ratingCounts().associate { it.rating to it.count },
+            learningStreak(tasks.values.filter { it.completed }.map { it.day }.toSet(), today),
+        )
     }
 
-    suspend fun clear() { dao.clearEvents(); dao.clearTasks() }
+    suspend fun clear() {
+        dao.clearEvents()
+        dao.clearTasks()
+    }
 }

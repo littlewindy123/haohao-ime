@@ -14,6 +14,7 @@ import android.graphics.Paint
 import android.graphics.PorterDuff
 import android.graphics.PorterDuffColorFilter
 import android.graphics.Rect
+import android.graphics.RectF
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.view.KeyEvent
@@ -149,6 +150,7 @@ class KeyView(
     private val symbolPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         textAlign = Paint.Align.CENTER
     }
+    internal val adaptiveGlyphBounds = mutableListOf<RectF>()
     private val shadowPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val highlightPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         strokeWidth = dp(1).toFloat()
@@ -417,7 +419,12 @@ class KeyView(
         drawBackground(canvas, key)
 
         val save = canvas.save()
-        if (raisedKeycap && key.verticalGroupPosition < 0 && key.isPressed) {
+        val adaptive = isHaoHaoTheme && resources.configuration.fontScale > 1f
+        val surface = if (key.isPressed) pressedSurface else restingSurface
+        val adaptiveDx = if (adaptive) (surface?.cap?.left ?: paddingLeft) - paddingLeft else 0
+        val adaptiveDy = if (adaptive) (surface?.cap?.top ?: paddingTop) - paddingTop else 0
+        if (adaptive) canvas.translate(adaptiveDx.toFloat(), adaptiveDy.toFloat())
+        if (!adaptive && raisedKeycap && key.verticalGroupPosition < 0 && key.isPressed) {
             // Labels, icons and hints travel with the face, independent of the font scale.
             val travel = dp(2).coerceIn(0, minOf(dp(3), paddingBottom.coerceAtLeast(0)))
             canvas.translate(-sp(key.keyPressOffsetX), travel - sp(key.keyPressOffsetY))
@@ -425,6 +432,13 @@ class KeyView(
 
         val label = key.getLabel().let {
             if (it == "enter_labels") keyboardView.labelEnter else it
+        }
+        adaptiveGlyphBounds.clear()
+        if (adaptive) {
+            drawAdaptiveGlyphs(canvas, label)
+            adaptiveGlyphBounds.forEach { it.offset(adaptiveDx.toFloat(), adaptiveDy.toFloat()) }
+            canvas.restoreToCount(save)
+            return
         }
 
         if (isHaoHaoTheme && key.click?.toggle == "ascii_mode") {
@@ -441,6 +455,10 @@ class KeyView(
         val hint = key.hint
         if (hint.isNotEmpty()) {
             drawSymbol(canvas, hint, isTop = false)
+        }
+        if (raisedKeycap && key.verticalGroupPosition < 0 && key.isPressed) {
+            val travel = dp(2).coerceIn(0, minOf(dp(3), paddingBottom.coerceAtLeast(0)))
+            adaptiveGlyphBounds.forEach { it.offset(-sp(key.keyPressOffsetX), travel - sp(key.keyPressOffsetY)) }
         }
         canvas.restoreToCount(save)
     }
@@ -546,6 +564,77 @@ class KeyView(
         }
     }
 
+    private fun drawAdaptiveGlyphs(canvas: Canvas, label: String) {
+        val gap = dp(2).toFloat()
+        val area = RectF(paddingLeft + gap, paddingTop + gap, width - paddingRight - gap, height - paddingBottom - gap)
+        if (area.width() <= 0 || area.height() <= 0) return
+        val primary = RectF(area)
+        val symbol = key.symbolLabel.takeIf { !keyboardView.hideKeySymbol }.orEmpty()
+        val hint = key.hint.takeIf { !keyboardView.hideKeyHint }.orEmpty()
+        symbolPaint.typeface = FontManager.getTypeface("symbol_font")
+        symbolPaint.color = key.getSymbolColor()
+        symbolPaint.clearShadowLayer()
+        if (symbol.isNotEmpty()) {
+            // Give the secondary glyph its own corner column; it cannot collide with
+            // the primary letter even when Android applies nonlinear text scaling.
+            val symbolArea = RectF(area.right - area.width() * .28f, area.top, area.right, area.top + area.height() * .42f)
+            drawFittedGlyph(canvas, symbol, symbolPaint, sp(key.symbolTextSize.takeIf { it > 0f } ?: keyboardView.symbolTextSize), symbolArea)
+            primary.right = symbolArea.left - gap
+        }
+        if (hint.isNotEmpty()) {
+            val hintArea = RectF(primary.left, area.bottom - area.height() * .25f, primary.right, area.bottom)
+            drawFittedGlyph(canvas, hint, symbolPaint, sp(key.symbolTextSize.takeIf { it > 0f } ?: keyboardView.symbolTextSize), hintArea)
+            primary.bottom = hintArea.top - gap
+        }
+        textPaint.typeface = FontManager.getTypeface("key_font")
+        textPaint.color = key.getTextColor()
+        textPaint.clearShadowLayer()
+        if (key.click?.toggle == "ascii_mode") {
+            val mode = resolveHaoHaoModeLabel(rime.run { statusCached }.isAsciiMode)
+            textPaint.textSize = sp(mode.activeTextSizeSp)
+            symbolPaint.typeface = textPaint.typeface
+            symbolPaint.textSize = sp(mode.inactiveTextSizeSp)
+            val secondary = "/${mode.inactive}"
+            val totalWidth = textPaint.measureText(mode.active) + symbolPaint.measureText(secondary)
+            val primaryFraction = textPaint.measureText(mode.active) / totalWidth
+            val first = RectF(primary.left, primary.top, primary.left + primary.width() * primaryFraction, primary.bottom)
+            val second = RectF(first.right, primary.top, primary.right, primary.bottom)
+            drawFittedGlyph(canvas, mode.active, textPaint, sp(mode.activeTextSizeSp), first)
+            drawFittedGlyph(canvas, secondary, symbolPaint, sp(mode.inactiveTextSizeSp), second)
+        } else if (label.isNotEmpty()) {
+            drawFittedGlyph(canvas, label, textPaint, sp(key.keyTextSize.takeIf { it > 0 } ?: if (label.length > 1) keyboardView.keyLongTextSize else keyboardView.keyTextSize), primary)
+        }
+    }
+
+    private fun drawFittedGlyph(canvas: Canvas, text: String, paint: Paint, desired: Float, area: RectF) {
+        if (area.width() <= 0 || area.height() <= 0) return
+        if (text.isIconFont) {
+            val size = minOf(desired, area.width(), area.height()).toInt()
+            drawIcon(canvas, text, size, paint.color, area = area)
+            return
+        }
+        val lines = text.split('\n')
+        paint.textSize = desired
+        val bounds = Rect()
+        fun textWidth(line: String): Float {
+            paint.getTextBounds(line, 0, line.length, bounds)
+            return maxOf(paint.measureText(line), bounds.width().toFloat())
+        }
+        val lineHeight = paint.fontMetrics.descent - paint.fontMetrics.ascent
+        val factor = minOf(1f, area.width() / lines.maxOf(::textWidth).coerceAtLeast(1f), area.height() / (lineHeight * lines.size).coerceAtLeast(1f))
+        paint.textSize = desired * factor
+        val metrics = paint.fontMetrics
+        val fittedHeight = metrics.descent - metrics.ascent
+        val baseline = area.centerY() - fittedHeight * lines.size / 2 - metrics.ascent
+        lines.forEachIndexed { index, line ->
+            val y = baseline + index * fittedHeight
+            paint.getTextBounds(line, 0, line.length, bounds)
+            val x = area.centerX() - (bounds.left + bounds.right - paint.measureText(line)) / 2
+            canvas.drawText(line, x, y, paint)
+            adaptiveGlyphBounds += RectF(x - paint.measureText(line) / 2 + bounds.left, y + bounds.top, x - paint.measureText(line) / 2 + bounds.right, y + bounds.bottom)
+        }
+    }
+
     private fun drawLabel(canvas: Canvas, label: String) {
         val textColor = key.getTextColor()
         val textSize = sp(key.keyTextSize.takeIf { it > 0 } ?: if (label.length > 1) keyboardView.keyLongTextSize else keyboardView.keyTextSize)
@@ -566,6 +655,7 @@ class KeyView(
             val adjustmentY = -(fontMetrics.ascent + fontMetrics.descent) / 2f
 
             canvas.drawText(label, centerX + sp(key.keyTextOffsetX), centerY + adjustmentY + sp(key.keyTextOffsetY), textPaint)
+            recordGlyph(label, textPaint, centerX + sp(key.keyTextOffsetX), centerY + adjustmentY + sp(key.keyTextOffsetY))
         }
     }
 
@@ -595,6 +685,15 @@ class KeyView(
 
         canvas.drawText(label.active, groupLeft + activeWidth / 2f, activeBaseline, textPaint)
         canvas.drawText(secondary, groupLeft + activeWidth + secondaryWidth / 2f, secondaryBaseline, symbolPaint)
+        recordGlyph(label.active, textPaint, groupLeft + activeWidth / 2f, activeBaseline)
+        recordGlyph(secondary, symbolPaint, groupLeft + activeWidth + secondaryWidth / 2f, secondaryBaseline)
+    }
+
+    private fun recordGlyph(text: String, paint: Paint, x: Float, baseline: Float) {
+        val bounds = Rect()
+        paint.getTextBounds(text, 0, text.length, bounds)
+        val left = x - paint.measureText(text) / 2
+        adaptiveGlyphBounds += RectF(left + bounds.left, baseline + bounds.top, left + bounds.right, baseline + bounds.bottom)
     }
 
     private fun drawIcon(
@@ -605,6 +704,7 @@ class KeyView(
         offsetX: Float = 0f,
         offsetY: Float = 0f,
         isTop: Boolean? = null,
+        area: RectF? = null,
     ) {
         val halfSize = size / 2
 
@@ -622,9 +722,9 @@ class KeyView(
 
         icon.colorFilter = PorterDuffColorFilter(color, PorterDuff.Mode.SRC_IN)
 
-        val centerX = (width - paddingLeft - paddingRight) / 2f + paddingLeft + sp(offsetX)
+        val centerX = area?.centerX() ?: ((width - paddingLeft - paddingRight) / 2f + paddingLeft + sp(offsetX))
 
-        val centerY = when (isTop) {
+        val centerY = area?.centerY() ?: when (isTop) {
             true -> paddingTop + halfSize + sp(offsetY)
             false -> height - paddingBottom - size + sp(offsetY)
             null -> (height - paddingTop - paddingBottom) / 2f + paddingTop + sp(offsetY)
@@ -637,6 +737,7 @@ class KeyView(
             (centerY + halfSize).toInt(),
         )
         icon.draw(canvas)
+        adaptiveGlyphBounds += RectF(icon.bounds)
     }
 
     private fun drawSymbol(canvas: Canvas, text: String, isTop: Boolean = true) {
@@ -678,6 +779,7 @@ class KeyView(
             for (i in lines.indices) {
                 val lineY = startY + lineHeight * i
                 canvas.drawText(lines[i], centerX, lineY, symbolPaint)
+                recordGlyph(lines[i], symbolPaint, centerX, lineY)
             }
         }
     }

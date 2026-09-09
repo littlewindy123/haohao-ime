@@ -476,7 +476,7 @@ class WordLearningUiTest {
             ActivityScenario.launch<WordLearningActivity>(Intent(context, WordLearningActivity::class.java).putExtra("words.mode", "plan")).use { scenario ->
                 awaitButton(scenario, R.string.words_plan_start)
                 capture("plan")
-                click(scenario, R.string.words_plan_settings)
+                click(scenario, R.string.wordbooks_change_mode)
                 awaitButton(scenario, R.string.words_plan_save)
                 click(scenario, R.string.words_plan_save)
                 awaitButton(scenario, R.string.words_plan_start)
@@ -579,9 +579,11 @@ class WordLearningUiTest {
     }
 
     private fun foreground() {
-        ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand(
-            "am start -W -a android.intent.action.RUN -n ${context.packageName}/com.osfans.trime.ui.main.MainActivity",
-        )).bufferedReader().use { it.readText() }
+        ParcelFileDescriptor.AutoCloseInputStream(
+            instrumentation.uiAutomation.executeShellCommand(
+                "am start -W -a android.intent.action.RUN -n ${context.packageName}/com.osfans.trime.ui.main.MainActivity",
+            ),
+        ).bufferedReader().use { it.readText() }
     }
 
     private fun descendants(view: View): Sequence<View> = sequence {
