@@ -5,15 +5,89 @@
 
 package com.osfans.trime.ime.core
 
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.yield
 
 class RimeInputPipelineTest :
     FunSpec({
+        test("parent cancellation before worker startup clears queued commands") {
+            runBlocking {
+                val parent = Job()
+                val pipeline = RimeInputPipeline(CoroutineScope(coroutineContext + parent), {})
+                try {
+                    pipeline.postKey { error("cancelled input must not execute") } shouldBe true
+                    parent.cancelAndJoin()
+                    pipeline.hasPendingInput shouldBe false
+                    pipeline.performanceSnapshot.value.queueDepth shouldBe 0
+                    pipeline.postBarrier {} shouldBe false
+                } finally {
+                    pipeline.close()
+                }
+            }
+        }
+
+        test("an already cancelled scope rejects input and idle waits terminate") {
+            runBlocking {
+                val parent = Job().apply { cancel() }
+                var queued = 0
+                val pipeline = RimeInputPipeline(
+                    CoroutineScope(coroutineContext + parent),
+                    {},
+                    onKeyQueued = { queued++ },
+                )
+                try {
+                    pipeline.postKey {} shouldBe false
+                    queued shouldBe 0
+                    withTimeout(1_000) { shouldThrow<IllegalStateException> { pipeline.awaitIdle() } }
+                    pipeline.hasPendingInput shouldBe false
+                } finally {
+                    pipeline.close()
+                }
+            }
+        }
+
+        test("worker cancellation releases idle waiters and rejects later input") {
+            runBlocking {
+                val pipeline = RimeInputPipeline(this, {})
+                try {
+                    pipeline.postKey { throw CancellationException("input session ended") }
+                    val idle = async(start = CoroutineStart.UNDISPATCHED) { pipeline.awaitIdle() }
+                    withTimeout(1_000) { shouldThrow<CancellationException> { idle.await() } }
+                    pipeline.postKey {} shouldBe false
+                    pipeline.postBarrier {} shouldBe false
+                    pipeline.hasPendingInput shouldBe false
+                } finally {
+                    pipeline.close()
+                }
+            }
+        }
+
+        test("closing before startup clears pending input without notifying rejected keys") {
+            runBlocking {
+                var queued = 0
+                val pipeline = RimeInputPipeline(this, {}, onKeyQueued = { queued++ })
+                pipeline.postKey {} shouldBe true
+                pipeline.close()
+                yield()
+                pipeline.postKey {} shouldBe false
+                queued shouldBe 1
+                pipeline.hasPendingInput shouldBe false
+                pipeline.performanceSnapshot.value.queueDepth shouldBe 0
+            }
+        }
+
         test("slow continuous keys publish intermediate snapshots without loss or reordering") {
             runBlocking {
                 var clock = 0L
@@ -21,11 +95,18 @@ class RimeInputPipelineTest :
                 val visible = mutableListOf<List<Int>>()
                 val pipeline = RimeInputPipeline(this, { visible += keys.toList() }, clockNanos = { clock })
                 try {
-                    repeat(10) { key -> pipeline.postKey { keys += key; clock += 20_000_000L } }
+                    repeat(10) { key ->
+                        pipeline.postKey {
+                            keys += key
+                            clock += 20_000_000L
+                        }
+                    }
                     pipeline.awaitIdle()
                     keys shouldContainExactly (0..9).toList()
                     visible.map { it.size } shouldContainExactly listOf(2, 4, 6, 8, 10)
-                } finally { pipeline.close() }
+                } finally {
+                    pipeline.close()
+                }
             }
         }
 

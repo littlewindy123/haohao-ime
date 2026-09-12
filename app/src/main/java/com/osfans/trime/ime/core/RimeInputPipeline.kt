@@ -116,6 +116,7 @@ internal class RimeInputPipeline(
     private val nextSequence = AtomicLong(0)
     private val pendingCount = AtomicInteger(0)
     private val processingBatch = AtomicBoolean(false)
+
     /** Includes native processing AND the presentation flush, not only queued commands. */
     val hasPendingInput: Boolean get() = pendingCount.get() > 0 || processingBatch.get()
     private val maximumQueueDepth = AtomicInteger(0)
@@ -135,7 +136,22 @@ internal class RimeInputPipeline(
 
     private val worker: Job = scope.launch { consumeCommands() }
 
+    init {
+        // Also runs when the scope is cancelled before the worker body starts. Close before
+        // draining so a concurrent producer cannot leave commands without a consumer.
+        worker.invokeOnCompletion {
+            closed.set(true)
+            commands.close()
+            while (true) {
+                val command = commands.tryReceive().getOrNull() ?: break
+                cancelPendingCommand(command)
+            }
+            publishSnapshot()
+        }
+    }
+
     fun postKey(operation: suspend () -> Unit): Boolean {
+        if (closed.get() || !worker.isActive) return false
         onKeyQueued()
         return enqueue(
             RimeInputCommand.Key(
@@ -188,6 +204,10 @@ internal class RimeInputPipeline(
     }
 
     private fun enqueue(command: RimeInputCommand): Boolean {
+        if (closed.get() || !worker.isActive) {
+            command.completion?.cancel()
+            return false
+        }
         val depth = pendingCount.incrementAndGet()
         maximumQueueDepth.updateMaximum(depth)
         val result = commands.trySend(command)
@@ -239,10 +259,6 @@ internal class RimeInputPipeline(
         } finally {
             processingBatch.set(false)
             deferredCommand?.let(::cancelPendingCommand)
-            while (true) {
-                val command = commands.tryReceive().getOrNull() ?: break
-                cancelPendingCommand(command)
-            }
             publishSnapshot()
         }
     }

@@ -13,13 +13,12 @@ fun CharSequence.findSectionFrom(
     start: Int,
     forward: Boolean = false,
 ): Int {
-    if (start !in 0..lastIndex) return -1
+    if (start !in 0..length) return -1
     return if (forward) {
-        val subSequence = subSequence(0, start)
-        subSequence.indexOfLast { SECTION_DIVIDER.contains(it) }
+        (start - 1 downTo 0).firstOrNull { SECTION_DIVIDER.contains(this[it]) } ?: 0
     } else {
-        val subSequence = subSequence(start, length)
-        start + subSequence.indexOfFirst { SECTION_DIVIDER.contains(it) }
+        // Skip the current divider so repeated navigation always makes progress.
+        (start until length).firstOrNull { it > start && SECTION_DIVIDER.contains(this[it]) } ?: length
     }
 }
 

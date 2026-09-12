@@ -83,7 +83,9 @@ import java.util.concurrent.atomic.AtomicLong
 open class TrimeInputMethodService : LifecycleInputMethodService() {
     private lateinit var rime: RimeSession
     private lateinit var inputPipeline: RimeInputPipeline
+
     @Volatile private var activeInputSessionId = 0L
+
     @Volatile private var sentenceEditorActive = false
     private val sentenceLifecycle = AtomicLong()
 
@@ -450,8 +452,11 @@ open class TrimeInputMethodService : LifecycleInputMethodService() {
                     activeInputSessionId == session && sentenceEditorActive && sentenceLifecycle.get() == lifecycle
                 }
                 if (favorite) toast(if (saved) R.string.sentences_saved else R.string.sentences_save_failed)
-            } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
-            catch (_: Exception) { if (favorite) toast(R.string.sentences_save_failed) }
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                if (favorite) toast(R.string.sentences_save_failed)
+            }
         }
     }
 
@@ -920,6 +925,8 @@ open class TrimeInputMethodService : LifecycleInputMethodService() {
     @RequiresApi(Build.VERSION_CODES.R)
     override fun onCreateInlineSuggestionsRequest(uiExtras: Bundle): InlineSuggestionsRequest? {
         if (!inlineSuggestions || !inputDeviceManager.useVirtualKeyboard) return null
+        // Autofill can ask while the first deployment is still preparing the theme.
+        if (!ThemeManager.isInitialized || themeInitializationFailed) return null
         return InlineSuggestions.createRequest(this)
     }
 
@@ -1285,10 +1292,11 @@ open class TrimeInputMethodService : LifecycleInputMethodService() {
                     val etr = ExtractedTextRequest()
                     etr.token = 0
                     val et = ic.getExtractedText(etr, 0)
-                    if (et != null) {
-                        val moveTo = et.text.findSectionFrom(et.startOffset + et.selectionEnd)
-                        ic.setSelection(moveTo, moveTo)
-                        return true
+                    if (et != null && et.startOffset >= 0) {
+                        val localOffset = et.text?.findSectionFrom(et.selectionEnd) ?: return false
+                        if (localOffset < 0) return false
+                        val moveTo = et.startOffset + localOffset
+                        return ic.setSelection(moveTo, moveTo)
                     }
                 }
             }
@@ -1298,10 +1306,11 @@ open class TrimeInputMethodService : LifecycleInputMethodService() {
                     val etr = ExtractedTextRequest()
                     etr.token = 0
                     val et = ic.getExtractedText(etr, 0)
-                    if (et != null) {
-                        val moveTo = et.text.findSectionFrom(et.startOffset + et.selectionStart, true)
-                        ic.setSelection(moveTo, moveTo)
-                        return true
+                    if (et != null && et.startOffset >= 0) {
+                        val localOffset = et.text?.findSectionFrom(et.selectionStart, true) ?: return false
+                        if (localOffset < 0) return false
+                        val moveTo = et.startOffset + localOffset
+                        return ic.setSelection(moveTo, moveTo)
                     }
                 }
         }
@@ -1311,54 +1320,42 @@ open class TrimeInputMethodService : LifecycleInputMethodService() {
     fun clearTextSelection() {
         val ic = currentInputConnection ?: return
         val etr = ExtractedTextRequest().apply { token = 0 }
-        val et = currentInputConnection.getExtractedText(etr, 0)
+        val et = ic.getExtractedText(etr, 0)
         et?.let {
-            if (it.selectionStart != it.selectionEnd) {
-                ic.setSelection(it.selectionEnd, it.selectionEnd)
+            if (it.selectionStart != it.selectionEnd && it.selectionEnd >= 0 && it.startOffset >= 0) {
+                val moveTo = it.startOffset + it.selectionEnd
+                ic.setSelection(moveTo, moveTo)
             }
         }
     }
 
     internal fun updateComposingText(text: String) {
         val ic = currentInputConnection ?: return
+        if (composingText.isEmpty() && text.isEmpty()) return
         ic.beginBatchEdit()
-        if (composingText.isNotEmpty() || text.isNotEmpty()) {
-            if (!ic.getSelectedText(0).isNullOrEmpty()) {
-                ic.deleteSurroundingText(1, 0)
+        try {
+            // The editor replaces its composing region or selection itself. Deleting around
+            // the selection first would remove an unrelated character (or half an emoji).
+            if (ic.setComposingText(text, 1)) {
+                composingText = text
+                if (text.isEmpty()) ic.finishComposingText()
             }
-            ic.setComposingText(text, 1)
-            if (text.isEmpty()) {
-                ic.finishComposingText()
-            }
+        } finally {
+            ic.endBatchEdit()
         }
-        composingText = text
-        ic.endBatchEdit()
     }
 
     fun getActiveText(type: Int): String {
         val rimeComposition = rime.run { compositionCached }
-        val selected = currentInputConnection?.getSelectedText(0)?.toString()
-        val commitPreview = rimeComposition.commitTextPreview
-        val preedit = rimeComposition.preedit ?: ""
-        val beforeCursor = getTextAroundCursor(1024, before = true) ?: ""
-        val afterCursor = getTextAroundCursor(before = false) ?: ""
-        val lastCommitted = lastCommittedText
-
-        return sequenceOf(
-            when (type) {
-                2 -> preedit
-                3 -> selected
-                4 -> beforeCursor
-                1 -> lastCommitted
-                else -> null
-            },
-            commitPreview,
-            selected,
-            lastCommitted,
-            beforeCursor,
-            afterCursor,
+        return resolveActiveText(
+            type = type,
+            preedit = rimeComposition.preedit.orEmpty(),
+            commitPreview = rimeComposition.commitTextPreview,
+            lastCommitted = lastCommittedText,
+            readSelection = { currentInputConnection?.getSelectedText(0)?.toString() },
+            readBeforeCursor = { getTextAroundCursor(before = true) },
+            readAfterCursor = { getTextAroundCursor(before = false) },
         )
-            .firstOrNull { it?.isNotEmpty() == true } ?: ""
     }
 
     private fun getTextAroundCursor(

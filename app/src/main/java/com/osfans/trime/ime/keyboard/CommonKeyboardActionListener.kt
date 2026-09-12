@@ -32,6 +32,7 @@ import com.osfans.trime.data.translation.CloudTranslationResult
 import com.osfans.trime.data.translation.CloudTranslationRuntime
 import com.osfans.trime.ime.clipboard.ClipboardWindow
 import com.osfans.trime.ime.core.TrimeInputMethodService
+import com.osfans.trime.ime.core.expandActiveTextArgument
 import com.osfans.trime.ime.dependency.InputDependencyManager
 import com.osfans.trime.ime.dialog.EnabledSchemaPickerDialog
 import com.osfans.trime.ime.haohao.HAOHAO_EDITOR_ACTION
@@ -117,16 +118,7 @@ class CommonKeyboardActionListener {
         }
     }
 
-    private fun expandActiveText(input: String): String = if (input.matches(PLACEHOLDER_PATTERN)) {
-        input.format(
-            service.getActiveText(1),
-            service.getActiveText(2),
-            service.getActiveText(3),
-            service.getActiveText(4),
-        )
-    } else {
-        input
-    }
+    private fun expandActiveText(input: String): String = expandActiveTextArgument(input, service::getActiveText)
 
     val listener by lazy {
         object : KeyboardActionListener {
@@ -590,7 +582,5 @@ class CommonKeyboardActionListener {
          * The trailing .* consumes the rest of the input without affecting group(1).
          */
         private val TEXT_INPUT_PATTERN = """^((?:\{Escape\})?[^{}]+|\{[^{}]+\}).*$""".toRegex()
-
-        private val PLACEHOLDER_PATTERN = Regex(".*(%([1-4]\\$)?s).*")
     }
 }
