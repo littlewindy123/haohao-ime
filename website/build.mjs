@@ -29,12 +29,7 @@ assert.equal(apk.length, release.bytes, "APK size does not match release.json");
 assert.equal(digest(apk), release.sha256, "APK hash does not match release.json");
 verifyPublicApk(apkPath, release.signerSha256);
 
-let main = await readFile(path.join(root, "main.js"), "utf8");
-const model = (await readFile(path.join(root, "demo-model.mjs"), "utf8"))
-  .replace(/^export (const|function) /gm, "$1 ");
-const importLine = /^import \{[^\n]+\} from "\.\/demo-model\.mjs";\r?\n/;
-assert.match(main, importLine);
-main = model + "\n" + main.replace(importLine, "");
+const main = await readFile(path.join(root, "main.js"), "utf8");
 assert.doesNotMatch(main, /^import |^export /m, "Static production bundle must not need module fetches");
 let css = await readFile(path.join(root, "styles.css"), "utf8");
 const showroomCss = await readFile(path.join(root, "showroom.css"));
@@ -67,14 +62,14 @@ const files = new Map([
   ["showroom.css", showroomCss],
   ["media.js", Buffer.from(media)],
   ["vendor/scene-3d.min.js", scene],
-  ["release.json", Buffer.from(JSON.stringify(release, null, 2) + "\n")],
+  ["release.json", await readFile(path.join(root, "release.json"))],
 ]);
-for (const name of ["haohao-icon.png", "haohao-golden.png", "og.png", "words.png", "review.png"]) {
+for (const name of ["haohao-golden.webp", "og.png"]) {
   files.set("assets/" + name, await readFile(path.join(root, "assets", name)));
 }
 files.set("vendor/gsap-3.15.0.min.js", await readFile(path.join(root, "vendor", "gsap-3.15.0.min.js")));
 for (const [name,bytes] of artFiles) files.set(name,bytes);
-for (const kind of ['sentence','cards']) for (const ext of ['mp4','webm','webp']) {
+for (const kind of ['sentence','save','cards']) for (const ext of ['mp4','webm','webp']) {
   const name = `assets/demo-${kind}.${ext}`; files.set(name,await readFile(path.join(root,name)));
 }
 files.set("vendor/three-LICENSE.txt", await readFile(path.join(root, "vendor/three-LICENSE.txt")));

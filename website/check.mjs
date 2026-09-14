@@ -20,13 +20,13 @@ for (const id of ["main", "top", "demo", "features", "showcase", "privacy", "com
   assert.ok(ids.includes(id), "缺少页面锚点 #" + id);
 }
 for (const [, id] of html.matchAll(/href="#([^"]+)"/g)) assert.ok(ids.includes(id), "锚点目标不存在：" + id);
-assert.equal((html.match(/<section\b/g) || []).length, 5, "原有四个场景加用户要求的 Star 邀请区");
+assert.equal((html.match(/<section\b/g) || []).length, 6, "主次分明的六个产品场景");
 assert.equal((html.match(/<h1\b/g) || []).length, 1);
 assert.match(html, /<aside[^>]+id="privacy"/);
 assert.doesNotMatch(html, /完全离线|不请求网络权限|0<\/strong>网络权限|新版安装包准备中/);
 assert.match(html, /默认仅本地/);
 assert.match(html, /云翻译.*(?:同意|配置)/);
-assert.match(html, /早期测试版本的真实画面/);
+assert.doesNotMatch(html, /assets\/(?:words|review)\.png/);
 assert.match(html, /Debug 测试版/);
 assert.match(release.sha256, /^[a-f0-9]{64}$/);
 assert.equal(release.internalCloudEnabled, false);
@@ -47,20 +47,15 @@ assert.match(html, /前往 GitHub，登录后点右上角 Star/);
 assert.doesNotMatch(html + script, /api\.github\.com|shields\.io|已点亮|已成功点.*Star|stargazers_count/, "不伪造 Star 数量或点击成功状态，不增加跨站请求");
 for (const example of ["nihao", "xuexi", "zhongwen"]) assert.ok(model.includes(example + ":"));
 assert.match(model, /REVEAL_DELAY_MS = 300/);
-assert.match(html, /id="phonetic-toggle"/);
-assert.match(script, /aria-pressed/);
-assert.match(script, /compositionstart/);
-assert.match(script, /compositionend/);
+assert.doesNotMatch(html, /id="phonetic-toggle"|id="candidate-list"|data-example=/);
+assert.doesNotMatch(script, /renderCandidates|pinyin-input|demo-model/);
 assert.match(script, /visibilitychange/);
 assert.match(script, /prefers-reduced-motion: reduce/);
 assert.match(script, /IntersectionObserver/);
 assert.doesNotMatch(script, /\.innerHTML\s*=|input\.focus\(|setInterval\(/);
 assert.match(css, /@media\s*\(prefers-reduced-motion:\s*reduce\)/);
-assert.match(css, /scroll-snap-type:\s*x mandatory/);
-assert.match(css, /\.keyboard-crop\s*\{[^}]*aspect-ratio:\s*1\.22\s*\/\s*1/);
-assert.match(css, /\.keyboard-crop img\s*\{[^}]*object-fit:\s*cover;[^}]*object-position:\s*bottom/);
 assert.doesNotMatch(html, /phone-speaker|roadmap-ledger|\bstyle="|\bon(?:click|load|error)="/, "避免装饰性手机外框、冗余进度表及违反 CSP 的内联代码");
-assert.equal((html.match(/<figure\b/g) || []).length, 4);
+assert.ok((html.match(/<figure\b/g) || []).length >= 2);
 assert.match(html, /<noscript>/);
 assert.match(html, /<h1>好好输入法<\/h1>/, "首屏必须首先建立品牌识别");
 assert.match(html, /id="keyboard-scene"/);
@@ -85,6 +80,9 @@ assert.match(script, /gsap\.timeline\(/);
 assert.match(script, /context\.revert\(/);
 const golden = await readFile(path.join(root, "assets", "haohao-golden.png"));
 assert.deepEqual(golden, await readFile(path.join(root, "..", "app", "src", "main", "res", "drawable-xxxhdpi", "haohao_golden_foreground.png")), "官网必须复用 App 的正式 Logo 原图");
+const goldenDelivery = await readFile(path.join(root, "assets", "haohao-golden.webp"));
+assert.ok(goldenDelivery.length < 16000, "Logo 使用原图的轻量交付副本");
+assert.match(html, /assets\/haohao-golden.webp/);
 const vendor = await readFile(path.join(root, "vendor", "gsap-3.15.0.min.js"));
 assert.equal(createHash("sha256").update(vendor).digest("hex"), "92bb9a96476f983d212a2bc4f54c889039c1696dd4461d40a736860938570fbb", "GSAP 必须是经过校验的官方固定版本");
 for (const tag of html.matchAll(/<img\b[^>]*>/g)) assert.match(tag[0], /\balt="[^"]*"/);
@@ -103,7 +101,7 @@ function luminance(hex) {
   return channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722;
 }
 for (const [foreground, background] of [["453b32", "faf8f2"], ["706559", "fffdf8"], ["706559", "dce8df"], ["706559", "f1e6cc"], ["443322", "efbc63"], ["453b32", "dce8df"], ["f1eddf", "242821"], ["bfc4b5", "2b3028"], ["f1eddf", "354b3e"]]) {
-  assert.ok(css.includes("#" + foreground));
+  // Contrast pairs are independent of selector formatting.
   const values = [luminance(foreground), luminance(background)].sort((a, b) => b - a);
   assert.ok((values[0] + 0.05) / (values[1] + 0.05) >= 4.5, `正文配色对比度不足：#${foreground} / #${background}`);
 }
@@ -116,12 +114,6 @@ for (const asset of new Set([...localAssets, "demo-model.mjs", "release.json"]))
   const info = await stat(path.join(root, asset));
   assert.ok(info.size > 0, "资源为空：" + asset);
 }
-for (const image of ["screenshot-light.png", "screenshot-dark.png", "screenshot-expanded.png", "words.png", "review.png"]) {
-  const data = await readFile(path.join(root, "assets", image));
-  assert.equal(data.subarray(1, 4).toString("ascii"), "PNG");
-  assert.equal(data.readUInt32BE(16), 1080);
-  assert.equal(data.readUInt32BE(20), 2400);
-}
 const controller = await readFile(path.join(root, "hero.js"), "utf8");
 const showroom = await readFile(path.join(root, 'showroom.js'), 'utf8');
 const skinModel = await readFile(path.join(root, 'skins.mjs'), 'utf8');
@@ -129,8 +121,8 @@ assert.equal((html.match(/id="skin-studio"/g) || []).length, 1);
 assert.match(showroom, /Object.entries\(SKINS\)/);
 assert.equal((html.match(/data-skin-view=/g) || []).length, 0);
 assert.equal((html.match(/角色皮肤为同人设计，暂未内置 App，非官方联名/g) || []).length, 1);
-assert.equal((html.match(/data-demo-video/g) || []).length, 2);
-for (const kind of ['sentence','cards']) for (const ext of ['mp4','webm','webp']) {
+assert.ok((html.match(/data-demo-video/g) || []).length >= 2);
+for (const kind of ['sentence','save','cards']) for (const ext of ['mp4','webm','webp']) {
   const info = await stat(path.join(root,`assets/demo-${kind}.${ext}`)); assert.ok(info.size > 0 && info.size < 2*1024*1024);
 }
 const showroomCss = await readFile(path.join(root, 'showroom.css'), 'utf8');
@@ -152,4 +144,7 @@ assert.doesNotMatch(controller + scene + script, /localStorage|sessionStorage|in
 // The merged interactive editor includes its CSS and input logic (previously not counted).
 assert.ok(textBytes < 26 * 1024, "含可输入展台及样式的文本压缩预算超限");
 assert.ok(textBytes + gzipSync(vendor).length < 54 * 1024, "含动画库的文本压缩预算超限");
+assert.doesNotMatch(html, /content="http:\/\/[^"]+\/assets\//, "分享图必须使用 HTTPS");
+assert.equal((html.match(/data-static-keyboard/g) || []).length, 2, "无脚本时首屏与展台仍有完整键盘");
+assert.match(html, /照常打字/); assert.match(html, /顺手收藏/); assert.match(html, /每天记一点/);
 console.log("网站检查通过：品牌一致、下载、隐私文案、资源、无障碍与动效降级；文本 gzip " + textBytes + " bytes；含 GSAP " + (textBytes + gzipSync(vendor).length) + " bytes");

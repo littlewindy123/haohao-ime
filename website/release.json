@@ -1,18 +1,25 @@
 {
-  "version": "3.3.12",
-  "versionCode": 20260924,
-  "date": "2026-09-07",
+  "version": "3.3.25",
+  "versionCode": 20261010,
+  "date": "2026-09-15",
   "applicationId": "com.osfans.trime.debug",
   "variant": "debug",
   "abi": "arm64-v8a",
   "minSdk": 21,
   "recommendedAndroid": "Android 11+",
-  "filename": "haohao-ime-3.3.12-20260924-arm64-v8a-debug.apk",
-  "bytes": 52243291,
-  "sha256": "2785c2c0bdae941b7b68142923a33396a1558f862fc9f27b466497f88ebccb02",
+  "filename": "haohao-ime-3.3.25-20261010-arm64-v8a-debug.apk",
+  "bytes": 57809966,
+  "sha256": "813e4aabdcaf4e6dfa83b3c18a15d71b5ffab97160a8a7304d9b0eef84896cba",
   "signerSha256": "62b4a4c620df03d8bd6c65e21a8cfa5cd11265465e25070dc53006b31de5a101",
   "internalCloudEnabled": false,
-  "baseCommit": "c5395e90d7e8365dcdac9bf3d33e8b147a4b7242",
+  "baseCommit": "1ab7d6eab245667e66c577c6d2857066ba9bf24a",
+  "uncommittedChanges": true,
   "speechCloudEnabled": false,
-  "notes": ["26 键新增离线整句错按纠正，帮助找回漏键、多键、邻键与字母颠倒的句子", "修复输入引擎一处线程问题；保留紧凑布局、主题、词本和复习功能", "同音词语义纠错与九键错按仍有局限，当前为 Debug 测试版", "沿用已确定的新公开签名；官网原 20260921 包和旧签名内测包不能直接覆盖，请先备份，不要直接卸载", "公开包不内置云密钥或语音令牌，云翻译须主动同意并配置；腾讯云发音尚未启用"]
+  "notes": [
+    "优化连续快打与长句删除，减少输入积压；保留原有候选和纠错能力",
+    "修复数字输入框切到密码框后意外进入中文模式的问题",
+    "包含词本、句子本、每日学习、打卡与学习统计",
+    "沿用固定签名；使用当前公开签名的版本可覆盖升级，旧签名用户请先备份，不要直接卸载",
+    "公开包不内置云密钥或语音令牌；云翻译须主动配置与授权，腾讯云联网发音暂未开放"
+  ]
 }
