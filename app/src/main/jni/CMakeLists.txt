@@ -6,6 +6,16 @@ cmake_minimum_required(VERSION 3.18.0)
 
 project(trime VERSION 3.0.0)
 
+# Daily upgrades use the Android debug identity to preserve installations, not
+# an unoptimized native decoder. Keep symbols for profiling, but match release
+# execution and remove per-syllable DLOG work. Native debugger sessions can
+# explicitly opt out; ordinary app/regression builds exercise the same engine.
+option(HAOHAO_OPTIMIZE_DEBUG_NATIVE "Optimize the native engine in Debug builds" ON)
+if(HAOHAO_OPTIMIZE_DEBUG_NATIVE)
+  add_compile_options("$<$<CONFIG:Debug>:-O2>")
+  add_compile_definitions("$<$<CONFIG:Debug>:NDEBUG>")
+endif()
+
 # for reproducible build
 add_link_options("LINKER:--hash-style=both,--build-id=none")
 

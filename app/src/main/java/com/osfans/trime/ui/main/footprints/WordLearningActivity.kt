@@ -33,10 +33,12 @@ import androidx.appcompat.widget.Toolbar
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.doOnNextLayout
 import androidx.core.widget.doAfterTextChanged
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import androidx.room.withTransaction
 import com.osfans.trime.R
 import com.osfans.trime.data.footprints.InputFootprints
 import com.osfans.trime.data.footprints.RecallRating
@@ -66,12 +68,39 @@ class WordLearningActivity : AppCompatActivity() {
     private var pageEpoch = 0L
     private var learningGeneration = 0L
     private var learningScreen = "dashboard"
+    private var pendingDailyStart = false
+    private var planDraft: DailyPlanDraft? = null
     private val weaknessPages = mutableMapOf<String, Int>()
     private var statisticsTab = "activity"
     private var statisticsDays = 7
     private var calendarMonth = java.util.Calendar.getInstance().apply { set(java.util.Calendar.DAY_OF_MONTH, 1) }
     private val speech by lazy { WordSpeech(this) }
     private var journalSheet: SentenceSheet? = null
+    private val meaningExpanded = linkedSetOf<String>()
+    private var meaningScroll: ScrollView? = null
+    private var meaningRestoreScroll: Int? = null
+    private var meaningBinding: MeaningBinding? = null
+
+    private class MeaningBinding(
+        val epoch: Long,
+        val generation: Long,
+        val chinese: String,
+        val originalEnglish: String,
+        val originalPhonetic: String?,
+        val originalSource: String,
+        var saved: SavedWordEntity?,
+        var legacyFavorite: Boolean,
+    ) {
+        val english get() = saved?.displayEnglish ?: originalEnglish
+        val phonetic get() = saved?.phonetic ?: originalPhonetic
+        val source get() = saved?.source ?: originalSource
+        val favorite get() = saved?.favorite == true || (saved == null && legacyFavorite)
+        val isLearning get() = saved?.learning == true
+        lateinit var word: TextView
+        lateinit var favoriteButton: AppCompatButton
+        lateinit var learningButton: AppCompatButton
+        lateinit var more: android.view.MenuItem
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         AppCompatDelegate.setDefaultNightMode(
@@ -90,6 +119,8 @@ class WordLearningActivity : AppCompatActivity() {
         }
         setContentView(root)
         onBackPressedDispatcher.addCallback(this) {
+            pendingDailyStart = false
+            planDraft = null
             if (InputFootprints.isAvailable && learningScreen in setOf("calendar", "stats", "settings", "profile", "review", "weakness")) action { renderPlan() } else finish()
         }
         ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
@@ -115,6 +146,13 @@ class WordLearningActivity : AppCompatActivity() {
         }
         learningGeneration = store.learning.generation
         learningScreen = savedInstanceState?.getString("learningScreen") ?: if (intent.getBooleanExtra("words.startSettings", false)) "settings" else "dashboard"
+        pendingDailyStart = savedInstanceState?.getBoolean("pendingDailyStart")
+            ?: intent.getBooleanExtra(EXTRA_START_DAILY, false)
+        savedInstanceState?.getBundle("planDraft")?.let {
+            planDraft = DailyPlanDraft(it.getBoolean("enabled"), it.getString("fresh", ""), it.getString("reviews", ""), it.getString("mode", ""))
+        }
+        meaningExpanded.addAll(savedInstanceState?.getStringArrayList("meaningExpanded").orEmpty())
+        meaningRestoreScroll = savedInstanceState?.getInt("meaningScroll", 0)
         com.osfans.trime.data.footprints.WeaknessKind.entries.forEach { weaknessPages[it.name] = savedInstanceState?.getInt("weakness.${it.name}") ?: 0 }
         practiceReview = savedInstanceState?.getBoolean("practiceReview") ?: false
         statisticsTab = savedInstanceState?.getString("statisticsTab") ?: "activity"
@@ -143,6 +181,10 @@ class WordLearningActivity : AppCompatActivity() {
             }
         }
         action {
+            if (pendingDailyStart && intent.getStringExtra(EXTRA_MODE) == MODE_PLAN) {
+                startRequestedDaily()
+                return@action
+            }
             if (savedInstanceState != null && learningScreen == "weakness") {
                 renderWeaknesses()
                 return@action
@@ -181,8 +223,19 @@ class WordLearningActivity : AppCompatActivity() {
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
+        outState.putStringArrayList("meaningExpanded", ArrayList(meaningExpanded))
+        outState.putInt("meaningScroll", meaningRestoreScroll ?: meaningScroll?.scrollY ?: 0)
         outState.putString("learningScreen", learningScreen)
         outState.putBoolean("practiceReview", practiceReview)
+        outState.putBoolean("pendingDailyStart", pendingDailyStart)
+        planDraft?.let { draft ->
+            outState.putBundle("planDraft", Bundle().apply {
+                putBoolean("enabled", draft.enabled)
+                putString("fresh", draft.fresh)
+                putString("reviews", draft.reviews)
+                putString("mode", draft.modeName)
+            })
+        }
         weaknessPages.forEach { (kind, value) -> outState.putInt("weakness.$kind", value) }
         outState.putString("statisticsTab", statisticsTab)
         outState.putInt("statisticsDays", statisticsDays)
@@ -195,6 +248,8 @@ class WordLearningActivity : AppCompatActivity() {
         super.onResume()
         if (InputFootprints.isAvailable && learningGeneration != store.learning.generation) {
             journalSheet?.dismiss()
+            pendingDailyStart = false
+            planDraft = null
             learningGeneration = store.learning.generation
             action { renderPlan() }
             return
@@ -227,6 +282,8 @@ class WordLearningActivity : AppCompatActivity() {
     private fun page(title: Int) {
         if (InputFootprints.isAvailable) learningGeneration = store.learning.generation
         pageEpoch++
+        meaningBinding = null
+        meaningScroll = null
         speech.clearBindings()
         root.removeAllViews()
         // Navigation/recreation restores the saved draft without letting editor focus
@@ -313,7 +370,9 @@ class WordLearningActivity : AppCompatActivity() {
         setTextColor(color(R.color.learning_link_ink))
     }
 
-    private fun pronunciation(phonetic: String?, english: String): TextView {
+    private fun pronunciation(phonetic: String?, english: String): TextView = pronunciation(phonetic) { english }
+
+    private fun pronunciation(phonetic: String?, english: () -> String): TextView {
         val row = LinearLayout(this).apply {
             gravity = Gravity.CENTER_VERTICAL
             isBaselineAligned = false
@@ -324,7 +383,7 @@ class WordLearningActivity : AppCompatActivity() {
             setTextColor(color(R.color.haohao_cocoa_secondary))
         }
         row.addView(spelling, LinearLayout.LayoutParams(0, -2, 1f))
-        row.addView(speech.controls(compact = true, flat = true) { english }, LinearLayout.LayoutParams(-2, -2))
+        row.addView(speech.controls(compact = true, flat = true) { english() }, LinearLayout.LayoutParams(-2, -2))
         content.addView(row, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(18) })
         return spelling
     }
@@ -413,113 +472,221 @@ class WordLearningActivity : AppCompatActivity() {
 
     private suspend fun renderMeaning() {
         page(R.string.words_detail)
+        learningScreen = "meaning"
+        showingReview = false
         val chinese = intent.getStringExtra(EXTRA_CHINESE).orEmpty().trim()
         val requestedEnglish = displaySavedEnglish(intent.getStringExtra(EXTRA_ENGLISH).orEmpty())
         val requestedSource = intent.getStringExtra(EXTRA_SOURCE).takeIf { it in setOf("cloud", "import") } ?: "offline"
         val saved = requestedEnglish?.let { learning.find(chinese, it) }
-        val source = saved?.source ?: requestedSource
         val english = saved?.displayEnglish ?: requestedEnglish
         val phonetic = saved?.phonetic ?: intent.getStringExtra(EXTRA_PHONETIC)
-        val legacyFavorite = store.isFavorite(chinese)
-        label(english ?: chinese, 44f, emphasis = true).setTextColor(color(R.color.learning_word_ink))
+        val word = label(english ?: chinese, 44f, emphasis = true).apply {
+            tag = "learning.detail.word"
+            setTextColor(color(R.color.learning_word_ink))
+        }
         if (english == null) {
             label(getString(R.string.words_no_meaning), 20f, true)
             label(getString(R.string.words_no_meaning_hint))
             return
         }
-        val phoneticLabel = pronunciation(phonetic, english)
-        label(chinese, 24f, emphasis = true).setTextColor(color(R.color.learning_meaning_ink))
-        label(
-            getString(
-                when (source) {
-                    "cloud" -> R.string.words_source_cloud
-                    "import" -> R.string.words_source_import
-                    else -> R.string.words_source_offline
-                },
-            ),
-            13f,
+        val binding = MeaningBinding(
+            pageEpoch, learningGeneration, chinese, english, phonetic, saved?.source ?: requestedSource,
+            saved, store.isFavorite(chinese),
         )
+        meaningBinding = binding
+        binding.word = word
+        val phoneticLabel = pronunciation(phonetic) { binding.english }
+        label(chinese, 24f, emphasis = true).apply {
+            tag = "learning.detail.meaning"
+            setTextColor(color(R.color.learning_meaning_ink))
+        }
+        val scroll = root.getChildAt(1) as ScrollView
+        meaningScroll = scroll
+        scroll.tag = "learning.detail.scroll"
+        binding.more = (root.getChildAt(0) as Toolbar).menu.add(R.string.reading_more).apply {
+            setShowAsAction(android.view.MenuItem.SHOW_AS_ACTION_ALWAYS)
+            setOnMenuItemClickListener { showMeaningMore(binding); true }
+        }
         val references = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         content.addView(references, LinearLayout.LayoutParams(-1, -2))
-        val epoch = pageEpoch
+        references.tag = "learning.detail.references"
+        // Actions are outside the reading ScrollView. A late dictionary result,
+        // an expansion or a long example cannot move them down the document.
+        val reading = content
+        val footer = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            isBaselineAligned = false
+            tag = "learning.detail.actions"
+            setPadding(dp(20), dp(8), dp(20), dp(12))
+        }
+        content = footer
+        binding.favoriteButton = button("") { toggleMeaningFavorite(binding) }.apply { tag = "learning.detail.favorite" }
+        binding.learningButton = button("") { toggleMeaningLearning(binding) }.apply { tag = "learning.detail.learning" }
+        listOf(binding.favoriteButton, binding.learningButton).forEachIndexed { index, button ->
+            button.minHeight = dp(56)
+            button.minimumHeight = dp(56)
+            button.layoutParams = LinearLayout.LayoutParams(0, -2, 1f).apply { if (index > 0) marginStart = dp(8) }
+        }
+        root.addView(footer, LinearLayout.LayoutParams(-1, -2))
+        content = reading
+        updateMeaningActions(binding)
         lifecycleScope.launch {
             val entry = com.osfans.trime.data.footprints.StudyLexicon.lookup(this@WordLearningActivity, english)
-            if (epoch == pageEpoch && !isFinishing) {
+            if (meaningIsCurrent(binding)) {
                 if (phonetic.isNullOrBlank()) phoneticLabel.text = entry?.phonetic.orEmpty()
-                renderReferences(references, entry)
-            }
-        }
-        if (saved != null) {
-            button(getString(R.string.words_correct_case)) {
-                val edit = AppCompatEditText(this).apply {
-                    setText(english)
-                    inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
-                    imeOptions = EditorInfo.IME_ACTION_DONE or EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING
-                    setSelectAllOnFocus(true)
-                }
-                val dialog = AlertDialog.Builder(this).setTitle(R.string.words_correct_case)
-                    .setMessage(R.string.words_correct_case_hint).setView(edit)
-                    .setNegativeButton(android.R.string.cancel, null).setPositiveButton(android.R.string.ok, null).create()
-                dialog.setOnShowListener {
-                    dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                        val value = edit.text.toString()
-                        if (normalizeSavedEnglish(value) != saved.english) {
-                            edit.error = getString(R.string.words_correct_case_hint)
-                        } else {
-                            action {
-                                learning.correctCase(chinese, saved.english, value)
-                                renderMeaning()
-                            }
-                            dialog.dismiss()
-                        }
+                renderReferences(references, entry, chinese)
+                // Restoring before the references are measured would clamp a saved
+                // reading position to the initially short, empty document.
+                val restore = meaningRestoreScroll
+                references.doOnNextLayout {
+                    if (meaningIsCurrent(binding)) {
+                        if (restore != null) scroll.scrollTo(0, restore)
+                        meaningRestoreScroll = null
+                        references.tag = "learning.detail.references.ready"
                     }
                 }
-                dialog.show()
-            }
-        }
-        val favorite = saved?.favorite == true || (saved == null && legacyFavorite)
-        button(getString(if (favorite) R.string.input_footprints_remove_favorite else R.string.input_footprints_add_favorite)) {
-            val save = {
-                action {
-                    learning.saveMeaning(chinese, english, phonetic, source, favorite = !favorite)
-                    if (favorite && legacyFavorite) store.setFavorite(chinese, false, System.currentTimeMillis())
-                    toast(R.string.words_saved)
-                    renderMeaning()
-                }
-            }
-            if (favorite) save() else confirmMeaning(R.string.words_confirm_save, chinese, english, source, save)
-        }
-        val isLearning = saved?.learning == true
-        button(getString(if (isLearning) R.string.words_remove_learning else R.string.words_add_learning), primary = !isLearning) {
-            val save = {
-                action {
-                    learning.saveMeaning(chinese, english, phonetic, source, favorite = saved?.favorite ?: legacyFavorite, learning = !isLearning)
-                    toast(R.string.words_saved)
-                    renderMeaning()
-                }
-            }
-            if (isLearning) {
-                AlertDialog.Builder(this).setTitle(R.string.words_remove_learning).setMessage(R.string.words_pause_notice)
-                    .setNegativeButton(android.R.string.cancel, null).setPositiveButton(android.R.string.ok) { _, _ -> save() }.show()
-            } else {
-                confirmMeaning(R.string.words_confirm_learning, chinese, english, source, save)
+                references.requestLayout()
             }
         }
     }
 
-    private fun confirmMeaning(title: Int, chinese: String, english: String, source: String, save: () -> Unit) {
-        AlertDialog.Builder(this).setTitle(title)
-            .setMessage(
-                "$english\n$chinese\n\n${getString(
-                    when (source) {
-                        "cloud" -> R.string.words_source_cloud
-                        "import" -> R.string.words_source_import
-                        else -> R.string.words_source_offline
-                    },
-                )}\n\n${getString(R.string.words_save_notice)}",
-            )
-            .setNegativeButton(android.R.string.cancel, null)
-            .setPositiveButton(android.R.string.ok) { _, _ -> save() }.show()
+    private fun meaningIsCurrent(binding: MeaningBinding) = meaningBinding === binding &&
+        pageEpoch == binding.epoch && binding.generation == learning.generation && !isFinishing
+
+    private fun meaningSource(source: String) = getString(when (source) {
+        "cloud" -> R.string.words_source_cloud
+        "import" -> R.string.words_source_import
+        else -> R.string.words_source_offline
+    })
+
+    private fun updateMeaningActions(binding: MeaningBinding) {
+        if (binding.word.text.toString() != binding.english) {
+            meaningScroll?.let { scroll ->
+                val position = scroll.scrollY
+                scroll.doOnNextLayout { if (meaningIsCurrent(binding)) scroll.scrollTo(0, position) }
+            }
+            binding.word.text = binding.english
+        }
+        binding.favoriteButton.setText(if (binding.favorite) R.string.input_footprints_remove_favorite else R.string.input_footprints_add_favorite)
+        binding.learningButton.setText(if (binding.isLearning) R.string.words_remove_learning else R.string.words_add_learning)
+        val primary = !binding.isLearning
+        binding.learningButton.background = RippleDrawable(
+            ColorStateList.valueOf(color(R.color.haohao_divider)),
+            GradientDrawable().apply {
+                cornerRadius = dp(12).toFloat()
+                setColor(color(if (primary) R.color.haohao_honey else R.color.haohao_segment_surface))
+            }, null,
+        )
+        binding.learningButton.setTextColor(color(if (primary) R.color.haohao_on_honey else R.color.haohao_cocoa))
+    }
+
+    /** One atomic, generation-checked write; no optimistic toggle or page rebuild. */
+    private fun mutateMeaning(binding: MeaningBinding, extraControls: List<View> = emptyList(), succeeded: () -> Unit = {}, write: suspend () -> Unit) {
+        if (busy || !meaningIsCurrent(binding)) return
+        busy = true
+        val controls = listOf(binding.favoriteButton, binding.learningButton) + extraControls
+        controls.forEach { it.isEnabled = false }
+        binding.more.isEnabled = false
+        lifecycleScope.launch {
+            try {
+                val updated = store.database.withTransaction {
+                    check(binding.generation == learning.generation)
+                    write()
+                    check(binding.generation == learning.generation)
+                    learning.find(binding.chinese, binding.english) to store.isFavorite(binding.chinese)
+                }
+                if (meaningIsCurrent(binding)) {
+                    binding.saved = updated.first
+                    binding.legacyFavorite = updated.second
+                    updateMeaningActions(binding)
+                    succeeded()
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                if (meaningIsCurrent(binding)) toast(R.string.words_error)
+            } finally {
+                busy = false
+                if (meaningIsCurrent(binding)) {
+                    controls.forEach { it.isEnabled = true }
+                    binding.more.isEnabled = true
+                }
+            }
+        }
+    }
+
+    private fun toggleMeaningFavorite(binding: MeaningBinding) {
+        val favorite = binding.favorite
+        val save = {
+            mutateMeaning(binding) {
+                learning.saveMeaning(binding.chinese, binding.english, binding.phonetic, binding.source, favorite = !favorite, generation = binding.generation)
+                if (favorite && binding.legacyFavorite) store.setFavorite(binding.chinese, false, System.currentTimeMillis())
+            }
+        }
+        if (favorite) save() else confirmMeaning(binding, R.string.words_confirm_save, save = save)
+    }
+
+    private fun toggleMeaningLearning(binding: MeaningBinding) {
+        val isLearning = binding.isLearning
+        confirmMeaning(binding, if (isLearning) R.string.words_remove_learning else R.string.words_confirm_learning, isLearning) {
+            mutateMeaning(binding) {
+                learning.saveMeaning(binding.chinese, binding.english, binding.phonetic, binding.source, favorite = binding.saved?.favorite ?: binding.legacyFavorite, learning = !isLearning, generation = binding.generation)
+            }
+        }
+    }
+
+    private fun confirmMeaning(binding: MeaningBinding, title: Int, removing: Boolean = false, save: () -> Unit) {
+        if (busy || !meaningIsCurrent(binding) || journalSheet?.isShowing == true) return
+        showJournalSheet(SentenceSheet(this, getString(title)).apply {
+            description("${binding.english}\n${binding.chinese}")
+            description(if (removing) getString(R.string.words_pause_notice) else "${meaningSource(binding.source)}\n${getString(R.string.reading_save_local)}")
+            action(getString(android.R.string.ok), true, save)
+            action(getString(android.R.string.cancel))
+        })
+    }
+
+    private fun showMeaningMore(binding: MeaningBinding) {
+        if (busy || !meaningIsCurrent(binding) || journalSheet?.isShowing == true) return
+        showJournalSheet(SentenceSheet(this, getString(R.string.reading_more)).apply {
+            description(meaningSource(binding.source))
+            if (binding.saved != null) action(getString(R.string.words_correct_case)) { editMeaningCase(binding) }
+            action(getString(R.string.sentences_close))
+        })
+    }
+
+    private fun editMeaningCase(binding: MeaningBinding) {
+        if (busy || !meaningIsCurrent(binding)) return
+        val edit = AppCompatEditText(this).apply {
+            tag = "learning.detail.case.input"
+            setText(binding.english)
+            textSize = 24f
+            minHeight = dp(56)
+            setTextColor(color(R.color.haohao_cocoa))
+            setPadding(dp(12), dp(10), dp(12), dp(10))
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+            imeOptions = EditorInfo.IME_ACTION_DONE or EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING
+            setSelectAllOnFocus(true)
+        }
+        val sheet = SentenceSheet(this, getString(R.string.words_correct_case)).apply {
+            description(getString(R.string.words_correct_case_hint))
+            body.addView(edit, LinearLayout.LayoutParams(-1, -2))
+        }
+        val previous = content
+        content = sheet.body
+        lateinit var save: AppCompatButton
+        save = button(getString(android.R.string.ok), true) {
+            val value = edit.text.toString()
+            if (normalizeSavedEnglish(value) != normalizeSavedEnglish(binding.english)) {
+                edit.error = getString(R.string.words_correct_case_hint)
+            } else {
+                mutateMeaning(binding, listOf(save, edit), { sheet.dismiss() }) {
+                    learning.correctCase(binding.chinese, binding.english, value, binding.generation)
+                }
+            }
+        }.apply { tag = "learning.detail.case.save" }
+        content = previous
+        sheet.action(getString(android.R.string.cancel))
+        showJournalSheet(sheet)
     }
 
     private fun modeTitle(mode: ReviewMode): String = getString(
@@ -997,27 +1164,30 @@ class WordLearningActivity : AppCompatActivity() {
         showingReview = false
         page(R.string.words_plan_settings)
         val settings = learning.settings()
+        val draft = planDraft ?: DailyPlanDraft(settings.planEnabled, settings.newLimit.toString(), settings.reviewLimit.toString(), settings.selectedMode().name)
+        planDraft = draft
         label(getString(R.string.study_plan_heading), 26f, true)
-        label(getString(R.string.words_plan_changes_next_round), 13f)
+        label(getString(if (pendingDailyStart) R.string.wordbooks_enable_start else R.string.words_plan_changes_next_round), 13f)
         val enabled = SwitchCompat(this).apply {
             text = getString(R.string.words_plan_enable)
             thumbTintList = ContextCompat.getColorStateList(this@WordLearningActivity, R.color.haohao_switch_thumb)
             trackTintList = ContextCompat.getColorStateList(this@WordLearningActivity, R.color.haohao_switch_track)
-            isChecked = settings.planEnabled
+            isChecked = draft.enabled
+            setOnCheckedChangeListener { _, checked -> planDraft = planDraft?.copy(enabled = checked) }
             minHeight = dp(56)
             setPadding(dp(14), dp(4), dp(14), dp(4))
             setBackgroundResource(R.drawable.haohao_segment_background)
             setTextColor(color(R.color.haohao_cocoa))
         }
         content.addView(enabled, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(20) })
-        fun number(title: Int, value: Int): AppCompatEditText {
+        fun number(title: Int, value: String): AppCompatEditText {
             val titleView = label(getString(title), emphasis = true)
             return AppCompatEditText(this).apply {
                 id = View.generateViewId()
                 titleView.labelFor = id
                 inputType = InputType.TYPE_CLASS_NUMBER
                 imeOptions = EditorInfo.IME_ACTION_DONE or EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING
-                setText(value.toString())
+                setText(value)
                 textSize = 26f
                 setPadding(dp(16), dp(12), dp(16), dp(12))
                 setBackgroundResource(R.drawable.haohao_segment_background)
@@ -1027,22 +1197,62 @@ class WordLearningActivity : AppCompatActivity() {
                 content.addView(this, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(16) })
             }
         }
-        val newWords = number(R.string.words_plan_new, settings.newLimit)
-        val dueWords = number(R.string.words_plan_due, settings.reviewLimit)
-        var selectedMode = settings.selectedMode()
+        val newWords = number(R.string.words_plan_new, draft.fresh).apply {
+            doAfterTextChanged { planDraft = planDraft?.copy(fresh = it.toString()) }
+        }
+        val dueWords = number(R.string.words_plan_due, draft.reviews).apply {
+            doAfterTextChanged { planDraft = planDraft?.copy(reviews = it.toString()) }
+        }
+        var selectedMode = ReviewMode.entries.firstOrNull { it.name == draft.modeName } ?: settings.selectedMode()
         label(getString(R.string.study_modes), 22f, true)
-        modePicker(selectedMode) { selectedMode = it }
-        button(getString(R.string.words_plan_save), true) {
+        modePicker(selectedMode) {
+            selectedMode = it
+            planDraft = planDraft?.copy(modeName = it.name)
+        }
+        button(getString(if (pendingDailyStart) R.string.wordbooks_save_start else R.string.words_plan_save), true) {
             val fresh = newWords.text.toString().toIntOrNull()
             val due = dueWords.text.toString().toIntOrNull()
             if (fresh == null || fresh !in 1..50 || due == null || due !in 1..100) {
                 toast(R.string.words_plan_limits)
             } else {
                 action {
-                    learning.saveSettings(enabled.isChecked, fresh, due, selectedMode == ReviewMode.CHINESE, selectedMode)
+                    val requested = pendingDailyStart && enabled.isChecked
+                    val generation = learningGeneration
+                    learning.saveSettings(enabled.isChecked, fresh, due, selectedMode == ReviewMode.CHINESE, selectedMode, generation)
+                    pendingDailyStart = false
+                    planDraft = null
                     androidx.core.view.WindowCompat.getInsetsController(window, root).hide(WindowInsetsCompat.Type.ime())
-                    renderPlan()
+                    if (requested && generation == learning.generation) startRequestedDaily() else renderPlan()
                 }
+            }
+        }
+    }
+
+    private suspend fun startRequestedDaily() {
+        // Retain the request across every suspension, including a blocked Room
+        // transaction. Recreated activities safely resume the store's same session.
+        pendingDailyStart = true
+        val settings = learning.settings()
+        val summary = learning.summary()
+        val dashboard = learning.progress.dashboard(System.currentTimeMillis())
+        when (dailyStartDestination(
+            settings.planEnabled,
+            summary.active != null,
+            dashboard.task != null,
+            (dashboard.total - dashboard.done).coerceAtLeast(0),
+            summary.plannedNew + summary.plannedDue,
+        )) {
+            DailyStartDestination.SETTINGS -> {
+                pendingDailyStart = true
+                renderPlanSettings()
+            }
+            DailyStartDestination.REVIEW -> {
+                renderReview(learning.startSession(daily = true))
+                pendingDailyStart = false
+            }
+            DailyStartDestination.HOME -> {
+                pendingDailyStart = false
+                renderPlan()
             }
         }
     }
@@ -1112,11 +1322,33 @@ class WordLearningActivity : AppCompatActivity() {
             return
         }
         val current = word
-        label(getString(R.string.words_review_progress, session.completed, session.total), 14f)
-        if (practiceReview) label(getString(R.string.learning_practice_note), 13f)
         val mode = session.currentMode
         val reverse = mode != ReviewMode.ENGLISH
-        label(modeTitle(mode) + " · " + modeHint(mode), 14f)
+        val header = LinearLayout(this).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            isBaselineAligned = false
+            tag = "learning.review.header"
+        }
+        header.addView(TextView(this).apply {
+            text = modeTitle(mode)
+            textSize = 13f
+            setTextColor(color(R.color.learning_word_ink))
+        }, LinearLayout.LayoutParams(0, -2, 1f))
+        header.addView(TextView(this).apply {
+            text = getString(R.string.reading_progress_short, session.completed, session.total)
+            contentDescription = getString(R.string.words_review_progress, session.completed, session.total)
+            textSize = 13f
+            gravity = Gravity.END
+            setTextColor(color(R.color.haohao_cocoa_secondary))
+        }, LinearLayout.LayoutParams(-2, -2))
+        content.addView(header, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(10) })
+        content.addView(android.widget.ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
+            max = session.total.coerceAtLeast(1)
+            progress = session.completed
+            progressTintList = ColorStateList.valueOf(color(R.color.learning_word_ink))
+            progressBackgroundTintList = ColorStateList.valueOf(color(R.color.haohao_divider))
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+        }, LinearLayout.LayoutParams(-1, dp(3)).apply { bottomMargin = dp(16) })
         val pageContent = content
         val cardSurface = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -1353,13 +1585,17 @@ class WordLearningActivity : AppCompatActivity() {
         }
     }
 
-    private fun renderReferences(target: LinearLayout, entry: com.osfans.trime.data.footprints.StudyWord?) {
+    private fun renderReferences(target: LinearLayout, entry: com.osfans.trime.data.footprints.StudyWord?, meaning: String) {
         val previous = content
         content = target
-        sectionHeading(getString(R.string.learning_other_meanings))
         if (entry == null) {
+            sectionHeading(getString(R.string.learning_other_meanings))
             label(getString(R.string.learning_missing))
         } else {
+            sectionHeading(getString(R.string.learning_examples))
+            val terms = com.osfans.trime.data.footprints.studyEnglishTerms(entry.word, entry)
+            if (entry.examples.isEmpty()) label(getString(R.string.learning_missing)) else renderExample(entry.examples.first(), terms, meaning)
+            sectionHeading(getString(R.string.learning_other_meanings))
             fun meanings(values: List<String>) {
                 values.forEach { value ->
                     val text = android.text.SpannableString(value)
@@ -1373,39 +1609,26 @@ class WordLearningActivity : AppCompatActivity() {
                     }
                 }
             }
-            meanings(entry.meanings.take(3))
+            if (entry.meanings.isEmpty()) label(getString(R.string.learning_missing)) else meanings(entry.meanings.take(3))
             if (entry.meanings.size > 3) {
-                val extra = LinearLayout(this).apply {
-                    orientation = LinearLayout.VERTICAL
-                    visibility = View.GONE
-                }
-                target.addView(extra)
-                val toggle = button(getString(R.string.learning_expand)) { extra.visibility = View.VISIBLE }
-                content = extra
-                meanings(entry.meanings.drop(3))
-                content = target
-                toggle.setOnClickListener {
-                    extra.visibility = View.VISIBLE
-                    toggle.visibility = View.GONE
-                }
+                readingDisclosure("meanings", R.string.learning_expand, R.string.reading_collapse_meanings) { meanings(entry.meanings.drop(3)) }
             }
             if (entry.definition.isNotBlank()) {
-                sectionHeading(getString(R.string.learning_english_definitions))
-                label(entry.definition, 15f)
+                readingDisclosure("definition", R.string.learning_english_definitions) { label(entry.definition, 17f) }
             }
-            sectionHeading(getString(R.string.learning_examples))
-            if (entry.examples.isEmpty()) {
-                label(getString(R.string.learning_missing))
-            } else {
-                entry.examples.forEach { renderExample(it, com.osfans.trime.data.footprints.studyEnglishTerms(entry.word, entry), intent.getStringExtra(EXTRA_CHINESE).orEmpty()) }
+            if (entry.examples.size > 1) {
+                readingDisclosure("examples", R.string.reading_more_examples) {
+                    entry.examples.drop(1).forEach { renderExample(it, terms, meaning) }
+                }
             }
-            sectionHeading(getString(R.string.learning_forms))
-            val names = mapOf("p" to "过去式", "d" to "过去分词", "i" to "现在分词", "3" to "第三人称", "r" to "比较级", "t" to "最高级", "s" to "复数", "0" to "原形")
-            val forms = entry.forms.mapNotNull { form ->
-                val parts = form.split(':', limit = 2)
-                names[parts[0]]?.let { "$it  ${parts[1]}" }
+            readingDisclosure("forms", R.string.learning_forms) {
+                val names = mapOf("p" to "过去式", "d" to "过去分词", "i" to "现在分词", "3" to "第三人称", "r" to "比较级", "t" to "最高级", "s" to "复数", "0" to "原形")
+                val forms = entry.forms.mapNotNull { form ->
+                    val parts = form.split(':', limit = 2)
+                    if (parts.size == 2) names[parts[0]]?.let { "$it  ${parts[1]}" } else null
+                }
+                label(forms.joinToString("\n").ifBlank { getString(R.string.learning_missing) })
             }
-            label(forms.joinToString("\n").ifBlank { getString(R.string.learning_missing) })
             readingAction("ECDICT · MIT · 资料来源") {
                 val notice = assets.open("learning/NOTICE.txt").bufferedReader().use { it.readText() }
                 val license = assets.open("learning/ECDICT-LICENSE.txt").bufferedReader().use { it.readText() }
@@ -1421,6 +1644,33 @@ class WordLearningActivity : AppCompatActivity() {
             }
         }
         content = previous
+    }
+
+    private fun readingDisclosure(key: String, title: Int, expandedTitle: Int = title, render: () -> Unit) {
+        val parent = content
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            tag = "learning.detail.panel.$key"
+            visibility = if (key in meaningExpanded) View.VISIBLE else View.GONE
+        }
+        lateinit var toggle: AppCompatButton
+        fun update() {
+            val expanded = key in meaningExpanded
+            panel.visibility = if (expanded) View.VISIBLE else View.GONE
+            val label = getString(if (expanded) expandedTitle else title)
+            toggle.text = "$label   ${if (expanded) "−" else "+"}"
+            toggle.contentDescription = getString(R.string.reading_section_state, label, getString(if (expanded) R.string.reading_collapse else R.string.reading_expand))
+            toggle.isSelected = expanded
+        }
+        toggle = readingAction("") {
+            if (!meaningExpanded.add(key)) meaningExpanded.remove(key)
+            update()
+        }.apply { tag = "learning.detail.section.$key" }
+        parent.addView(panel, LinearLayout.LayoutParams(-1, -2))
+        content = panel
+        render()
+        content = parent
+        update()
     }
 
     private fun sessionDescription(session: WordReviewSession): String = getString(
@@ -1466,6 +1716,7 @@ class WordLearningActivity : AppCompatActivity() {
         private const val EXTRA_ENGLISH = "words.english"
         private const val EXTRA_PHONETIC = "words.phonetic"
         private const val EXTRA_SOURCE = "words.source"
+        private const val EXTRA_START_DAILY = "words.startDaily"
         private const val MODE_REVIEW = "review"
         private const val MODE_PLAN = "plan"
 
@@ -1480,6 +1731,10 @@ class WordLearningActivity : AppCompatActivity() {
 
         fun openReview(context: Context, daily: Boolean = false) {
             context.startActivity(Intent(context, WordLearningActivity::class.java).putExtra(EXTRA_MODE, if (daily) MODE_PLAN else MODE_REVIEW))
+        }
+
+        internal fun startDaily(context: Context) {
+            context.startActivity(Intent(context, WordLearningActivity::class.java).putExtra(EXTRA_MODE, MODE_PLAN).putExtra(EXTRA_START_DAILY, true))
         }
 
         internal fun statusText(context: Context, word: SavedWordEntity, now: Long = System.currentTimeMillis()): String = when {

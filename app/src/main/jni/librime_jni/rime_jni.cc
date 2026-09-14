@@ -472,6 +472,9 @@ class Rime {
     trime_traits.shared_data_dir = sharedDir;
     trime_traits.user_data_dir = userDir;
     trime_traits.log_dir = "";  // set empty log_dir to log to logcat only
+    // INFO/DLOG can contain input and candidate text and flood logcat while
+    // decoding long compositions. Keep engine errors, never routine text logs.
+    trime_traits.min_log_level = 2;  // ERROR
     trime_traits.app_name = "rime.trime";
     trime_traits.distribution_name = "Trime";
     trime_traits.distribution_code_name = "trime";

@@ -24,6 +24,7 @@ import com.osfans.trime.data.footprints.selectedMode
 import com.osfans.trime.data.prefs.AppPrefs
 import com.osfans.trime.ui.main.footprints.WordLearningActivity
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -135,24 +136,37 @@ class LearningModesUiTest {
     }
     private fun launch() = ActivityScenario.launch<WordLearningActivity>(Intent(context, WordLearningActivity::class.java).putExtra("words.mode", "review"))
 
-    @Test fun modesHideAnswersAndSupportTouchRecreationCompletionAndUndo() {
+    private fun stage(name: String) {
+        instrumentation.sendStatus(2, android.os.Bundle().apply { putString("stream", "\nLearningModes: $name\n") })
+    }
+
+    private fun <T> database(block: suspend () -> T): T = runBlocking { withTimeout(10_000) { block() } }
+
+    @Test(timeout = 180_000) fun modesHideAnswersAndSupportTouchRecreationCompletionAndUndo() {
         assertTrue(context.packageName.endsWith(".regression"))
         val theme = AppPrefs.defaultInstance().advanced.uiMode
         val original = theme.getValue()
         theme.setValue(if (InstrumentationRegistry.getArguments().getString("dark") == "true") AppPrefs.Advanced.UiMode.DARK else AppPrefs.Advanced.UiMode.LIGHT)
         instrumentation.uiAutomation.setRotation(android.app.UiAutomation.ROTATION_FREEZE_0)
         try {
-            foreground()
             ReviewMode.entries.forEach { selected ->
-                runBlocking {
+                stage("${selected.name}: fixture-start")
+                database {
                     learning.clearAll()
                     learning.saveSettings(false, 5, 10, false)
                     learning.setReviewMode(selected)
                     learning.saveMeaning("不同寻常的；令人惊叹的；出乎意料的", "extraordinary", "/ɪkˈstrɔːdənəri/", "offline", learning = true, now = 1)
                 }
+                // Closing a preceding scenario can background the whole task on
+                // this OEM. Every new round needs the same foreground prerequisite.
+                stage("${selected.name}: foreground-start")
+                foreground()
+                stage("${selected.name}: launch-start")
                 launch().use { scenario ->
+                    stage("${selected.name}: launch-ready")
                     val spelling = selected == ReviewMode.SPELLING
                     waitFor { text(scenario, if (spelling) R.string.study_spelling_check else R.string.words_reveal) }
+                    stage("${selected.name}: question-ready")
                     scenario.onActivity { a ->
                         val visible = views(a.window.decorView).filter { it.isShown }.filterIsInstance<TextView>().map { it.text.toString() }.toList()
                         if (selected == ReviewMode.CHINESE || spelling) {
@@ -178,7 +192,7 @@ class LearningModesUiTest {
                         // The native IME switches layouts asynchronously after a window resize.
                         waitFor { com.osfans.trime.daemon.RimeDaemon.getFirstSessionOrNull()?.run { statusCached }?.isAsciiMode == true }
                         instrumentation.sendStringSync("extrordinary")
-                        waitFor { runBlocking { learning.session()?.spellingDraft == "extrordinary" } }
+                        waitFor { database { learning.session()?.spellingDraft == "extrordinary" } }
                         capture(scenario, "spelling-keyboard")
                         waitFor {
                             var fullyVisible = false
@@ -200,21 +214,25 @@ class LearningModesUiTest {
                         touch(scenario, R.string.words_reveal)
                     }
                     waitFor { text(scenario, R.string.words_uncertain) }
+                    stage("${selected.name}: answer-ready")
                     capture(scenario, "${selected.name}-answer")
                     scenario.recreate()
                     waitFor { text(scenario, R.string.words_uncertain) }
-                    assertEquals(0, runBlocking { learning.savedWords().single().reviewCount })
+                    assertEquals(0, database { learning.savedWords().single().reviewCount })
                     touch(scenario, R.string.words_uncertain)
                     waitFor { text(scenario, R.string.words_review_done) }
+                    stage("${selected.name}: rating-completed")
                     capture(scenario, "${selected.name}-done")
                     touch(scenario, R.string.words_undo)
                     waitFor { text(scenario, R.string.words_uncertain) }
-                    assertEquals(0, runBlocking { learning.savedWords().single().reviewCount })
-                    assertEquals(0, runBlocking { learning.progress.events().size })
+                    assertEquals(0, database { learning.savedWords().single().reviewCount })
+                    assertEquals(0, database { learning.progress.events().size })
+                    stage("${selected.name}: undo-verified")
                 }
+                stage("${selected.name}: closed")
             }
         } finally {
-            runBlocking {
+            database {
                 learning.clearAll()
                 learning.saveSettings(false, 5, 10, false)
             }
@@ -223,9 +241,10 @@ class LearningModesUiTest {
         }
     }
 
-    @Test fun dashboardModesStatisticsAndProfileAreReachable() {
+    @Test(timeout = 90_000) fun dashboardModesStatisticsAndProfileAreReachable() {
         assertTrue(context.packageName.endsWith(".regression"))
-        runBlocking {
+        stage("dashboard: fixture-start")
+        database {
             learning.clearAll()
             learning.saveSettings(true, 5, 10, false)
             learning.saveMeaning("学习", "learn", null, "offline", learning = true, favorite = true, now = 1)
@@ -239,15 +258,18 @@ class LearningModesUiTest {
                 }
             }
         }
+        stage("dashboard: foreground-start")
         foreground()
         try {
+            stage("dashboard: launch-start")
             ActivityScenario.launch<WordLearningActivity>(Intent(context, WordLearningActivity::class.java).putExtra("words.mode", "plan")).use { scenario ->
+                stage("dashboard: launch-ready")
                 waitFor { text(scenario, R.string.wordbooks_change_mode) }
                 capture(scenario, "dashboard")
                 touch(scenario, R.string.wordbooks_change_mode)
                 touch(scenario, R.string.study_mode_mixed)
                 touch(scenario, R.string.words_plan_save)
-                waitFor { runBlocking { learning.settings().selectedMode() == ReviewMode.MIXED } }
+                waitFor { database { learning.settings().selectedMode() == ReviewMode.MIXED } }
                 touch(scenario, R.string.study_stats)
                 waitFor { text(scenario, R.string.study_trend) }
                 capture(scenario, "statistics")
@@ -269,7 +291,7 @@ class LearningModesUiTest {
                 waitFor { text(scenario, R.string.study_profile_heading) }
             }
         } finally {
-            runBlocking {
+            database {
                 learning.clearAll()
                 learning.saveSettings(false, 5, 10, false)
             }

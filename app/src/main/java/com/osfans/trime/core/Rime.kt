@@ -163,9 +163,14 @@ class Rime :
         }
     }
 
-    private suspend inline fun <T> withRimeContext(crossinline block: suspend () -> T): T = withContext(dispatcher) {
-        block()
-    }
+    private suspend inline fun <T> withRimeContext(crossinline block: suspend () -> T): T = runOnRimeDispatcher(
+        dispatcher = dispatcher,
+        applyCommitContext = {
+            commitSessionId = it.inputSessionId
+            commitSentence = it.sentence
+        },
+        block = block,
+    )
 
     override suspend fun isEmpty(): Boolean = withRimeContext {
         getCurrentRimeSchema() == ".default" // 無方案
@@ -1015,7 +1020,6 @@ class Rime :
             params: Array<Any>,
         ) {
             val message = RimeMessage.nativeCreate(type, params)
-            Timber.d("Handling $message")
             rimeMessageHandlers.forEach { it.invoke(message) }
             messageFlow_.tryEmit(message)
         }

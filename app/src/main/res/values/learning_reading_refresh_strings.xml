@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="reading_more">更多</string>
+    <string name="reading_more_examples">更多例句</string>
+    <string name="reading_collapse_meanings">收起释义</string>
+    <string name="reading_expand">展开</string>
+    <string name="reading_collapse">收起</string>
+    <string name="reading_section_state">%1$s，%2$s</string>
+    <string name="reading_progress_short">%1$d / %2$d</string>
+    <string name="reading_save_local">这个词和释义只保存在本机。</string>
+</resources>

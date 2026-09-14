@@ -183,9 +183,7 @@ open class TrimeInputMethodService : LifecycleInputMethodService() {
         val sentence = inputView?.sentenceCommitSnapshot()
         return inputPipeline.postBarrier {
             rime.runOnReady {
-                setCommitSessionId(inputSessionId)
-                setCommitSentence(sentence)
-                block()
+                withCommitContext(inputSessionId, sentence, block)
             }
         }
     }
@@ -198,9 +196,7 @@ open class TrimeInputMethodService : LifecycleInputMethodService() {
         val sentence = inputView?.sentenceCommitSnapshot()
         return inputPipeline.postKey {
             rime.runOnReady {
-                setCommitSessionId(inputSessionId)
-                setCommitSentence(sentence)
-                block()
+                withCommitContext(inputSessionId, sentence, block)
             }
         }
     }
@@ -387,9 +383,9 @@ open class TrimeInputMethodService : LifecycleInputMethodService() {
                                     if (it.value.value > 0) {
                                         runCatching {
                                             commitText(Character.toString(it.value.value))
-                                        }.getOrElse { t -> Timber.w(t, "Unhandled Virtual KeyEvent: $it") }
+                                        }.getOrElse { t -> Timber.w(t, "Unable to commit an unhandled virtual key") }
                                     } else {
-                                        Timber.w("Unhandled Virtual KeyEvent: $it")
+                                        Timber.w("Unhandled virtual key without a character")
                                     }
                                 }
                             }
@@ -408,9 +404,9 @@ open class TrimeInputMethodService : LifecycleInputMethodService() {
                             if (!it.modifiers.release && it.value.value > 0) {
                                 runCatching {
                                     commitText(Character.toString(it.value.value))
-                                }.getOrElse { t -> Timber.w(t, "Unhandled Rime KeyEvent: $it") }
+                                }.getOrElse { t -> Timber.w(t, "Unable to commit an unhandled physical key") }
                             } else {
-                                Timber.w("Unhandled Rime KeyEvent: $it")
+                                Timber.w("Unhandled physical key without a character")
                             }
                         }
                     }
@@ -1130,7 +1126,6 @@ open class TrimeInputMethodService : LifecycleInputMethodService() {
             }
             return true
         }
-        Timber.d("Skipped KeyEvent: $event")
         return false
     }
 

@@ -14,7 +14,6 @@ object KeyCode {
     fun isStandardKey(code: Int): Boolean = code in 1 until RimeKeyMapping.SYMBOL_CODE_OFFSET
 
     fun nameToKeyCode(name: String): Int {
-        Timber.d("nameToKeyCode: $name")
         if (name.isEmpty()) return KeyEvent.KEYCODE_UNKNOWN
 
         RimeKeyMapping.upperNameToCode(name)?.let { return it }
@@ -51,7 +50,6 @@ object KeyCode {
     ): String = if (isStandardKey(code)) {
         if (virtualKeyCharacterMap.isPrintingKey(code)) {
             val charCode = virtualKeyCharacterMap.get(code, mask)
-            Timber.d("getDisplayLabel: keyCode=$code, mask=$mask, charCode=$charCode")
             if (charCode > 0) {
                 charCode.toChar().toString()
             } else {

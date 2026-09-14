@@ -52,7 +52,9 @@ class WordbookUiTest {
         val pref = com.osfans.trime.data.prefs.AppPrefs.defaultInstance().advanced.uiMode
         oldTheme = pref.getValue()
         pref.setValue(if (InstrumentationRegistry.getArguments().getString("dark") == "true") com.osfans.trime.data.prefs.AppPrefs.Advanced.UiMode.DARK else com.osfans.trime.data.prefs.AppPrefs.Advanced.UiMode.LIGHT)
-        instrumentation.uiAutomation.setRotation(android.app.UiAutomation.ROTATION_FREEZE_0)
+        instrumentation.uiAutomation.setRotation(
+            if (InstrumentationRegistry.getArguments().getString("landscape") == "true") android.app.UiAutomation.ROTATION_FREEZE_90 else android.app.UiAutomation.ROTATION_FREEZE_0,
+        )
     }
 
     @org.junit.After fun reset() {
@@ -102,18 +104,43 @@ class WordbookUiTest {
         press(target)
     }
     private fun press(target: TextView) {
-        waitFor {
-            var focused = false
-            instrumentation.runOnMainSync { focused = target.hasWindowFocus() }
-            focused
-        }
-        SystemClock.sleep(100)
         val rect = Rect()
         val location = IntArray(2)
+        val deadline = SystemClock.elapsedRealtime() + 5000
+        var reachable = false
+        do {
+            instrumentation.runOnMainSync {
+                if (target.isAttachedToWindow && target.width > 0 && target.height > 0) {
+                    target.requestRectangleOnScreen(Rect(0, 0, target.width, target.height), true)
+                    // Screenshot traversal and EditText relayout can leave a deeply
+                    // nested mode button outside the short landscape viewport.
+                    generateSequence(target.parent as? View) { it.parent as? View }
+                        .filterIsInstance<android.widget.ScrollView>().forEach { scroll ->
+                            val bounds = Rect(0, 0, target.width, target.height)
+                            scroll.offsetDescendantRectToMyCoords(target, bounds)
+                            val viewport = scroll.height - scroll.paddingTop - scroll.paddingBottom
+                            scroll.scrollTo(scroll.scrollX, (bounds.centerY() - scroll.paddingTop - viewport / 2).coerceAtLeast(0))
+                        }
+                }
+            }
+            instrumentation.waitForIdleSync()
+            SystemClock.sleep(100)
+            instrumentation.runOnMainSync {
+                reachable = target.isEnabled && target.hasWindowFocus() && target.getGlobalVisibleRect(rect) &&
+                    rect.width() == target.width && rect.height() == target.height
+            }
+        } while (!reachable && SystemClock.elapsedRealtime() < deadline)
         instrumentation.runOnMainSync {
-            assertTrue(target.isEnabled && target.getGlobalVisibleRect(rect))
-            assertEquals("Button must be fully reachable: ${target.text}", target.height, rect.height())
-            assertTrue("Clipped button text: ${target.text}", target.layout.height <= target.height - target.totalPaddingTop - target.totalPaddingBottom)
+            val visible = target.getGlobalVisibleRect(rect)
+            val scrolls = generateSequence(target.parent as? View) { it.parent as? View }
+                .filterIsInstance<android.widget.ScrollView>().joinToString { "scrollY=${it.scrollY}, height=${it.height}" }
+            val details = "${target.text} / ${target.contentDescription}: attached=${target.isAttachedToWindow}, enabled=${target.isEnabled}, focused=${target.hasWindowFocus()}, bounds=$rect, size=${target.width}x${target.height}, $scrolls"
+            assertTrue("Disabled button: $details", target.isEnabled)
+            assertTrue("Unfocused button: $details", target.hasWindowFocus())
+            assertTrue("Button outside viewport: $details", visible)
+            assertEquals("Button must be fully reachable: $details", target.height, rect.height())
+            assertEquals("Button must be fully reachable: $details", target.width, rect.width())
+            assertTrue("Clipped button text: $details", target.layout.height <= target.height - target.totalPaddingTop - target.totalPaddingBottom)
             target.getLocationOnScreen(location)
         }
         val down = SystemClock.uptimeMillis()
@@ -125,6 +152,35 @@ class WordbookUiTest {
         instrumentation.waitForIdleSync()
     }
     private fun dialog(id: Int) = dialogText(context.getString(id))
+
+    private fun <A : AppCompatActivity> touchTag(scenario: ActivityScenario<A>, tag: String) {
+        lateinit var target: TextView
+        scenario.onActivity { target = requireNotNull(it.window.decorView.findViewWithTag<TextView>(tag)) }
+        press(target)
+    }
+
+    private fun <A : AppCompatActivity> waitForCheckboxes(scenario: ActivityScenario<A>, expected: Int) {
+        waitFor {
+            var count = 0
+            scenario.onActivity { a -> count = views(a.window.decorView).filterIsInstance<android.widget.CheckBox>().count() }
+            count == expected
+        }
+    }
+
+    private fun openBook(scenario: ActivityScenario<WordbookActivity>, name: String) {
+        lateinit var button: TextView
+        waitFor {
+            var found = false
+            scenario.onActivity { a ->
+                views(a.window.decorView).filterIsInstance<TextView>().firstOrNull { it.isClickable && it.text.toString().startsWith(name + "\n") }?.let {
+                    button = it
+                    found = true
+                }
+            }
+            found
+        }
+        press(button)
+    }
     private fun dialogText(text: String) {
         lateinit var target: TextView
         waitFor {
@@ -265,13 +321,14 @@ class WordbookUiTest {
                 release.complete(Unit)
                 runBlocking { lock.join() }
             }
-            waitFor { has(s, R.string.wordbooks_learn) }
+            waitFor { has(s, R.string.wordbooks_manage) }
             assertEquals(2, runBlocking { store.wordbooks.dao.counts(book.id, "", 1).total })
             assertEquals(before.single(), runBlocking { store.learning.find("你好", "hello") })
             val imported = runBlocking { store.learning.savedWords().first { it.english == "extraordinary" } }
             assertEquals("import", imported.source)
             assertFalse(imported.learning)
             capture(s, "personal-book")
+            touch(s, R.string.wordbooks_manage)
             touch(s, R.string.wordbooks_select_page)
             touch(s, R.string.wordbooks_learn)
             dialog(R.string.learning_backup_confirm)
@@ -319,10 +376,19 @@ class WordbookUiTest {
             waitFor { has(s, R.string.wordbooks_add_catalog) }
             capture(s, "catalog")
             touch(s, R.string.wordbooks_add_catalog, 0)
-            waitFor { has(s, R.string.wordbooks_learn_all) }
+            waitFor { has(s, R.string.wordbooks_select_start) }
             assertEquals(1000, runBlocking { store.learning.savedWords().size })
             assertTrue(runBlocking { store.learning.savedWords().none { it.learning } })
-            s.onActivity { a -> assertEquals(50, views(a.window.decorView).filterIsInstance<android.widget.CheckBox>().count()) }
+            s.onActivity { a -> assertEquals(0, views(a.window.decorView).filterIsInstance<android.widget.CheckBox>().count()) }
+            assertFalse(has(s, R.string.wordbooks_learn_all))
+            touch(s, R.string.wordbooks_manage)
+            // Rendering awaits Room after the click; main-looper idle alone does
+            // not mean the asynchronously loaded list has reached the screen.
+            waitFor {
+                var count = 0
+                s.onActivity { a -> count = views(a.window.decorView).filterIsInstance<android.widget.CheckBox>().count() }
+                count == 50
+            }
             touch(s, R.string.learning_weak_next)
             waitFor { has(s, R.string.learning_weak_previous) }
             s.recreate()
@@ -384,6 +450,7 @@ class WordbookUiTest {
         ActivityScenario.launch<WordbookActivity>(Intent(context, WordbookActivity::class.java)).use { s ->
             touch(s, R.string.wordbooks_create)
             name("工作英语")
+            touch(s, R.string.wordbooks_manage)
             waitFor { has(s, R.string.wordbooks_rename) }
             touch(s, R.string.wordbooks_rename)
             name("日常表达")
@@ -406,6 +473,218 @@ class WordbookUiTest {
             dialog(R.string.learning_backup_confirm)
             waitFor { has(s, R.string.wordbooks_added) }
             assertEquals(1, runBlocking { store.wordbooks.dao.counts(b.id, "", 1).total })
+        }
+    }
+
+    @Test fun selectedWordsRequireConfirmationAndFirstPlanRequiresOptIn() {
+        boot()
+        val book = runBlocking {
+            store.wordbooks.create("开始测试").also {
+                store.wordbooks.importWords(it.id, listOf(ImportWord("hello", "你好"), ImportWord("world", "世界"), ImportWord("learn", "学习")))
+            }
+        }
+        ActivityScenario.launch<WordbookActivity>(Intent(context, WordbookActivity::class.java)).use { s ->
+            openBook(s, book.name)
+            waitFor { has(s, R.string.wordbooks_select_start) }
+            assertFalse(has(s, R.string.wordbooks_select_learning))
+            assertTrue(has(s, R.string.wordbooks_manage))
+            capture(s, "start-browse")
+            touch(s, R.string.wordbooks_select_start)
+            waitForCheckboxes(s, 3)
+            repeat(2) { index ->
+                lateinit var checkbox: android.widget.CheckBox
+                s.onActivity { a -> checkbox = views(a.window.decorView).filterIsInstance<android.widget.CheckBox>().toList()[index] }
+                press(checkbox)
+            }
+            s.recreate()
+            waitFor { has(s, R.string.wordbooks_finish_selection) }
+            waitForCheckboxes(s, 3)
+            s.onActivity { a ->
+                assertEquals(2, views(a.window.decorView).filterIsInstance<android.widget.CheckBox>().count { it.isChecked })
+            }
+            capture(s, "start-selected")
+            touchTag(s, "wordbooks.selected.start")
+            dialog(R.string.learning_backup_cancel)
+            assertTrue(runBlocking { store.learning.savedWords().none { it.learning } })
+            val monitor = instrumentation.addMonitor(WordLearningActivity::class.java.name, null, false)
+            try {
+                touchTag(s, "wordbooks.selected.start")
+                dialog(R.string.learning_backup_confirm)
+                val plan = requireNotNull(instrumentation.waitForMonitorWithTimeout(monitor, 15000))
+                waitFor { runBlocking { store.learning.savedWords().count { it.learning } == 2 } }
+                assertFalse(runBlocking { store.learning.settings().planEnabled })
+                assertEquals(null, runBlocking { store.learning.session() })
+                assertTrue(runBlocking { store.learning.progress.events().isEmpty() })
+                dialog(R.string.words_plan_enable)
+                dialog(R.string.wordbooks_save_start)
+                waitFor { runBlocking { store.learning.session()?.cards?.size == 2 } }
+                assertEquals(2, runBlocking { store.learning.savedWords().count { it.learning } })
+                assertEquals(5, runBlocking { store.learning.settings().newLimit })
+                assertEquals(10, runBlocking { store.learning.settings().reviewLimit })
+                assertTrue(runBlocking { store.learning.progress.events().isEmpty() })
+                instrumentation.runOnMainSync { plan.finish() }
+            } finally {
+                instrumentation.removeMonitor(monitor)
+            }
+        }
+    }
+
+    @Test fun leavingUnconfirmedDailyStartDoesNotEnableOrRestartAfterRecreation() {
+        boot()
+        runBlocking { store.learning.saveMeaning("你好", "hello", null, "offline", learning = true) }
+        val intent = Intent(context, WordLearningActivity::class.java).putExtra("words.mode", "plan").putExtra("words.startDaily", true)
+        ActivityScenario.launch<WordLearningActivity>(intent).use { s ->
+            waitFor { has(s, R.string.wordbooks_save_start) }
+            capture(s, "start-plan-opt-in")
+            s.onActivity { a ->
+                val fields = views(a.window.decorView).filterIsInstance<EditText>().toList()
+                fields[0].setText("7")
+                fields[1].setText("19")
+            }
+            touch(s, R.string.study_mode_chinese)
+            s.recreate()
+            waitFor { has(s, R.string.wordbooks_save_start) }
+            s.onActivity { a ->
+                val fields = views(a.window.decorView).filterIsInstance<EditText>().toList()
+                assertEquals("7", fields[0].text.toString())
+                assertEquals("19", fields[1].text.toString())
+                assertTrue(views(a.window.decorView).filterIsInstance<TextView>().single { it.isClickable && it.text.toString() == context.getString(R.string.study_mode_chinese) }.isSelected)
+            }
+            s.onActivity { it.onBackPressedDispatcher.onBackPressed() }
+            waitFor { has(s, R.string.study_today) }
+            s.recreate()
+            waitFor { has(s, R.string.study_today) }
+            assertFalse(has(s, R.string.wordbooks_save_start))
+            assertFalse(runBlocking { store.learning.settings().planEnabled })
+            assertEquals(5, runBlocking { store.learning.settings().newLimit })
+            assertEquals(10, runBlocking { store.learning.settings().reviewLimit })
+            assertEquals(null, runBlocking { store.learning.settings().reviewMode })
+            assertEquals(null, runBlocking { store.learning.session() })
+            assertEquals(null, runBlocking { store.learning.progress.dashboard(System.currentTimeMillis()).task })
+        }
+    }
+
+    @Test fun dailyStartPreservesExistingSettingsSessionAndFrozenTargets() {
+        boot()
+        val original = runBlocking {
+            store.learning.saveSettings(true, 8, 20, false, ReviewMode.MIXED)
+            store.learning.saveMeaning("你好", "hello", null, "offline", learning = true)
+            store.learning.startSession(daily = true)
+        }
+        val targets = runBlocking { store.learning.progress.dashboard(System.currentTimeMillis()).targets }
+        runBlocking { store.learning.saveMeaning("世界", "world", null, "offline", learning = true) }
+        val intent = Intent(context, WordLearningActivity::class.java).putExtra("words.mode", "plan").putExtra("words.startDaily", true)
+        ActivityScenario.launch<WordLearningActivity>(intent).use { s ->
+            waitFor { has(s, R.string.words_reveal) }
+            s.recreate()
+            waitFor { has(s, R.string.words_reveal) }
+            val settings = runBlocking { store.learning.settings() }
+            assertEquals(8, settings.newLimit)
+            assertEquals(20, settings.reviewLimit)
+            assertEquals(ReviewMode.MIXED.name, settings.reviewMode)
+            assertEquals(original, runBlocking { store.learning.session() })
+            assertEquals(targets, runBlocking { store.learning.progress.dashboard(System.currentTimeMillis()).targets })
+            assertTrue(runBlocking { store.learning.progress.events().isEmpty() })
+        }
+    }
+
+    @Test fun backgroundSelectionCompletionStartsOnlyOnceWhenResumed() {
+        boot()
+        val book = runBlocking {
+            store.wordbooks.create("后台测试").also {
+                store.wordbooks.importWords(it.id, listOf(ImportWord("hello", "你好"), ImportWord("world", "世界")))
+            }
+        }
+        ActivityScenario.launch<WordbookActivity>(Intent(context, WordbookActivity::class.java)).use { s ->
+            openBook(s, book.name)
+            touch(s, R.string.wordbooks_select_start)
+            waitForCheckboxes(s, 2)
+            lateinit var model: WordbookActivity.State
+            lateinit var checkbox: android.widget.CheckBox
+            s.onActivity { a ->
+                model = androidx.lifecycle.ViewModelProvider(a)[WordbookActivity.State::class.java]
+                checkbox = views(a.window.decorView).filterIsInstance<android.widget.CheckBox>().first()
+            }
+            press(checkbox)
+            touchTag(s, "wordbooks.selected.start")
+            val entered = CompletableDeferred<Unit>()
+            val release = CompletableDeferred<Unit>()
+            val lock = CoroutineScope(Dispatchers.IO).launch {
+                store.database.withTransaction {
+                    entered.complete(Unit)
+                    release.await()
+                }
+            }
+            val monitor = instrumentation.addMonitor(WordLearningActivity::class.java.name, null, false)
+            runBlocking { entered.await() }
+            try {
+                dialog(R.string.learning_backup_confirm)
+                waitFor { has(s, R.string.wordbooks_busy) }
+                s.moveToState(androidx.lifecycle.Lifecycle.State.CREATED)
+                release.complete(Unit)
+                runBlocking { lock.join() }
+                waitFor {
+                    var ready = false
+                    instrumentation.runOnMainSync { ready = model.pendingDailyStart && !model.busy }
+                    ready
+                }
+                assertEquals(0, monitor.hits)
+                assertEquals(1, runBlocking { store.learning.savedWords().count { it.learning } })
+                s.moveToState(androidx.lifecycle.Lifecycle.State.RESUMED)
+                val plan = requireNotNull(instrumentation.waitForMonitorWithTimeout(monitor, 15000))
+                waitFor { monitor.hits == 1 }
+                assertFalse(runBlocking { store.learning.settings().planEnabled })
+                assertEquals(null, runBlocking { store.learning.session() })
+                instrumentation.runOnMainSync { plan.finish() }
+                s.moveToState(androidx.lifecycle.Lifecycle.State.RESUMED)
+                s.recreate()
+                waitFor { has(s, R.string.wordbooks_manage) }
+                assertEquals(1, monitor.hits)
+                assertEquals(1, runBlocking { store.learning.savedWords().count { it.learning } })
+            } finally {
+                release.complete(Unit)
+                runBlocking { lock.join() }
+                instrumentation.removeMonitor(monitor)
+            }
+        }
+    }
+
+    @Test fun blockedDailyStartSurvivesRecreationAndBuildsOneSession() {
+        boot()
+        runBlocking {
+            store.learning.saveSettings(true, 9, 17, true, ReviewMode.CHINESE)
+            store.learning.saveMeaning("你好", "hello", null, "offline", learning = true)
+        }
+        val entered = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        val lock = CoroutineScope(Dispatchers.IO).launch {
+            store.database.withTransaction {
+                entered.complete(Unit)
+                release.await()
+            }
+        }
+        runBlocking { entered.await() }
+        val intent = Intent(context, WordLearningActivity::class.java).putExtra("words.mode", "plan").putExtra("words.startDaily", true)
+        try {
+            ActivityScenario.launch<WordLearningActivity>(intent).use { s ->
+                s.recreate()
+                release.complete(Unit)
+                runBlocking { lock.join() }
+                waitFor { has(s, R.string.words_reveal) }
+                val original = requireNotNull(runBlocking { store.learning.session() })
+                assertEquals(1, original.cards.size)
+                s.recreate()
+                waitFor { has(s, R.string.words_reveal) }
+                assertEquals(original, runBlocking { store.learning.session() })
+                assertEquals(9, runBlocking { store.learning.settings().newLimit })
+                assertEquals(17, runBlocking { store.learning.settings().reviewLimit })
+                assertEquals(ReviewMode.CHINESE.name, runBlocking { store.learning.settings().reviewMode })
+                assertEquals(1, runBlocking { store.learning.progress.dashboard(System.currentTimeMillis()).targets.size })
+                assertTrue(runBlocking { store.learning.progress.events().isEmpty() })
+            }
+        } finally {
+            release.complete(Unit)
+            runBlocking { lock.join() }
         }
     }
 }

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="wordbooks_start_today">开始今日学习</string>
+    <string name="wordbooks_continue_today">继续学习</string>
+    <string name="wordbooks_select_start">选词开始</string>
+    <string name="wordbooks_select_learning">选词学习</string>
+    <string name="wordbooks_manage">管理</string>
+    <string name="wordbooks_finish_selection">返回浏览</string>
+    <string name="wordbooks_selected_start">加入这 %1$d 词并去学习</string>
+    <string name="wordbooks_selected_start_note">只加入所选 %1$d 词，保留进度。接下来进入统一每日计划；今天已安排的任务不变。</string>
+    <string name="wordbooks_enable_start">开启计划后，开始今日学习</string>
+    <string name="wordbooks_save_start">保存并开始</string>
+</resources>

@@ -38,6 +38,7 @@ import com.osfans.trime.ime.keyboard.Key
 import com.osfans.trime.ime.keyboard.KeyView
 import com.osfans.trime.ui.main.footprints.WordLearningActivity
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -57,6 +58,7 @@ class WordLearningUiTest {
 
     @Before
     fun configureIsolatedAppearance() {
+        stage("appearance-start")
         assertTrue(context.packageName.endsWith(".regression"))
         val args = InstrumentationRegistry.getArguments()
         AppPrefs.defaultInstance().advanced.uiMode.setValue(
@@ -66,6 +68,7 @@ class WordLearningUiTest {
             AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(args.getString("locale", "zh-CN")))
         }
         instrumentation.waitForIdleSync()
+        stage("appearance-ready")
     }
 
     @Test
@@ -523,42 +526,76 @@ class WordLearningUiTest {
         instrumentation.waitForIdleSync()
     }
 
-    @Test
+    @Test(timeout = 60_000)
     fun confirmedCaseCanBeCorrectedFromTheMeaningPage() {
         assertTrue(context.packageName.endsWith(".regression"))
+        stage("case-fixture-start")
         runBlocking {
-            store.clearAll()
-            store.learning.saveMeaning("中国", "China", "/ˈtʃaɪnə/", "offline", favorite = true, learning = true)
+            withTimeout(10_000) {
+                store.clearAll()
+                store.learning.saveMeaning("中国", "China", "/ˈtʃaɪnə/", "offline", favorite = true, learning = true)
+            }
         }
         try {
+            stage("case-fixture-ready")
             val intent = Intent(context, WordLearningActivity::class.java)
                 .putExtra("words.chinese", "中国").putExtra("words.english", "CHINA")
+            // Match the other review tests: this OEM blocks background launches.
+            // Starting MainActivity after launch has blocked cannot replay its old intent.
+            stage("case-foreground-start")
+            foreground()
+            stage("case-launch-start")
             ActivityScenario.launch<WordLearningActivity>(intent).use { scenario ->
-                awaitButton(scenario, R.string.words_correct_case)
+                stage("case-launch-ready")
+                awaitButton(scenario, R.string.reading_more)
                 capture("meaning-case")
-                click(scenario, R.string.words_correct_case)
+                click(scenario, R.string.reading_more)
+                stage("case-more-opened")
+                lateinit var correction: TextView
+                awaitCondition {
+                    var ready = false
+                    instrumentation.runOnMainSync {
+                        val target = WindowInspector.getGlobalWindowViews().flatMap { descendants(it).toList() }
+                            .filterIsInstance<TextView>().firstOrNull { it.isShown && it.isClickable && it.text.toString() == context.getString(R.string.words_correct_case) }
+                        if (target != null) { correction = target; ready = true }
+                    }
+                    ready
+                }
                 instrumentation.runOnMainSync {
+                    correction.performClick()
                     val views = WindowInspector.getGlobalWindowViews().flatMap { descendants(it).toList() }
-                    views.filterIsInstance<EditText>().first { it.isShown }.setText("CHINA")
-                    views.first { it.id == android.R.id.button1 && it.isShown }.performClick()
+                    views.filterIsInstance<EditText>().first { it.tag == "learning.detail.case.input" }.setText("CHINA")
+                    views.first { it.tag == "learning.detail.case.save" }.performClick()
                 }
-                awaitCondition { runBlocking { store.learning.find("中国", "china")!!.displayEnglish == "CHINA" } }
-                assertEquals(0, runBlocking { store.learning.find("中国", "China")!!.reviewCount })
+                awaitCondition { runBlocking { withTimeout(3000) { store.learning.find("中国", "china")!!.displayEnglish == "CHINA" } } }
+                assertEquals(0, runBlocking { withTimeout(3000) { store.learning.find("中国", "China")!!.reviewCount } })
+                stage("case-saved")
                 awaitButton(scenario, R.string.input_footprints_speak)
-                SystemClock.sleep(1_000)
+                assertFalse("This isolated flow must not already have speech consent", com.osfans.trime.data.speech.SpeechPlayback.consent(context))
                 click(scenario, R.string.input_footprints_speak)
-                SystemClock.sleep(1_000)
-                capture("speech-state")
-                instrumentation.runOnMainSync {
-                    val negative = WindowInspector.getGlobalWindowViews().flatMap { descendants(it).toList() }
-                        .first { it.id == android.R.id.button2 && it.isShown }
-                    negative.performClick()
+                lateinit var negative: View
+                awaitCondition {
+                    var found = false
+                    instrumentation.runOnMainSync {
+                        WindowInspector.getGlobalWindowViews().flatMap { descendants(it).toList() }
+                            .firstOrNull { it.id == android.R.id.button2 && it.isShown }?.let { negative = it; found = true }
+                    }
+                    found
                 }
+                capture("speech-state")
+                instrumentation.runOnMainSync { negative.performClick() }
                 assertFalse(com.osfans.trime.data.speech.SpeechPlayback.consent(context))
+                stage("case-speech-cancelled")
             }
         } finally {
-            runBlocking { store.clearAll() }
+            stage("case-cleanup-start")
+            runBlocking { withTimeout(10_000) { store.clearAll() } }
+            stage("case-cleanup-ready")
         }
+    }
+
+    private fun stage(name: String) {
+        instrumentation.sendStatus(2, android.os.Bundle().apply { putString("stream", "\nWordUI: $name\n") })
     }
 
     private fun awaitButton(scenario: ActivityScenario<WordLearningActivity>, title: Int) = awaitCondition {

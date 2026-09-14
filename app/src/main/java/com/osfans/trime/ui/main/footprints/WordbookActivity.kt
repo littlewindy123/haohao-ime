@@ -22,6 +22,7 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewModelScope
 import com.osfans.trime.R
@@ -46,6 +47,8 @@ class WordbookActivity : AppCompatActivity() {
         var bookId: String? = null
         var page = 0
         var search = ""
+        var bookMode = WordbookViewMode.BROWSE
+        var pendingDailyStart = false
         var busy = false
         var message = ""
         var generation = -1L
@@ -66,6 +69,8 @@ class WordbookActivity : AppCompatActivity() {
     private lateinit var root: LinearLayout
     private lateinit var content: LinearLayout
     private var renderJob: kotlinx.coroutines.Job? = null
+    private var dailyLaunchInFlight = false
+    private var selectionSheet: SentenceSheet? = null
     private val pick = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
             task {
@@ -109,6 +114,13 @@ class WordbookActivity : AppCompatActivity() {
                 state.bookId = it.getString("book")
                 state.page = it.getInt("page")
                 state.search = it.getString("search", "")
+                state.bookMode = wordbookViewMode(it.getString("bookMode"))
+                state.pendingDailyStart = it.getBoolean("pendingDailyStart")
+                val chinese = it.getStringArrayList("selectedChinese").orEmpty()
+                val english = it.getStringArrayList("selectedEnglish").orEmpty()
+                if (state.bookMode != WordbookViewMode.BROWSE && chinese.size == english.size) {
+                    state.selected.addAll(chinese.zip(english))
+                }
                 state.draftId = it.getString("draft", state.draftId)
                 state.csv = it.getBoolean("csv", true)
                 state.swapped = it.getBoolean("swapped")
@@ -139,11 +151,14 @@ class WordbookActivity : AppCompatActivity() {
     }
     override fun onResume() {
         super.onResume()
+        dailyLaunchInFlight = false
         if (InputFootprints.isAvailable && state.generation >= 0 && state.generation != store.generation && !state.busy) {
             state.generation = store.generation
             state.screen = "home"
             state.bookId = null
             state.selected.clear()
+            state.bookMode = WordbookViewMode.BROWSE
+            state.pendingDailyStart = false
             state.raw = null
             state.preview = null
             draft.delete()
@@ -154,11 +169,21 @@ class WordbookActivity : AppCompatActivity() {
             render()
         }
     }
+    override fun onPostResume() {
+        super.onPostResume()
+        // Lifecycle's ON_RESUME may be dispatched after this callback on API 29+.
+        // onPostResume itself guarantees the host resumed; do not check that state again.
+        consumeDailyStart()
+    }
     override fun onSaveInstanceState(out: Bundle) {
         out.putString("screen", state.screen)
         out.putString("book", state.bookId)
         out.putInt("page", state.page)
         out.putString("search", state.search)
+        out.putString("bookMode", state.bookMode.name)
+        out.putBoolean("pendingDailyStart", state.pendingDailyStart)
+        out.putStringArrayList("selectedChinese", ArrayList(state.selected.map { it.first }))
+        out.putStringArrayList("selectedEnglish", ArrayList(state.selected.map { it.second }))
         out.putString("draft", state.draftId)
         out.putBoolean("csv", state.csv)
         out.putBoolean("swapped", state.swapped)
@@ -166,11 +191,16 @@ class WordbookActivity : AppCompatActivity() {
         super.onSaveInstanceState(out)
     }
     override fun onDestroy() {
+        selectionSheet?.dismiss()
         if (isFinishing && !state.busy) draft.delete()
         super.onDestroy()
     }
     private fun back() {
         if (state.busy) return
+        if (state.screen == "book" && state.bookMode != WordbookViewMode.BROWSE) {
+            changeBookMode(WordbookViewMode.BROWSE)
+            return
+        }
         if (state.screen == "home") finish() else show(if (state.screen == "errors") "preview" else "home")
     }
     private fun show(screen: String, book: String? = state.bookId) {
@@ -179,11 +209,13 @@ class WordbookActivity : AppCompatActivity() {
         state.page = 0
         state.search = ""
         state.selected.clear()
+        state.bookMode = WordbookViewMode.BROWSE
         state.message = ""
         render()
     }
     private fun render() {
         if (!::root.isInitialized) return
+        if (lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) consumeDailyStart()
         renderJob?.cancel()
         renderJob = lifecycleScope.launch {
             root.removeAllViews()
@@ -260,6 +292,7 @@ class WordbookActivity : AppCompatActivity() {
                         state.screen = "book"
                         state.bookId = id
                         state.page = 0
+                        state.bookMode = WordbookViewMode.BROWSE
                     }
                 }
             }
@@ -279,8 +312,33 @@ class WordbookActivity : AppCompatActivity() {
         }
         label(b?.name ?: getString(R.string.wordbooks_ungrouped), 26f)
         label(counts(id), 15f)
-        button(R.string.wordbooks_learn_all, true) { batchLearning(true, true) }
-        button(R.string.wordbooks_plan) { startActivity(Intent(this, WordLearningActivity::class.java).putExtra("words.mode", "plan").putExtra("words.startSettings", true)) }
+        if (state.bookMode == WordbookViewMode.BROWSE) {
+            val summary = InputFootprints.store.learning.summary()
+            val start = wordbookStartAction(summary.active != null, summary.learningCount)
+            button(
+                when (start) {
+                    WordbookStartAction.SELECT -> R.string.wordbooks_select_start
+                    WordbookStartAction.START -> R.string.wordbooks_start_today
+                    WordbookStartAction.RESUME -> R.string.wordbooks_continue_today
+                },
+                true,
+            ) {
+                if (start == WordbookStartAction.SELECT) changeBookMode(WordbookViewMode.SELECT) else openDailyLearning()
+            }.tag = "wordbooks.primary"
+            val shortcuts = LinearLayout(this).apply { isBaselineAligned = false }
+            val choices = buildList {
+                if (start != WordbookStartAction.SELECT) add(R.string.wordbooks_select_learning to WordbookViewMode.SELECT)
+                add(R.string.wordbooks_manage to WordbookViewMode.MANAGE)
+            }
+            choices.forEachIndexed { index, (title, mode) ->
+                val view = button(title) { changeBookMode(mode) }
+                content.removeView(view)
+                shortcuts.addView(view, LinearLayout.LayoutParams(0, -2, 1f).apply { if (index > 0) marginStart = dp(8) })
+            }
+            content.addView(shortcuts, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) })
+        } else {
+            button(R.string.wordbooks_finish_selection) { changeBookMode(WordbookViewMode.BROWSE) }
+        }
         val search = input(getString(R.string.wordbooks_search), state.search, false)
         button(R.string.wordbooks_search_action) {
             state.search = search.text.toString().trim()
@@ -292,14 +350,21 @@ class WordbookActivity : AppCompatActivity() {
         state.page = state.page.coerceAtMost(((total - 1).coerceAtLeast(0)) / 50)
         val rows = store.dao.page(id, state.search, 50, state.page * 50)
         if (rows.isEmpty()) label(getString(R.string.wordbooks_no_words))
-        val selectedCount = label(getString(R.string.wordbooks_selected, state.selected.size), 14f)
+        val selecting = state.bookMode != WordbookViewMode.BROWSE
+        val selectedCount = if (selecting) label(getString(R.string.wordbooks_selected, state.selected.size), 14f) else null
+        val selectedStart = if (state.bookMode == WordbookViewMode.SELECT) {
+            button(getString(R.string.wordbooks_selected_start, state.selected.size), true) { confirmSelectedStart() }.apply {
+                tag = "wordbooks.selected.start"
+                isEnabled = state.selected.isNotEmpty()
+            }
+        } else null
         rows.forEach { w ->
             val key = w.chinese to w.english
             val row = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = android.view.Gravity.CENTER_VERTICAL
             }
-            row.addView(
+            if (selecting) row.addView(
                 CheckBox(this).apply {
                     contentDescription = getString(R.string.wordbooks_select_word, w.displayEnglish)
                     minHeight = dp(48)
@@ -307,7 +372,11 @@ class WordbookActivity : AppCompatActivity() {
                     setPadding(dp(4), dp(10), dp(4), dp(10))
                     setOnCheckedChangeListener { _, checked ->
                         if (checked) state.selected.add(key) else state.selected.remove(key)
-                        selectedCount.text = getString(R.string.wordbooks_selected, state.selected.size)
+                        selectedCount?.text = getString(R.string.wordbooks_selected, state.selected.size)
+                        selectedStart?.apply {
+                            text = getString(R.string.wordbooks_selected_start, state.selected.size)
+                            isEnabled = state.selected.isNotEmpty()
+                        }
                     }
                 },
                 LinearLayout.LayoutParams(dp(48), -2),
@@ -328,6 +397,7 @@ class WordbookActivity : AppCompatActivity() {
             content.addView(row, LinearLayout.LayoutParams(-1, -2))
         }
         pager(total)
+        if (!selecting) return
         button(R.string.wordbooks_select_page) {
             state.selected.addAll(rows.map { it.chinese to it.english })
             render()
@@ -336,10 +406,13 @@ class WordbookActivity : AppCompatActivity() {
             state.selected.clear()
             render()
         }
+        if (state.bookMode == WordbookViewMode.SELECT) return
         button(R.string.wordbooks_learn, true) { batchLearning(true, false) }
         button(R.string.wordbooks_pause) { batchLearning(false, false) }
         button(R.string.wordbooks_copy) { destination(false) }
         button(R.string.wordbooks_move) { destination(true) }
+        button(R.string.wordbooks_learn_all) { batchLearning(true, true) }
+        button(R.string.wordbooks_plan) { startActivity(Intent(this, WordLearningActivity::class.java).putExtra("words.mode", "plan").putExtra("words.startSettings", true)) }
         if (id.isNotEmpty()) {
             button(R.string.wordbooks_remove) {
                 task {
@@ -358,6 +431,45 @@ class WordbookActivity : AppCompatActivity() {
                     }
                 }
             }
+        }
+    }
+
+    private fun changeBookMode(mode: WordbookViewMode) {
+        state.bookMode = mode
+        state.selected.clear()
+        render()
+    }
+
+    private fun openDailyLearning() {
+        if (dailyLaunchInFlight || state.generation != store.generation) return
+        dailyLaunchInFlight = true
+        WordLearningActivity.startDaily(this)
+    }
+
+    private fun consumeDailyStart() {
+        if (!state.pendingDailyStart || state.busy) return
+        state.pendingDailyStart = false
+        openDailyLearning()
+    }
+
+    private fun confirmSelectedStart() {
+        if (state.selected.isEmpty() || selectionSheet?.isShowing == true) return
+        // Snapshot the explicit choice; late UI changes must not enroll a different set.
+        val keys = state.selected.toList()
+        val generation = state.generation
+        selectionSheet = SentenceSheet(this, getString(R.string.wordbooks_selected_start, keys.size)).apply {
+            description(getString(R.string.wordbooks_selected_start_note, keys.size))
+            action(getString(R.string.learning_backup_confirm), true) {
+                task {
+                    store.setLearning(keys, true, generation)
+                    state.selected.clear()
+                    state.bookMode = WordbookViewMode.BROWSE
+                    state.pendingDailyStart = true
+                }
+            }
+            action(getString(R.string.learning_backup_cancel))
+            setOnDismissListener { selectionSheet = null }
+            show()
         }
     }
     private fun batchLearning(active: Boolean, all: Boolean) {
@@ -497,6 +609,7 @@ class WordbookActivity : AppCompatActivity() {
                         draft.delete()
                         state.screen = "book"
                         state.page = 0
+                        state.bookMode = WordbookViewMode.BROWSE
                         state.message = getString(R.string.wordbooks_import_done, added)
                     }
                 }
@@ -542,7 +655,13 @@ class WordbookActivity : AppCompatActivity() {
                 }
                 dialog.dismiss()
                 task {
-                    if (book == null) state.bookId = store.create(name, state.generation).id else store.rename(book.id, name, state.generation)
+                    if (book == null) {
+                        state.bookId = store.create(name, state.generation).id
+                        state.bookMode = WordbookViewMode.BROWSE
+                        state.selected.clear()
+                    } else {
+                        store.rename(book.id, name, state.generation)
+                    }
                     if (state.screen != "import") state.screen = "book"
                     state.page = 0
                 }
@@ -598,23 +717,22 @@ class WordbookActivity : AppCompatActivity() {
         content.addView(this, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(16) })
     }
     private fun button(id: Int, primary: Boolean = false, action: () -> Unit) = button(getString(id), primary, action)
-    private fun button(text: String, primary: Boolean = false, action: () -> Unit) {
-        content.addView(
-            AppCompatButton(this).apply {
-                this.text = text
-                isAllCaps = false
-                textSize = 16f
-                minHeight = dp(56)
-                setPadding(dp(16), dp(12), dp(16), dp(12))
-                setTextColor(color(if (primary) R.color.haohao_on_honey else R.color.haohao_cocoa))
-                setBackgroundResource(R.drawable.haohao_segment_background)
-                if (primary) backgroundTintList = android.content.res.ColorStateList.valueOf(color(R.color.haohao_honey))
-                stateListAnimator = null
-                elevation = 0f
-                setOnClickListener { if (!state.busy) action() }
-            },
-            LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) },
-        )
+    private fun button(text: String, primary: Boolean = false, action: () -> Unit): AppCompatButton {
+        val view = AppCompatButton(this).apply {
+            this.text = text
+            isAllCaps = false
+            textSize = 16f
+            minHeight = dp(56)
+            setPadding(dp(16), dp(12), dp(16), dp(12))
+            setTextColor(color(if (primary) R.color.haohao_on_honey else R.color.haohao_cocoa))
+            setBackgroundResource(R.drawable.haohao_segment_background)
+            if (primary) backgroundTintList = android.content.res.ColorStateList.valueOf(color(R.color.haohao_honey))
+            stateListAnimator = null
+            elevation = 0f
+            setOnClickListener { if (!state.busy) action() }
+        }
+        content.addView(view, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) })
+        return view
     }
     private fun color(id: Int) = ContextCompat.getColor(this, id)
     private fun dp(n: Int) = (n * resources.displayMetrics.density).toInt()

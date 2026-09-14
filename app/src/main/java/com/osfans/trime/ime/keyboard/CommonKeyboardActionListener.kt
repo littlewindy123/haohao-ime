@@ -193,11 +193,20 @@ class CommonKeyboardActionListener {
 
             private fun handleSwitchCharset(action: KeyAction) {
                 val option = action.toggle.ifEmpty { return }
+                val targetKeyboard = service.currentInputEditorInfo?.let {
+                    editorKeyboardTarget(it.inputType, it.imeOptions)
+                }
+                val requireAscii = option == "ascii_mode" &&
+                    (targetKeyboard == ".ascii" || targetKeyboard == "number")
 
                 service.postRimeJob {
-                    val isEnabled = getRuntimeOption(option)
+                    val targetMode = asciiModeToggleTarget(requireAscii) { getRuntimeOption(option) }
+                    if (requireAscii) {
+                        setRuntimeOption(option, targetMode)
+                        return@postRimeJob
+                    }
                     val isComposing = statusCached.isComposing
-                    setRuntimeOption(option, !isEnabled)
+                    setRuntimeOption(option, targetMode)
                     if (option == "ascii_mode" && isComposing) {
                         getRawInput().takeIf { it.isNotEmpty() }?.let {
                             service.commitText(it)
@@ -523,15 +532,12 @@ class CommonKeyboardActionListener {
                 val modifiers = KeyModifiers.fromMetaState(m).modifiers
                 service.postRimeKey {
                     if (service.hookKeyboard(keyEventCode, m)) {
-                        Timber.d("handleKey: hook")
                         return@postRimeKey
                     }
                     if (processKeyDeferred(value, modifiers)) {
-                        Timber.d("handleKey: processKey")
                         return@postRimeKey
                     }
                     if (AppUtils.launchKeyCategory(service, keyEventCode)) {
-                        Timber.d("handleKey: openCategory")
                         return@postRimeKey
                     }
                     // other special cases

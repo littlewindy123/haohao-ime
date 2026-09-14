@@ -64,6 +64,16 @@ interface RimeApi {
 
     suspend fun refreshPresentation()
 
+    /**
+     * Keep editor hooks on the caller's dispatcher while attaching commit metadata to each
+     * engine operation in [block]. Metadata and native input are applied in one engine dispatch.
+     */
+    suspend fun <T> withCommitContext(
+        inputSessionId: Long,
+        sentence: CommitSentence?,
+        block: suspend RimeApi.() -> T,
+    ): T = withRimeCommitContext(inputSessionId, sentence) { block() }
+
     suspend fun setCommitSessionId(inputSessionId: Long)
     suspend fun setCommitSentence(sentence: CommitSentence?) {}
 
